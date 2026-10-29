@@ -1,0 +1,373 @@
+# Yooso Toolbox
+
+一个基于 **Tauri 2 + React + Ant Design** 的桌面工具箱，计划陆续集成 JSON 处理、二维码、MySQL、Redis、API 调试、SSH/SFTP 等模块。
+
+**第一阶段已实现：SSH 终端 + SFTP 文件管理（FinalShell 风格）。**
+
+![UI 预览](docs/ui-preview.png)
+
+---
+
+## 技术栈（全部取当前最新稳定版）
+
+| 层 | 选型 | 版本 |
+| --- | --- | --- |
+| 桌面框架 | Tauri | 2.12（`tauri` 2.12.5 / `@tauri-apps/cli` 2.12.4） |
+| 前端 | React + TypeScript | 19.3.1 / 7.0.2 |
+| 构建 | Vite（Rolldown/Oxc） | 8.3.5 |
+| UI | Ant Design | 6.6.8 |
+| 终端 | xterm.js | 6.0.0 |
+| 状态 | Zustand | 5.0.16 |
+| SSH | russh（纯 Rust，ring 后端） | 0.65.0 |
+| SFTP | russh-sftp | 3.0.1 |
+
+> SSH 没有用 `ssh2`/libssh2，也没有用 `openssh` 子进程：`russh` 是纯 Rust 实现，
+> 配合 `ring` 加密后端，Windows 上只需要 MSVC 即可编译（无需 cmake / nasm / OpenSSL）。
+
+---
+
+## 已实现功能
+
+### SSH 终端
+- 密码认证，失败自动回退到 `keyboard-interactive`（部分服务器只开放该方式）
+- 私钥认证（`id_rsa` / `id_ed25519`，支持带口令的私钥）
+- 多标签页，标签常驻（切换标签不会中断连接）
+- 终端自适应窗口大小，实时同步 `window_change` 到远端
+- **复制 / 粘贴**：终端右键菜单；快捷键见下
+  - Windows / Linux：`Ctrl+Shift+C` / `Ctrl+Shift+V`，以及 `Ctrl+Insert` / `Shift+Insert`
+  - macOS：`⌘C` / `⌘V`（清屏 `⌘K`），欢迎页的快捷键提示会自动切换成 ⌘ 版本
+- **右键菜单**：复制、粘贴、全选、清屏、重新连接、开关文件管理
+- URL 自动识别，点击链接用系统浏览器打开
+- 断线提示 + 一键重连，终端保留最近 8000 行回滚
+- 主机密钥 TOFU 校验：首次连接记录指纹，之后变更会**拒绝连接**并给出明确提示
+
+> **关于 `Ctrl+Shift+C`**：这是 WebView2 内置的「审查元素」快捷键，即使通过
+> `AreBrowserAcceleratorKeysEnabled(false)` 关掉后，按键仍然在浏览器层被吞掉、到不了页面。
+> 应用已经禁用浏览器快捷键（不会再弹出开发者工具），复制请用工具栏按钮、右键菜单或 `Ctrl+Insert`。
+
+### 设置（左下角齿轮）
+
+| 项 | 说明 |
+| --- | --- |
+| **语言** | 跟随系统 / 中文 / English，立即生效并记住选择 |
+| **主题** | 跟随系统 / 浅色 / 深色，界面、弹窗、终端配色一起切换 |
+| **升级** | 读取 `https://qnres.yoosobyte.com/yooso-toolbox/version.txt`：**第一行版本号，第二行安装包直链**；有新版显示「下载安装包」按钮 |
+| **关于** | 悦速互联 · 接受定制开发 · <https://www.github.com/yoosobyte/> · 官网 <https://www.yoosobyte.com> |
+| **底部状态栏** | 开关控制最底部那条「版本 / 阶段」信息条的显示与隐藏 |
+
+![设置面板](docs/ui-preview-settings.png)
+
+**i18n 覆盖范围**：`src/i18n.ts` 一套中英字典（258 个 key，两边 key 完全对齐），
+界面所有文案都走 `t("key")`——左侧导航、模块页、会话列表与表单、终端工具栏与右键菜单、
+状态栏指标、SFTP 面板（含全部提示与对话框）、进程管理器、设置面板。
+后端返回的错误信息目前仍是中文（会出现在错误提示里），后续可以把错误码也纳入 i18n。
+
+> 版本 txt 示例：
+> ```
+> 0.2.0
+> https://qnres.yoosobyte.com/yooso-toolbox/Yooso-Toolbox_0.2.0_x64-setup.exe
+> ```
+
+主题实现：`styles.css` 里所有颜色都收拢成 CSS 变量（`--bg / --surface / --border / --text / --accent …`），
+`<html data-theme="light">` 只覆盖变量值；antd 在深色/默认算法间切换，xterm 用两套终端配色。
+
+### 会话管理
+- 会话增删改查、搜索、复制、标识色
+- **全应用只有一个「新建会话」入口**（右上角；列表为空时列表内提示一次）
+- 会话卡片支持右键菜单：连接、置顶、编辑、复制、删除
+- 卡片上可一键复制 IP
+- **列表顺序固定**：置顶优先，其次按创建时间；点击会话不会让列表重排
+- 「测试连接」按钮：只做握手 + 认证，验证主机/端口/凭据是否可用
+- 同一会话重复点开时聚焦已有标签页
+- 配置持久化到应用配置目录
+
+### 状态栏监控
+终端底部状态条实时显示远端指标（每 3 秒采样一次，单次 exec 完成），每项都带一条**分段进度条**
+（20% 一格，带首尾边框）：
+
+- **CPU**：总占用百分比 + 分段条，鼠标悬停看每个逻辑核心的独立条形图
+- **内存**：已用百分比 + 分段条，悬停看大条与 `已用 / 总量 · 百分比`
+- **磁盘**：根分区 `/` 使用率 + 分段条，悬停看容量
+- **网速**：网卡实时收发速率（自动切换 B/s、KB/s、MB/s），不含 `lo`
+- 数值列定宽左对齐、等宽数字，数值变化时前面的文字不会跳动
+
+### 进程管理器
+状态栏 CPU 前面的图表图标，点开是一个进程列表弹窗（一次 `ps` 采样）：
+
+- 列：`PID / 进程名 / CPU / 内存 / 启动时间 / 启动命令 / 操作`
+- PID、进程名、启动命令后都可一键复制；操作列可结束进程（确认后发 `SIGTERM`，并自动刷新列表）
+- 顶部搜索框做**前端模糊过滤**（PID / 进程名 / 启动时间 / 启动命令 拼串后包含匹配），不重新连服务器
+- **默认按内存倒序**；点任意表头改为按该列排序，再点同一列切换正序 / 倒序
+- 一次只能按一列排序，切换列时自动清掉上一列的排序
+- 最多展示 500 个进程（按内存倒序截断），右上角可手动刷新
+
+![进程管理器](docs/ui-preview-process.png)
+
+采样命令只读 `/proc`、`df`、`/proc/net/dev`，不安装任何远端 agent。
+
+### SFTP 文件管理
+- 与终端共用同一条 SSH 连接（不额外占端口、不重复认证）
+- **面板停靠在终端下方**，拖动中间分隔条可调整高度（高度会被记住）
+- **路径与操作按钮合并为一行**：`路径 · 跟随 · 刷新 · 新建文件夹 · 上传（文件 / 文件夹）· 关闭`
+- **路径是面包屑**：`/ root www`，点任意一段直接跳到该目录；紧挨路径右侧是「复制路径」按钮
+- **跟随终端目录**（默认开启）：路径条上的 🔗 按钮，开启时 SFTP 会自动切到远端 shell 的当前目录
+  （直接读 `/proc/<shell>/cwd`，不往终端里发送任何命令、不污染命令历史）；点一下变成断开图标即停止跟随
+- **`..` 行**：列表最上方固定一行「📁 ..」，双击回到上一级
+- 列表按 `名称 / 权限 / 大小 / 修改时间` 四列展示，全部左对齐（表头吸顶，滚动时仍与数据对齐）
+- **拖拽上传**：把文件或整个文件夹拖进列表即可；文件夹会先在本地打包成 `tar.gz`、
+  上传后在远端解压（远端没有 `tar` 时自动回退为逐文件上传）
+- **右键菜单**（全应用屏蔽了浏览器默认右键，均为自绘菜单）
+  - 文件 / 文件夹：下载、复制、重命名、删除
+  - 空白处：粘贴、新建文件夹、上传文件、上传文件夹、刷新
+- **复制粘贴**：优先调用远端 `cp -a`（瞬间完成），不可用时回退为 SFTP 逐文件复制；
+  在同一目录粘贴会自动生成「xxx - 副本」
+- 双击目录进入、双击文件下载；上传 / 下载带实时进度与传输列表
+- 目录优先 + 名称排序，`名称 / 大小 / 修改时间` 三列
+- 初始化失败（例如服务器拒绝 sftp 通道）时在面板内常驻错误原因，并提供「重试」
+
+底部 SFTP 面板（真实 OpenSSH 服务器，路径 `/root`；面板高度可拖动调整）：
+
+![底部 SFTP 面板](docs/ui-preview-sftp.png)
+
+状态栏监控与单核 CPU 悬停详情：
+
+![状态栏监控](docs/ui-preview-metrics.png)
+
+空白处右键菜单：
+
+![右键菜单](docs/ui-preview-menu.png)
+
+---
+
+## 快速开始
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 开发模式（自动拉起 Vite + Tauri 窗口）
+npm run tauri dev
+
+# 3. 生产构建（生成 NSIS 安装包）
+npm run tauri build
+```
+
+构建产物：
+
+- 可执行文件：`src-tauri/target/release/yooso-toolbox.exe`（实测 5.31 MB）
+- 安装包：`src-tauri/target/release/bundle/nsis/Yooso Toolbox_0.1.0_x64-setup.exe`（实测 2.05 MB）
+
+单独校验前端：
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run build       # tsc + vite build
+```
+
+单独校验后端：
+
+```bash
+cd src-tauri
+cargo check
+```
+
+### 已验证的内容
+
+后端带一个真实网络的端到端冒烟测试（默认 `#[ignore]`，不会在普通 `cargo test` 中执行）：
+
+```powershell
+cd src-tauri
+$env:TEST_SSH_HOST='demo.wftpserver.com'
+$env:TEST_SSH_PORT='2222'
+$env:TEST_SSH_USER='demo'
+$env:TEST_SSH_PASSWORD='demo'
+$env:TEST_SSH_SFTP_ONLY='1'          # 该演示服务器没有 shell
+$env:TEST_SSH_REMOTE_DIR='/upload'
+$env:TEST_SSH_DOWNLOAD_DIR='/download'
+$env:TEST_SSH_SKIP_ROUNDTRIP='1'     # 演示账号上传后不允许读回
+cargo test --lib ssh_sftp_smoke -- --ignored --nocapture
+```
+
+对 `demo.wftpserver.com` 的实测结果：
+
+| 环节 | 结果 |
+| --- | --- |
+| TCP + 密钥交换 + 主机指纹 | ✅ `SHA256:8rQmaZoj…` |
+| 密码认证 | ✅ `method=password` |
+| 同一连接上打开 sftp 子系统 | ✅ |
+| `canonicalize` / `read_dir` | ✅ |
+| 上传 30 B 文件 | ✅ |
+| 下载 664,950 B 文件 | ✅ 大小校验一致（跨多个 64 KiB 分块） |
+| 传输进度事件 | ✅ 收到 |
+
+另外在一台真实的阿里云 OpenSSH_8.0 服务器（CentOS/Alinux 内核 5.10）上验证通过：
+
+| 环节 | 结果 |
+| --- | --- |
+| 密码认证 + 主机指纹记录 | ✅ |
+| 真实 bash 交互（粘贴命令、回显、提示符、PTY 尺寸同步） | ✅ `Linux 5.10.134-18.al8.x86_64`、`df -h /`、`free -h` 输出正常 |
+| 同一连接上的 SFTP 列目录 | ✅ `/root` 28 项，含目录/大小/修改时间 |
+| 目录上传（本地 tar.gz + 远端解压） | ✅ 子目录与文件完整还原 |
+| 远端复制（`cp -a`） | ✅ 同目录粘贴生成「- 副本」 |
+| 界面层渲染（1024×640 最小窗口） | ✅ 终端光标始终在可视区内，SFTP 停靠在下方 |
+
+> 说明：`demo.wftpserver.com` 只提供 SFTP、没有真实 shell，所以在那台机器上「命令回显」断言被跳过；
+> 该链路随后在一台真实的 OpenSSH 服务器上补测通过（见上表）。自测时把
+> `TEST_SSH_HOST` / `TEST_SSH_USER` / `TEST_SSH_PASSWORD` 换成你自己的服务器即可。
+
+### 完整测试报告
+
+- 后端：`cargo test -- --include-ignored` 覆盖认证、shell、跟随目录、监控采样、进程列表、结束进程、
+  SFTP 增删改查（含 tar.gz 目录上传与 `cp -a` 复制）
+- 界面：21 张逐步截图，覆盖连接、命令执行、SFTP 导航/跟随/复制路径/新建/重命名/删除确认、
+  进程管理器搜索排序
+
+详见 [docs/test-report.md](docs/test-report.md) 与 [docs/uitest/](docs/uitest/)。
+
+### 环境要求
+
+- Node.js ≥ 20.19（本项目在 24.22 下开发）
+- Rust stable ≥ 1.89（`russh 0.65` 的 MSRV；本项目在 1.99 下开发）+ MSVC 工具链
+- WebView2 Runtime（Win10/11 一般已内置）
+
+> **PowerShell 提示**：如果 `npm` 报「无法加载文件 npm.ps1，因为在此系统上禁止运行脚本」，
+> 改用 `npm.cmd`，或执行 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`。
+
+---
+
+## 目录结构
+
+```
+yooso_toolbox/
+├─ src/                         # 前端
+│  ├─ App.tsx                   # 外壳：左侧模块栏 + 状态栏
+│  ├─ main.tsx                  # 入口（ConfigProvider + antd App）
+│  ├─ theme.ts                  # 深色主题 token + xterm 配色
+│  ├─ api.ts                    # 所有 Tauri 命令的类型化封装
+│  ├─ base64.ts                 # 终端字节流编解码
+│  ├─ types.ts / utils.ts
+│  ├─ stores/
+│  │  ├─ sessionStore.ts        # 会话列表
+│  │  └─ workspaceStore.ts      # 终端标签页
+│  └─ modules/
+│     ├─ Placeholder.tsx        # 规划中模块的占位页
+│     └─ ssh/
+│        ├─ SshModule.tsx       # 模块布局
+│        ├─ SessionList.tsx     # 左侧会话列表
+│        ├─ SessionForm.tsx     # 新建 / 编辑会话
+│        ├─ TerminalTabs.tsx    # 标签页 + SFTP 挂载
+│        ├─ TerminalView.tsx    # xterm 实例与连接生命周期
+│        ├─ SftpPanel.tsx       # 文件浏览器与传输
+│        └─ status.ts           # 连接状态文案/配色
+└─ src-tauri/                   # 后端
+   ├─ src/
+   │  ├─ lib.rs                 # Builder、AppState、命令注册
+   │  ├─ commands.rs            # 全部 #[tauri::command]
+   │  ├─ ssh.rs                 # russh 连接、认证、终端读写 actor
+   │  ├─ sftp.rs                # 目录/增删改/传输实现
+   │  ├─ store.rs               # sessions.json / known_hosts.json
+   │  └─ models.rs              # 前后端共享数据结构
+   ├─ capabilities/default.json # 权限：core / dialog / opener
+   └─ tauri.conf.json
+```
+
+### 数据流要点
+
+- **终端输出**：Rust 侧 `Channel::wait()` 读到字节 → base64 → `Channel<SshEvent>` → 前端 `term.write(Uint8Array)`。
+  用 base64 而不是字符串，是为了避免 UTF-8 被切分到两个包时出现乱码。
+- **终端输入**：`onData` 累积 8ms 再批量发送，减少 IPC 次数。
+- **读写分离**：`channel.split()` 后，读任务与写任务各自独立，互不阻塞。
+- **SFTP**：复用 `Handle<ClientHandler>` 再开一条 channel 跑 `sftp` subsystem，`OnceCell` 懒加载。
+
+---
+
+## 数据与安全
+
+配置文件位置（Windows）：
+
+```
+%APPDATA%\com.yooso.toolbox\
+├─ sessions.json      # 会话配置
+└─ known_hosts.json   # 已信任主机指纹
+```
+
+> 代码里可以通过启动日志里的 `[yooso-toolbox] 配置目录: ...` 确认实际路径。
+
+**关于凭据**：勾选「保存凭据」时，密码/私钥口令会以**明文**写入 `sessions.json`。
+这一点在界面上也有明确提示。做真正的加密需要接入系统凭据库（Windows Credential Manager /
+macOS Keychain / libsecret），属于后续版本的工作，当前版本不做「假加密」误导用户。
+
+**关于主机密钥**：首次连接会记录 `SHA256:` 指纹（TOFU）。如果服务器密钥变化，连接会被拒绝，
+需要手动删除 `known_hosts.json` 中对应条目后才可重新信任。
+
+---
+
+## 常见问题
+
+**SFTP 面板提示 `打开 SFTP 通道失败: Failed to open channel (AdministrativelyProhibited)`**
+
+个别服务器限制单条 SSH 连接只能有一个 channel（实测 WingFTP 的公开演示账号就是这样）：
+终端已经占用了 session channel，再开 `sftp` 子系统就被拒绝。换成普通的 OpenSSH 服务器
+（`/etc/ssh/sshd_config` 里 `Subsystem sftp` 正常配置）不会有这个问题。
+
+**窗口缩小后终端内容看不见**
+
+已修复：终端挂载点改为绝对定位，宽度/高度完全跟随布局；标签页改为自绘（不再依赖
+Ant Design Tabs 的内部容器高度），窗口缩放时会重新 `fit()` 并同步 `window_change`。
+窗口最小尺寸为 1024×640。
+
+---
+
+## API 调试（仿 Postman / Apifox）
+
+![API 模块](docs/ui-preview-api.png)
+
+- **请求栏**：方法下拉（彩色文字）+ URL 输入框用 **`Input.Search` + `enterButton`**（antd 自带的「输入框 + 按钮」组合，发送按钮就是这个 enterButton，回车同样触发）；右侧再依次排 历史 / 复制 URL / 重置 / 保存 四个按钮，整行控件严格 40px 等高
+- **参数 / 请求头**：**标准表格**——四周都有边框、每列有竖向分隔线，表头固定，行内直接编辑，勾选即启用；底部「添加一行」居中；删除按钮常显
+- **请求体**：**默认 / JSON / 文本 / 表单** 四档（默认排第一且是初始值）；选「默认」时输入框**仍然显示但禁用并清空**，里面写着「不发送请求体；要带 body 就切到右边 JSON / 文本 / 表单」
+- **请求头表格**：列名随语言切换（中文「请求头 / 值」，英文「Header / Value」），占位文案是 `例如 Content-Type` / `例如 application/json`
+- **请求体**：JSON（默认）/ 文本 / 表单 —— 用和顶部页签同款的胶囊分段控件；请求体为空时不发送 body
+- **响应**：状态胶囊里带**发出时用的方法**（`GET · 200 OK` / `POST · 404 Not Found`，悬停可看完整地址），避免「明明是 GET 怎么 404」这种困惑；耗时 · 大小一行显示；正文 JSON 美化 ↔ 原始，响应头同样是表格
+- **一键复制**：URL、参数、请求头、请求体、响应正文、响应头都是「图标 + 文字」按钮；响应头右侧顺序固定为 `复制 cURL → 复制正文 → 格式化 → 正文/响应头`（分段控件永远在最右）
+- **保存**：弹窗里可以选 **更新现有** 或 **另存为新**；打开时自动判断——如果当前请求的**域名（origin）变了**，默认就是「另存为新」，不会把别的请求覆盖掉
+- **左侧**：**两张卡片**——上面一张只放「新建请求」，下面一张是「搜索框 + 请求分组 + 历史分组」整体；分组标题条有底色，条目是浮起的小卡片，形成错层
+- **页面结构**：请求、响应各一张卡片（卡头放胶囊分段与复制按钮，卡身放内容），顶部工具栏独立一行；`⌘/Ctrl + Enter` 发送，界面中英双语
+- **实测**（对 `master_zhang_rust` 项目接口）：
+  - `GET https://zhang.yoosobyte.com/masterZhang/test` → `200 OK` / 129 B / JSON 美化显示
+  - 同一地址改 `POST` → `405 Method Not Allowed` / 0 B / 「没有响应体」
+  - 每次发送自动写入左侧历史（方法胶囊 + 完整 URL + 时间），可回点复用，可一键清空
+- **HTTP 层单测**（`cargo test -- --ignored`，跑真实网络）：
+  - `GET https://jsonplaceholder.typicode.com/posts/1` → `200` / 292 B
+  - 同一地址 `POST` → `404`（服务端行为，客户端如实透传）
+  - 不存在的域名 → 返回错误信息而不是崩溃
+- 请求由 **Rust 侧 `reqwest`** 发出，绕开 WebView 的 CORS / 混合内容限制；默认带 `User-Agent: YoosoToolbox/<版本>`（GitHub 等 API 会拒绝无 UA 的请求），用户自定义 UA 时不覆盖
+
+---
+
+## 后续规划
+
+| 模块 | 状态 |
+| --- | --- |
+| SSH / SFTP | ✅ 第一阶段完成 |
+| API 调试 | ✅ MVP（请求构建、自定义前缀、参数/请求头/请求体、响应查看、保存与历史） |
+| JSON 工具 | 规划中（格式化、校验、JSONPath、对比） |
+| 二维码 | 规划中（生成 / 识别 / Logo） |
+| MySQL 客户端 | 规划中（连接管理、库表浏览、SQL 编辑器） |
+| Redis 客户端 | 规划中（键空间、命令行） |
+
+SSH/SFTP 自身待补的能力：
+
+- 会话分组 / 文件夹
+- 跳板机（ProxyJump）、端口转发
+- SFTP 文件夹递归上传、断点续传、文本文件内置预览编辑
+- 连接时弹出密码输入框（当前未保存密码时需回到设置里填写）
+- 系统凭据库托管密码
+
+---
+
+## 参考
+
+- [russh 0.65 API 调研报告](docs/russh-0.65-api-report.md) —— 本项目编写后端时逐条核对过的 API 备忘
+- [Tauri 2 文档](https://v2.tauri.app/)
+- [Ant Design 6](https://ant.design/)
+- [xterm.js](https://xtermjs.org/)

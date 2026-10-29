@@ -1,0 +1,45 @@
+[package]
+name = "yooso-toolbox"
+version = "0.1.0"
+description = "Yooso Toolbox - SSH / SFTP 工具箱"
+authors = ["yooso"]
+edition = "2021"
+rust-version = "1.89"
+
+[lib]
+name = "yooso_toolbox_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+tauri-plugin-dialog = "2.8"
+tauri-plugin-opener = "2.7"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+# 检查更新：读远端版本 txt（rustls，避免依赖系统 OpenSSL）
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+base64 = "0.23"
+# 关闭默认特性：默认的 aws-lc-rs 需要 cmake/nasm；改用纯 Rust 的 ring 后端
+russh = { version = "0.65", default-features = false, features = ["ring", "flate2", "rsa"] }
+russh-sftp = "3.0"
+tar = "0.4"
+flate2 = "1"
+
+# 关闭 WebView2 的浏览器快捷键（否则 Ctrl+Shift+C 会打开开发者工具）
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

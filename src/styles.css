@@ -1,0 +1,2446 @@
+:root {
+  color-scheme: dark;
+  /* 左侧会话栏底部提示条与终端底部状态条统一高度 */
+  --bottom-bar-h: 32px;
+
+  /* ---- 深色（默认）调色板 ---- */
+  --bg: #0a0e14;
+  --bg-deep: #070b11;
+  --bg-panel: #0b1017;
+  --surface: #101823;
+  --surface-2: #131b28;
+  --bg-elevated: #131b28;
+  --track: #16202f;
+  --accent-soft: #17233a;
+  --border: #1a2332;
+  --border-strong: #243044;
+  --text: #e6ebf2;
+  --text-2: #c7d2e1;
+  --text-dim: #8b9bb4;
+  --text-mute: #5b6b83;
+  --accent: #3b82f6;
+  --accent-text: #93c5fd;
+  --danger: #f87171;
+  --danger-soft: #2a1a20;
+  --warn: #fbbf24;
+  --success: #22c55e;
+  --overlay: #0b1220f2;
+  --shadow: #00000066;
+}
+
+/* ---- 浅色调色板 ---- */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f7fb;
+  --bg-deep: #e8edf5;
+  --bg-panel: #ffffff;
+  --surface: #f7f9fc;
+  --surface-2: #eef2f8;
+  --bg-elevated: #ffffff;
+  --track: #e4eaf3;
+  --accent-soft: #e3ecfd;
+  --border: #dde4ee;
+  --border-strong: #c8d3e2;
+  --text: #16202e;
+  --text-2: #33415a;
+  --text-dim: #5f7086;
+  --text-mute: #93a1b3;
+  --accent: #2f6fed;
+  --accent-text: #1d4ed8;
+  --danger: #dc2626;
+  --danger-soft: #fdeaea;
+  --warn: #d97706;
+  --success: #16a34a;
+  --overlay: rgba(255, 255, 255, 0.94);
+  --shadow: rgba(15, 23, 42, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  font-family: "Inter", "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  /* 界面文字默认不可选中，避免拖拽/连点选中文本影响操作 */
+  user-select: none;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ---------------------------------------------------------------- */
+/* 布局骨架                                                          */
+/* ---------------------------------------------------------------- */
+
+.app {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 24px;
+  height: 100vh;
+}
+
+.content {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 模块槽位：非当前模块用 display:none 隐藏但保持挂载 */
+.module-slot {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.statusbar {
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--bg-deep);
+  border-top: 1px solid var(--border);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 6px #22c55e88;
+}
+
+/* ---------------------------------------------------------------- */
+/* 左侧模块栏                                                        */
+/* ---------------------------------------------------------------- */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 8px;
+  border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-deep) 100%);
+}
+
+.rail-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent), #6366f1 55%, #a855f7);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 14px #3b82f655;
+  margin-bottom: 6px;
+  user-select: none;
+}
+
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  align-items: center;
+}
+
+.rail-group.bottom {
+  margin-top: auto;
+}
+
+.rail-btn {
+  position: relative;
+  width: 50px;
+  height: 48px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.rail-btn:hover {
+  background: var(--surface-2);
+  color: var(--accent-text);
+}
+
+.rail-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.rail-btn.active::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.rail-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.rail-label {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.rail-dot {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+/* ---------------------------------------------------------------- */
+/* 模块通用头部                                                      */
+/* ---------------------------------------------------------------- */
+
+.module {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.module-head {
+  height: 50px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.module-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--accent-text);
+  font-size: 15px;
+}
+
+.module-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.3;
+  margin-top: 1px;
+}
+
+/* ---------------------------------------------------------------- */
+/* 占位模块                                                          */
+/* ---------------------------------------------------------------- */
+
+.placeholder-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(700px 320px at 50% 0%, var(--accent-soft) 0%, transparent 70%),
+    var(--bg);
+}
+
+.placeholder-card {
+  width: min(560px, 100%);
+  padding: 28px 30px 26px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg-panel) 100%);
+  box-shadow: 0 18px 50px var(--shadow);
+  text-align: center;
+}
+
+.placeholder-glyph {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 10px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  color: var(--accent-text);
+  background: var(--surface-2);
+  border: 1px solid var(--accent-soft);
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  text-align: left;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.feature-bullet {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+/* ---------------------------------------------------------------- */
+/* SSH 模块主体                                                      */
+/* ---------------------------------------------------------------- */
+
+.ssh-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* 会话列表 */
+
+.sessions {
+  width: 270px;
+  flex: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.sessions-head {
+  padding: 10px 10px 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.sessions-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-card {
+  position: relative;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.session-card:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.session-card:active {
+  transform: scale(0.995);
+}
+
+.session-card .accent-bar {
+  position: absolute;
+  left: 5px;
+  top: 11px;
+  bottom: 11px;
+  width: 3px;
+  border-radius: 3px;
+}
+
+.session-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 22px;
+}
+
+.session-host {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* IP 行 + 复制按钮 */
+
+.session-host-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  min-width: 0;
+}
+
+.host-copy {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.host-copy:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  opacity: 1;
+}
+
+.pin-mark {
+  flex: none;
+  font-size: 11px;
+  color: var(--warn);
+  transform: rotate(35deg);
+}
+
+.session-actions {
+  position: absolute;
+  right: 4px;
+  top: 5px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.session-card:hover .session-actions {
+  opacity: 1;
+}
+
+.sessions-foot {
+  flex: none;
+  height: var(--bottom-bar-h, 32px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* 终端区域 */
+
+.terminal-area {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.workspace-tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 自绘标签栏：高度链路完全可控，避免 Tabs 内部容器在窗口缩小时溢出 */
+
+.tab-bar {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px 0;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+  height: 0;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 220px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.tab-item:hover {
+  background: var(--surface);
+  color: var(--accent-text);
+}
+
+.tab-item.active {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.tab-panes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.tab-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.tab-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.tab-dot.connecting {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 顶栏/工具栏的小图标按钮：加大点击热区 */
+
+.sftp-head .ant-btn.ant-btn-sm,
+.term-toolbar .ant-btn.ant-btn-sm {
+  min-width: 28px;
+  height: 26px;
+}
+
+.session-actions .ant-btn.ant-btn-sm {
+  min-width: 28px;
+  height: 28px;
+}
+
+/* 底部状态条上的系统监控 */
+
+.metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 2px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex: none;
+  user-select: none;
+}
+
+.metrics .metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 数值定宽 + 左对齐：位数变化时数字起点不动，后面的内容也不会被推来推去 */
+.metrics .metric b {
+  display: inline-block;
+  min-width: 24px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.metrics .metric b.mid {
+  color: var(--warn);
+}
+
+.metrics .metric b.high {
+  color: var(--danger);
+}
+
+.metrics .metric.net {
+  display: inline-flex;
+  gap: 3px;
+  color: var(--text-dim);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 10px;
+}
+
+.metrics .metric.net .rate {
+  display: inline-block;
+  min-width: 48px;
+  text-align: left;
+}
+
+/* 分段进度条：带边框（开头/结尾）+ 内部网格线 */
+
+.meter {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  height: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.meter.sm {
+  width: 36px;
+}
+
+.meter.lg {
+  width: 100%;
+  height: 9px;
+}
+
+.meter .meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.meter .meter-fill.mid {
+  background: var(--warn);
+}
+
+.meter .meter-fill.high {
+  background: var(--danger);
+}
+
+/* 网格线：每格 20% */
+.meter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(20% - 1px),
+    var(--border) calc(20% - 1px),
+    var(--border) 20%
+  );
+}
+
+/* 单核占用：tooltip 里的横向条形列表 */
+
+.core-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 190px;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.core-row {
+  display: grid;
+  grid-template-columns: 26px minmax(90px, 1fr) 34px;
+  align-items: center;
+  gap: 7px;
+  font-size: 10.5px;
+  line-height: 14px;
+}
+
+.core-name {
+  color: var(--text-dim);
+}
+
+.core-val {
+  text-align: right;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 内存 / 磁盘 tooltip 里的大号分段条 */
+
+.meter-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 170px;
+}
+
+.meter-text {
+  font-size: 10.5px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 进程管理器弹窗 */
+
+.proc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proc-title .ant-typography {
+  font-size: 11px;
+}
+
+.proc-num {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.proc-cmd {
+  color: var(--text-dim);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 11px;
+}
+
+/* 自定义表头排序按钮 */
+
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.th-sort:hover {
+  color: var(--accent-text);
+}
+
+.th-sort .th-caret {
+  font-size: 9px;
+  opacity: 0.35;
+}
+
+.th-sort.active {
+  color: var(--accent-text);
+}
+
+.th-sort.active .th-caret {
+  opacity: 1;
+}
+
+/* 进程表格（自绘，风格与 SFTP 列表一致） */
+
+.proc-table {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.proc-head,
+.proc-row {
+  display: grid;
+  grid-template-columns: 104px 168px 88px 108px 148px minmax(0, 1fr) 58px;
+  align-items: stretch;
+  column-gap: 0;
+  padding: 0;
+}
+
+/* 列分割线 */
+.proc-head .proc-cell,
+.proc-row .proc-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 12px;
+  border-right: 1px solid var(--border);
+}
+
+.proc-head .proc-cell:last-child,
+.proc-row .proc-cell:last-child {
+  border-right: none;
+}
+
+.proc-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.proc-body {
+  max-height: calc(100vh - 280px);
+  overflow: auto;
+}
+
+.proc-row {
+  height: 30px;
+  font-size: 12px;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.proc-row:last-child {
+  border-bottom: none;
+}
+
+.proc-row:hover {
+  background: var(--surface-2);
+}
+
+.proc-cell-center {
+  justify-content: center;
+}
+
+.proc-cell-pid {
+  gap: 6px;
+}
+
+/* PID 列：复制按钮同样靠右，和名称/命令列对齐 */
+.proc-cell-pid .proc-num {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 名称 / 命令列：文字占据剩余宽度，复制按钮靠右且不被挤压 */
+.proc-cell-name,
+.proc-cell-cmd {
+  gap: 4px;
+}
+
+.proc-cell-name .proc-name,
+.proc-cell-cmd .proc-cmd {
+  flex: 1;
+  min-width: 0;
+}
+
+.proc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.proc-row .proc-cmd {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 行内小图标按钮（复制 PID / 结束进程） */
+
+.proc-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.45;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.proc-icon:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  opacity: 1;
+}
+
+.proc-kill:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.proc-empty {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.tab-close {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+}
+
+.tab-close:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.term-wrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 终端挂载点用绝对定位：xterm 的任何尺寸都不会把父级撑出可视区 */
+.term-host {
+  position: absolute;
+  inset: 6px 8px 2px;
+}
+
+.term-host .xterm {
+  height: 100%;
+}
+
+.term-wrap .xterm-viewport {
+  background-color: transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.term-wrap .xterm-viewport::-webkit-scrollbar {
+  width: 9px;
+}
+
+.term-wrap .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 2px solid var(--bg);
+}
+
+.term-toolbar {
+  height: var(--bottom-bar-h, 32px);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  white-space: nowrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+/* 空工作区 */
+
+.welcome {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(760px 340px at 50% 8%, var(--accent-soft) 0%, transparent 72%),
+    var(--bg);
+}
+
+.welcome-card {
+  width: min(520px, 100%);
+  text-align: center;
+}
+
+.welcome-glyph {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  color: var(--accent-text);
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.welcome-tips {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.welcome-tip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+kbd {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- */
+/* SFTP 面板                                                         */
+/* ---------------------------------------------------------------- */
+
+.sftp-panel {
+  flex: none;
+  min-height: 120px;
+  max-height: 70%;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+/* 终端 / SFTP 之间的拖动分隔条 */
+
+.sftp-resizer {
+  flex: none;
+  height: 7px;
+  margin-top: -1px;
+  position: relative;
+  cursor: row-resize;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+}
+
+.sftp-resizer::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 46px;
+  height: 3px;
+  margin-left: -23px;
+  border-radius: 3px;
+  background: var(--border-strong);
+  transition: background 0.15s ease;
+}
+
+.sftp-resizer:hover::after,
+body.sftp-resizing .sftp-resizer::after {
+  background: var(--accent);
+}
+
+.sftp-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px 4px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.sftp-path {
+  flex: 1;
+  min-width: 0;
+  margin-right: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+/* 可点击的面包屑路径 + 紧贴其后的复制按钮 */
+
+.sftp-path-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 8px;
+}
+
+.sftp-crumbs {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sftp-crumbs::-webkit-scrollbar {
+  height: 0;
+}
+
+.crumb {
+  flex: none;
+  max-width: 190px;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.crumb:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.crumb.current {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.crumb-sep {
+  flex: none;
+  color: var(--text-mute);
+  font-size: 11px;
+}
+
+/* 路径旁的「复制路径」小按钮 */
+
+.path-copy {
+  flex: none;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 10.5px;
+  line-height: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.path-copy:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.path-copy:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 文件列表（自定义行，避免 Table 的固定高度问题） */
+
+.sftp-list-head,
+.sftp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 88px 124px;
+  align-items: center;
+  column-gap: 18px;
+}
+
+.sftp-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 5px 14px 5px 16px;
+  font-size: 11px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+/* 列表容器（滚动区 + 拖拽遮罩层） */
+
+.sftp-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.sftp-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* 顶部不留内边距，否则吸顶表头上方会漏出一条列表内容 */
+  padding: 0 0 28px;
+}
+
+.sftp-row {
+  padding: 6px 14px 6px 16px;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: default;
+  user-select: none;
+}
+
+.sftp-row:hover {
+  background: var(--surface);
+}
+
+.sftp-row.selected {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.sftp-row .name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sftp-row .name .ico {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  flex: none;
+}
+
+.sftp-row .name .text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sftp-row .perm {
+  color: var(--text-dim);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.sftp-row .size {
+  text-align: left;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sftp-row .time {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+/* 返回上一级的 ".." 行 */
+
+.sftp-row.up-row {
+  cursor: pointer;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--track);
+}
+
+.sftp-row.up-row .text {
+  letter-spacing: 1px;
+}
+
+/* 拖拽上传遮罩 */
+
+.sftp-drop {
+  position: absolute;
+  inset: 6px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px dashed var(--accent);
+  border-radius: 10px;
+  background: var(--overlay);
+  color: var(--accent-text);
+  font-size: 12.5px;
+  pointer-events: none;
+}
+
+.sftp-drop > .anticon {
+  font-size: 26px;
+  color: var(--accent-text);
+}
+
+.sftp-drop-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* 右键菜单 */
+
+.ctx-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 176px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-2);
+  box-shadow: 0 12px 32px var(--shadow);
+}
+
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ctx-item:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.ctx-item.danger {
+  color: var(--danger);
+}
+
+.ctx-item.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+.ctx-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ctx-icon {
+  display: flex;
+  font-size: 13px;
+}
+
+.ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--surface-2);
+}
+
+
+.sftp-table .ant-table {
+  font-size: 12px;
+  background: transparent;
+}
+
+.sftp-table .ant-table-thead > tr > th {
+  padding: 6px 8px !important;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim) !important;
+}
+
+.sftp-table .ant-table-tbody > tr > td {
+  padding: 5px 8px !important;
+}
+
+.sftp-entry-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.sftp-entry-name .ico {
+  font-size: 13px;
+  flex: none;
+}
+
+.ico-dir {
+  color: var(--warn);
+}
+
+.ico-file {
+  color: var(--accent-text);
+}
+
+.ico-link {
+  color: #c084fc;
+}
+
+.sftp-table .ant-table-row {
+  cursor: default;
+}
+
+.sftp-empty {
+  padding: 20px 12px;
+}
+
+/* SFTP 初始化失败：紧凑的状态块，避免被面板高度裁掉 */
+
+.sftp-error {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  text-align: center;
+}
+
+.sftp-error-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--danger);
+}
+
+.sftp-error-msg {
+  max-width: 620px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+/* 传输进度 */
+
+.transfers {
+  flex: none;
+  max-height: 120px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  padding: 6px 10px 8px;
+  background: var(--bg-panel);
+}
+
+.transfer-item {
+  padding: 5px 0;
+}
+
+.transfer-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.transfer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 11px;
+}
+
+/* ---------------------------------------------------------------- */
+/* 滚动条                                                            */
+/* ---------------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+  background-clip: content-box;
+}
+
+/* antd 细节微调 */
+
+.ant-tabs-tab-btn:focus-visible,
+.ant-btn:focus-visible {
+  outline: 2px solid #3b82f6aa;
+  outline-offset: 1px;
+}
+
+.ant-modal-title {
+  font-size: 14px !important;
+}
+
+.ant-form-item-label > label {
+  font-size: 12px !important;
+  color: var(--text-2) !important;
+}
+
+.ant-empty-description {
+  font-size: 12px;
+}
+
+/* ---------------- 设置面板 ---------------- */
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.settings-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.settings-hint {
+  flex-basis: 100%;
+  font-size: 11px;
+  padding-left: 22px;
+  display: block;
+}
+
+.settings-version {
+  font-size: 11px;
+  margin-inline-end: 0;
+}
+
+.settings-update-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+/* 关于卡片：品牌 + 链接 + 技术栈 */
+
+.about-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.about-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.about-logo {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), #6366f1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.about-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.about-version {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.about-subtitle {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.about-link {
+  align-self: flex-start;
+}
+
+.about-tech {
+  font-size: 11px;
+  color: var(--text-mute);
+}
+/* ---------------- API 调试 ---------------- */
+
+.api-module {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.api-hint {
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+.api-current-name {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 8px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+
+/* 方法胶囊 */
+
+.method-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+.method-chip-sm {
+  min-width: 46px;
+  padding: 1px 5px;
+  font-size: 9.5px;
+}
+
+.method-chip-md {
+  min-width: 58px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+/* 主体布局 */
+
+.api-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px 14px;
+}
+
+/* 左侧列表 */
+
+.api-side {
+  width: 252px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.api-side-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.api-search {
+  margin: 10px 10px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.api-search .ant-input-affix-wrapper {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.api-search .ant-input-affix-wrapper-focused {
+  box-shadow: none;
+}
+
+.api-search-sep {
+  margin: 10px 10px 4px;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.api-side-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 6px 10px;
+}
+
+.api-group + .api-group {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.api-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px 6px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0.2px;
+}
+
+.api-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+  text-align: center;
+}
+
+.api-group-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-mute);
+  font-size: 10.5px;
+  line-height: 18px;
+  cursor: pointer;
+  text-transform: none;
+}
+
+.api-group-action .anticon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  line-height: 1;
+  vertical-align: 0;
+}
+
+.api-group-action > span:not(.anticon) {
+  line-height: 1;
+}
+
+.api-group-action:hover {
+  color: var(--danger);
+}
+
+.api-side-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  color: var(--text-mute);
+  line-height: 1.65;
+  text-align: center;
+}
+
+.api-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 6px;
+  padding: 7px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.api-item + .api-item {
+  margin-top: 4px;
+}
+
+.api-item:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.api-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.api-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-item-history .api-item-name {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.api-item-time {
+  flex: none;
+  font-size: 10px;
+  color: var(--text-mute);
+}
+
+.api-item-remove {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--text-mute);
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0;
+}
+
+.api-item:hover .api-item-remove {
+  opacity: 1;
+}
+
+.api-item-remove:hover {
+  color: var(--danger);
+}
+
+/* 右侧 */
+
+.api-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.api-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  flex: none;
+}
+
+/* 一行里所有控件严格等高 40px：下拉 / 输入框 / 按钮 */
+.api-bar > *,
+.api-bar .ant-btn,
+.api-bar .ant-input-affix-wrapper,
+
+
+.api-bar .ant-select-selector {
+  height: 40px !important;
+}
+
+.api-bar .ant-select-selection-item,
+.api-bar .ant-select-selection-placeholder {
+  line-height: 38px !important;
+}
+
+.api-bar .ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.api-bar .anticon {
+  font-size: 15px;
+}
+
+.api-method {
+  width: 116px;
+  flex: none;
+}
+
+.api-new {
+  height: 40px;
+}
+
+.api-url {
+  flex: 1;
+  min-width: 0;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 12.5px;
+}
+
+.api-url.ant-input,
+.api-url .ant-input {
+  height: 40px;
+  line-height: 40px;
+}
+
+.api-url .ant-input-group-addon {
+  background: transparent;
+}
+
+.api-send-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 4px;
+}
+
+.api-url-icon {
+  color: var(--text-mute);
+  cursor: pointer;
+}
+
+.api-url-icon:hover {
+  color: var(--accent-text);
+}
+
+.api-url-icon {
+  color: var(--text-mute);
+  cursor: pointer;
+}
+
+.api-url-icon:hover {
+  color: var(--accent-text);
+}
+
+.api-send {
+  flex: none;
+}
+
+/* 卡片：请求 / 响应 */
+
+.api-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.api-card-request {
+  flex: none;
+  max-height: 52%;
+}
+
+.api-card-response {
+  flex: 1;
+}
+
+.api-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  min-height: 42px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.api-card-head > * {
+  flex: none;
+}
+
+.api-card-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+
+.api-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--border);
+  min-height: 32px;
+}
+
+/* 分段控件 */
+
+.api-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+}
+
+.api-seg-sm {
+  padding: 2px;
+  border-radius: 5px;
+}
+
+.api-seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.api-seg-item:hover {
+  color: var(--text);
+}
+
+.api-seg-item.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.api-tab-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.api-final-url {
+  max-width: 44%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-mute);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+/* 键值表格 */
+
+.kv-table {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+.kv-thead,
+.kv-tr {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 0.85fr) minmax(0, 1.15fr) 40px;
+  align-items: stretch;
+}
+
+.kv-thead {
+  height: 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-mute);
+}
+
+.kv-thead .kv-cell {
+  justify-content: flex-start;
+  padding: 0 10px;
+}
+
+.kv-tr {
+  border-bottom: 1px solid var(--border);
+  min-height: 36px;
+}
+
+.kv-tr:last-of-type {
+  border-bottom: none;
+}
+
+.kv-tr > * + *,
+.kv-thead > * + * {
+  border-left: 1px solid var(--border);
+}
+
+.kv-tr:hover {
+  background: var(--surface);
+}
+
+.kv-tr.disabled {
+  opacity: 0.45;
+}
+
+.kv-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kv-text {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--text-2);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kv-tr .ant-input {
+  height: 35px;
+  border-radius: 0;
+  padding: 0 10px;
+  font-size: 12px;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+.kv-remove {
+  border: none;
+  background: transparent;
+  color: var(--text-mute);
+  cursor: pointer;
+  padding: 3px;
+  opacity: 1;
+}
+
+.kv-remove:hover {
+  color: var(--danger);
+}
+
+.kv-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.kv-add-row:hover {
+  background: var(--surface-2);
+  color: var(--accent-text);
+}
+/* 请求体 */
+
+.api-body-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.api-body-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.api-body-area {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 12px;
+}
+
+/* 响应 */
+
+.api-response-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.api-status-pill {
+  padding: 1px 8px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+.api-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+.api-warn {
+  color: var(--warn);
+}
+
+.api-mini {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.api-response-body {
+  padding: 12px;
+}
+
+.api-pre {
+  margin: 0;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.api-empty {
+  padding: 26px 0;
+  text-align: center;
+  color: var(--text-mute);
+  font-size: 12px;
+}
+
+.api-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 34px 0;
+  text-align: center;
+}
+
+.api-empty-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface);
+  color: var(--text-mute);
+  font-size: 20px;
+}
+
+.api-empty-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.api-empty-hint {
+  font-size: 11.5px;
+  color: var(--text-mute);
+}
+
+.api-error {
+  color: var(--danger);
+  font-size: 12px;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* 保存弹窗 */
+
+.api-save-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.api-save-hint {
+  font-size: 11.5px;
+  color: var(--text-mute);
+  line-height: 1.6;
+}

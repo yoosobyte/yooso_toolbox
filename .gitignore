@@ -1,0 +1,28 @@
+# 依赖
+node_modules
+dist
+dist-ssr
+*.local
+
+# 编辑器 / 系统
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.log
+
+# Rust
+src-tauri/target
+src-tauri/gen
+
+# 构建产物
+app-icon.png
+
+# 测试截图（保留 docs 下的预览图与报告，忽略整批 UI 测试截图）
+docs/uitest/
+
+# 本地缓存
+.vite
+src-tauri/.cargo
+*.tsbuildinfo
