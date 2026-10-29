@@ -4,6 +4,7 @@ mod models;
 mod sftp;
 mod ssh;
 mod store;
+mod translate;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -17,6 +18,7 @@ use store::Store;
 pub struct AppState {
     pub store: Arc<Store>,
     pub sessions: Mutex<HashMap<String, Arc<SshSession>>>,
+    pub translator: translate::Translator,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -31,6 +33,7 @@ pub fn run() {
             app.manage(AppState {
                 store,
                 sessions: Mutex::new(HashMap::new()),
+                translator: translate::Translator::new(),
             });
 
             // WebView2 默认会把 Ctrl+Shift+C（审查元素）、F12、Ctrl+R 等当成浏览器快捷键，
@@ -80,6 +83,9 @@ pub fn run() {
             commands::sftp_copy,
             commands::sftp_upload,
             commands::sftp_download,
+            commands::save_binary_file,
+            commands::save_text_file,
+            commands::translate_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
