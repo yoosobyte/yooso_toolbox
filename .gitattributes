@@ -1,0 +1,22 @@
+# 文本文件自动识别换行，二进制不做转换
+* text=auto
+
+# Windows 脚本保留 CRLF
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 二进制
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
+*.exe binary
+*.dll binary
+*.woff binary
+*.woff2 binary
+
+# 语言统计
+*.rs linguist-language=Rust
+*.tsx linguist-language=TypeScript
