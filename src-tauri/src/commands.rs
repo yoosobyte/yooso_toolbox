@@ -597,6 +597,46 @@ pub async fn sftp_download(
         .map_err(err)
 }
 
+/* ------------------------------------------------------------------ */
+/* 本地文件保存（二维码导出等前端生成的内容）                           */
+/* ------------------------------------------------------------------ */
+
+/// 保存 base64 二进制内容（例如前端 canvas 导出的 PNG）
+#[tauri::command]
+pub async fn save_binary_file(path: String, data_base64: String) -> Result<(), String> {
+    let bytes = STANDARD
+        .decode(data_base64)
+        .map_err(|error| format!("base64 解码失败: {error}"))?;
+    tokio::fs::write(&path, bytes)
+        .await
+        .map_err(|error| format!("写入失败: {error}"))
+}
+
+/// 保存纯文本内容（例如前端生成的 SVG）
+#[tauri::command]
+pub async fn save_text_file(path: String, text: String) -> Result<(), String> {
+    tokio::fs::write(&path, text)
+        .await
+        .map_err(|error| format!("写入失败: {error}"))
+}
+
+/* ------------------------------------------------------------------ */
+/* 翻译（必应翻译接口直连）                                             */
+/* ------------------------------------------------------------------ */
+
+#[tauri::command]
+pub async fn translate_text(
+    state: State<'_, AppState>,
+    text: String,
+    from: String,
+    to: String,
+    line: Option<String>,
+) -> Result<crate::translate::TranslateResult, String> {
+    state
+        .translator
+        .translate(&text, &from, &to, line.as_deref().unwrap_or("cn"))
+        .await
+}
 
 /* ------------------------------------------------------------------ */
 /* 测试：解析器单元测试 + 真实服务器集成测试                            */

@@ -8,17 +8,28 @@ import {
   QrcodeOutlined,
   SettingOutlined,
   CloudServerOutlined,
+  TranslationOutlined,
 } from "@ant-design/icons";
 import type { ReactNode } from "react";
 import SshModule from "./modules/ssh/SshModule";
 import ApiModule from "./modules/api/ApiModule";
+import QrModule from "./modules/qrcode/QrModule";
+import TranslateModule from "./modules/translate/TranslateModule";
+import TextModule from "./modules/text/TextModule";
 import Placeholder from "./modules/Placeholder";
 import SettingsModal from "./modules/SettingsModal";
 import { useUiStore } from "./stores/uiStore";
 import { useT } from "./i18n";
 import { APP_VERSION } from "./version";
 
-type ModuleKey = "ssh" | "json" | "qrcode" | "mysql" | "redis" | "api";
+type ModuleKey =
+  | "ssh"
+  | "text"
+  | "qrcode"
+  | "mysql"
+  | "redis"
+  | "api"
+  | "translate";
 
 interface ModuleDef {
   key: ModuleKey;
@@ -41,13 +52,13 @@ const MODULES: ModuleDef[] = [
     featureKeys: [],
   },
   {
-    key: "json",
-    label: "JSON",
-    titleKey: "JSON",
-    descKey: "module.jsonDesc",
+    key: "text",
+    label: "Text",
+    titleKey: "Text",
+    descKey: "module.textDesc",
     icon: <FileTextOutlined />,
-    ready: false,
-    featureKeys: ["module.json.f1", "module.json.f2", "module.json.f3", "module.json.f4"],
+    ready: true,
+    featureKeys: [],
   },
   {
     key: "qrcode",
@@ -55,8 +66,8 @@ const MODULES: ModuleDef[] = [
     titleKey: "QR Code",
     descKey: "module.qrDesc",
     icon: <QrcodeOutlined />,
-    ready: false,
-    featureKeys: ["module.qr.f1", "module.qr.f2", "module.qr.f3", "module.qr.f4"],
+    ready: true,
+    featureKeys: [],
   },
   {
     key: "mysql",
@@ -85,14 +96,33 @@ const MODULES: ModuleDef[] = [
     ready: true,
     featureKeys: ["module.api.f1", "module.api.f2", "module.api.f3", "module.api.f4"],
   },
+  {
+    key: "translate",
+    label: "Translate",
+    titleKey: "Translation",
+    descKey: "module.translateDesc",
+    icon: <TranslationOutlined />,
+    ready: true,
+    featureKeys: [],
+  },
 ];
 
 export default function App() {
   const [activeKey, setActiveKey] = useState<ModuleKey>("ssh");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 头部模块（SSH / API）常驻；其余模块首次打开后再保持挂载，避免一启动就请求外网/占用资源
+  const [mounted, setMounted] = useState<Partial<Record<ModuleKey, boolean>>>({
+    ssh: true,
+    api: true,
+  });
   const lang = useUiStore((state) => state.lang);
   const showStatusBar = useUiStore((state) => state.showStatusBar);
   const t = useT(lang);
+
+  const activate = (key: ModuleKey) => {
+    setActiveKey(key);
+    setMounted((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  };
 
   const railLabel = (key: ModuleKey) =>
     key === "qrcode" ? t("module.qr") : t(`module.${key}`);
@@ -123,7 +153,7 @@ export default function App() {
               <button
                 type="button"
                 className={`rail-btn${item.key === activeKey ? " active" : ""}`}
-                onClick={() => setActiveKey(item.key)}
+                onClick={() => activate(item.key)}
               >
                 <span className="rail-icon">{item.icon}</span>
                 <span className="rail-label">
@@ -151,7 +181,7 @@ export default function App() {
       </aside>
 
       <main className="content">
-        {/* 保持 SSH / API 常驻挂载：切到别的模块时只隐藏，避免终端被卸载导致连接断开 */}
+        {/* 保持常用模块常驻挂载：切走时只隐藏，避免终端断开、请求状态丢失、翻译页被重载 */}
         <div
           className="module-slot"
           style={{ display: activeModule.key === "ssh" ? "flex" : "none" }}
@@ -164,7 +194,31 @@ export default function App() {
         >
           <ApiModule />
         </div>
-        {activeModule.key !== "ssh" && activeModule.key !== "api" && (
+        {mounted.text && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "text" ? "flex" : "none" }}
+          >
+            <TextModule />
+          </div>
+        )}
+        {mounted.qrcode && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "qrcode" ? "flex" : "none" }}
+          >
+            <QrModule />
+          </div>
+        )}
+        {mounted.translate && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "translate" ? "flex" : "none" }}
+          >
+            <TranslateModule />
+          </div>
+        )}
+        {!["ssh", "api", "text", "qrcode", "translate"].includes(activeModule.key) && (
           <Placeholder
             title={activeModule.titleKey}
             desc={t(activeModule.descKey)}

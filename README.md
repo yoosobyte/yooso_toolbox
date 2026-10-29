@@ -2,7 +2,7 @@
 
 一个基于 **Tauri 2 + React + Ant Design** 的桌面工具箱，计划陆续集成 JSON 处理、二维码、MySQL、Redis、API 调试、SSH/SFTP 等模块。
 
-**第一阶段已实现：SSH 终端 + SFTP 文件管理（FinalShell 风格）。**
+**目前可用：SSH 终端 + SFTP 文件管理（FinalShell 风格）、API 调试、文本工具（JSON / 对比）、二维码生成/识别、翻译（必应直连 + 变量命名）。**
 
 ![UI 预览](docs/ui-preview.png)
 
@@ -20,6 +20,7 @@
 | 状态 | Zustand | 5.0.16 |
 | SSH | russh（纯 Rust，ring 后端） | 0.65.0 |
 | SFTP | russh-sftp | 3.0.1 |
+| 二维码 | qrcode（生成）+ jsQR（识别） | 1.5.4 / 1.4.0 |
 
 > SSH 没有用 `ssh2`/libssh2，也没有用 `openssh` 子进程：`russh` 是纯 Rust 实现，
 > 配合 `ring` 加密后端，Windows 上只需要 MSVC 即可编译（无需 cmake / nasm / OpenSSL）。
@@ -57,9 +58,9 @@
 
 ![设置面板](docs/ui-preview-settings.png)
 
-**i18n 覆盖范围**：`src/i18n.ts` 一套中英字典（258 个 key，两边 key 完全对齐），
+**i18n 覆盖范围**：`src/i18n.ts` 一套中英字典（463 个 key，两边 key 完全对齐），
 界面所有文案都走 `t("key")`——左侧导航、模块页、会话列表与表单、终端工具栏与右键菜单、
-状态栏指标、SFTP 面板（含全部提示与对话框）、进程管理器、设置面板。
+状态栏指标、SFTP 面板（含全部提示与对话框）、进程管理器、API / 二维码 / 翻译模块、设置面板。
 后端返回的错误信息目前仍是中文（会出现在错误提示里），后续可以把错误码也纳入 i18n。
 
 > 版本 txt 示例：
@@ -244,6 +245,7 @@ yooso_toolbox/
 │  ├─ main.tsx                  # 入口（ConfigProvider + antd App）
 │  ├─ theme.ts                  # 深色主题 token + xterm 配色
 │  ├─ api.ts                    # 所有 Tauri 命令的类型化封装
+│  ├─ save.ts                   # 前端生成文件的保存（Tauri 命令 / 浏览器兜底）
 │  ├─ base64.ts                 # 终端字节流编解码
 │  ├─ types.ts / utils.ts
 │  ├─ stores/
@@ -251,6 +253,25 @@ yooso_toolbox/
 │  │  └─ workspaceStore.ts      # 终端标签页
 │  └─ modules/
 │     ├─ Placeholder.tsx        # 规划中模块的占位页
+│     ├─ api/
+│     │  ├─ ApiModule.tsx       # 请求构建 / 响应 / 历史
+│     │  └─ KeyValueEditor.tsx  # 参数、请求头表格
+│     ├─ qrcode/
+│     │  ├─ QrModule.tsx        # 生成 / 识别容器
+│     │  ├─ QrGeneratePanel.tsx # 生成、Logo、导出
+│     │  ├─ QrScanPanel.tsx     # 本地图片识别
+│     │  └─ qrRender.ts         # 矩阵 → SVG / Canvas
+│     ├─ text/
+│     │  ├─ TextModule.tsx      # JSON / 对比 容器
+│     │  ├─ JsonTool.tsx        # 格式化 / 压缩 / 树形折叠
+│     │  ├─ JsonTree.tsx        # JSON 树渲染
+│     │  ├─ TextDiff.tsx        # 实时双栏对比（差异高亮）
+│     │  └─ diff.ts             # LCS 行级 diff
+│     ├─ translate/
+│     │  ├─ TranslateModule.tsx # 快速 / 网页版容器
+│     │  ├─ QuickTranslate.tsx  # 直连接口翻译 + 变量命名
+│     │  ├─ api.ts              # translate_text 调用封装
+│     │  └─ identifier.ts       # 标识符拆分与五种命名风格
 │     └─ ssh/
 │        ├─ SshModule.tsx       # 模块布局
 │        ├─ SessionList.tsx     # 左侧会话列表
@@ -263,11 +284,12 @@ yooso_toolbox/
    ├─ src/
    │  ├─ lib.rs                 # Builder、AppState、命令注册
    │  ├─ commands.rs            # 全部 #[tauri::command]
+   │  ├─ translate.rs           # 必应翻译接口直连（token 缓存 + 重试）
    │  ├─ ssh.rs                 # russh 连接、认证、终端读写 actor
    │  ├─ sftp.rs                # 目录/增删改/传输实现
    │  ├─ store.rs               # sessions.json / known_hosts.json
    │  └─ models.rs              # 前后端共享数据结构
-   ├─ capabilities/default.json # 权限：core / dialog / opener
+   ├─ capabilities/default.json # 权限：core / dialog / opener / clipboard-manager
    └─ tauri.conf.json
 ```
 
@@ -344,14 +366,47 @@ Ant Design Tabs 的内部容器高度），窗口缩放时会重新 `fit()` 并�
 
 ---
 
+## 二维码（生成 / 识别）
+
+- **生成**：文本 / 链接实时预览（自己把模块矩阵渲染成 SVG，输入即刷新），可选 **PNG 尺寸 256–1536**、纠错级别 L/M/Q/H、静区 0–8 模块、前景 / 背景色
+- **Logo 嵌入**：本地选图后居中叠在二维码上，占比 12%–30% 可拖动；嵌入 Logo 时纠错级别固定为 **H**，预览里会标明
+- **导出**：PNG 由 Canvas 绘制（模块按整数像素对齐，边缘不糊），SVG 直接输出矢量；两者都弹系统保存框，由 Rust 侧 `save_binary_file` / `save_text_file` 写盘（网页里调试时自动退化成 `<a download>`）
+- **识别**：拖拽或选择本地图片，缩放后用 `jsQR` 解码（`attemptBoth`，支持反色码），展示原图、尺寸与识别结果；可一键复制、打开链接，或「用这段内容生成」
+- 生成 / 识别两个面板**常驻挂载**，来回切换不会丢参数；内容超长时就地提示，不会让预览崩溃
+- 批量导出（多行文案 → 多个文件）留到下一步
+
+---
+
+## 翻译（快速 + 内嵌网页）
+
+- **快速翻译（默认页签）**：Rust 侧直连必应翻译页背后的 `ttranslatev3` 接口——先 GET 翻译页拿一次性 `IG` / `IID` / `token` / `key`，再表单 POST 取 JSON。不加载网页、无广告弹窗，适合翻变量名和短句；token 缓存在内存里，过期或 401/403 自动刷新重试一次
+- **变量命名**：自动拆分 `camelCase / PascalCase / snake_case / kebab-case`（`HTTPStatus`、`getHTTPResponse` 这类缩写也能正确拆），中译英后直接给出 **小驼峰 / 大驼峰 / 下划线 / 短横线 / 常量** 五种写法，点一下复制；英译中时按原标识符规整，同时显示分词结果
+- 方向可选自动检测 + 中/繁中/英/日/韩/法/德/西/俄；线路可选国内 / 国际，`localStorage` 记住上次选择；重复内容命中内存缓存，不再请求
+- **网页版**：需要整页翻译能力时用 `<iframe>` 内嵌必应翻译页；首次切到该页才创建，之后保持挂载，切换标签不丢状态；15 秒未加载完会提示用浏览器打开
+- 接口结构变化或网络不可达时会显示明确错误，并提供「改用网页版」入口
+
+---
+
+## 文本工具（JSON / 对比）
+
+- 侧栏入口从原来的「JSON」占位改为 **「文本」**，里面两个页签：
+  - **JSON 格式化**：**只有一个编辑框**，粘贴后自动格式化一次，**解析成功直接切到树形视图并默认全部展开**（解析失败显示行列号并留在文本视图）；格式化 / 压缩都在框内原地完成，压缩保持文本方便复制单行；「文本 / 树形」一键切换，树形视图的展开全部 / 折叠全部合并成一个按钮；对象、数组、字符串、数字、布尔、null 分色；显示行数与字节数，缩进支持 2 / 4 / Tab
+  - **文本对比**：**一左一右、实时对比**——两边直接粘贴/输入，停手 200ms 自动按行做 LCS diff，**相同行淡绿、差异行标红**（背景 + 左红条），右侧标题栏实时显示「N 行不同 / 无差异」（无差异为绿色），不需要点任何按钮。可编辑文本层下面叠了一层差异高亮镜像，不挡输入。两栏放在**同一个原生滚动容器**里，只有一根原生滚动条，拖它或滚轮滚任意一侧，两栏作为一个整体一起滚动，滚动过程没有任何 JS 参与；输入框用 `field-sizing: content` 自动跟内容长高（不支持的浏览器回退到 JS 量高）。超过 4000 行会自动关闭逐行高亮并提示，避免卡顿
+- JSON 解析失败会给出错误原因和**行列号**（从 V8 的 `position` 换算），不会只弹一句英文
+- 对比前先裁掉公共前后缀，只对差异区间做 DP；差异区间超过约 200 万格时退化为整块替换并提示，避免大文本卡死
+- 两个页签都常驻挂载，来回切换不丢输入和结果
+
+---
+
 ## 后续规划
 
 | 模块 | 状态 |
 | --- | --- |
 | SSH / SFTP | ✅ 第一阶段完成 |
 | API 调试 | ✅ MVP（请求构建、自定义前缀、参数/请求头/请求体、响应查看、保存与历史） |
-| JSON 工具 | 规划中（格式化、校验、JSONPath、对比） |
-| 二维码 | 规划中（生成 / 识别 / Logo） |
+| 二维码 | ✅ MVP（生成、Logo、PNG/SVG 导出、本地图片识别；批量导出待做） |
+| 翻译 | ✅ 快速翻译（必应接口直连 + 变量命名）、网页版兜底 |
+| 文本工具 | ✅ JSON 格式化 / 压缩（树形展开折叠）、实时双栏文本对比（相同绿 / 差异红、原生共享滚动） |
 | MySQL 客户端 | 规划中（连接管理、库表浏览、SQL 编辑器） |
 | Redis 客户端 | 规划中（键空间、命令行） |
 
