@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Segmented, Typography } from "antd";
-import { CodeOutlined, DiffOutlined, FileTextOutlined } from "@ant-design/icons";
+import { CodeOutlined, DiffOutlined } from "@ant-design/icons";
 import { useUiStore } from "../../stores/uiStore";
+import { TextNavIcon } from "../../components/NavIcons";
 import { useT } from "../../i18n";
 import JsonTool from "./JsonTool";
 import TextDiff from "./TextDiff";
@@ -16,7 +17,7 @@ export default function TextModule() {
     <div className="module text-module">
       <header className="module-head">
         <span className="module-icon">
-          <FileTextOutlined />
+          <TextNavIcon />
         </span>
         <div>
           <Typography.Text strong style={{ fontSize: 14 }}>

@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Input, Modal, Select, Tooltip, Typography } from "antd";
 import {
+  ArrowUpOutlined,
   ClearOutlined,
   FolderOpenOutlined,
-  ArrowUpOutlined,
-  RobotOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useUiStore } from "../../stores/uiStore";
+import { AgentNavIcon } from "../../components/NavIcons";
 import { useT } from "../../i18n";
 import { inTauri } from "../../save";
 import { renderMarkdown } from "../note/markdown";
@@ -91,7 +91,6 @@ export default function AiModule() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draftKey, setDraftKey] = useState(settings.apiKey);
   const [draftModel, setDraftModel] = useState(settings.model);
-  const [draftWorkspace, setDraftWorkspace] = useState(settings.workspace);
   const [changes, setChanges] = useState<FileChange[]>([]);
   const [streamingText, setStreamingText] = useState("");
   const abortRef = useRef(false);
@@ -112,22 +111,24 @@ export default function AiModule() {
   const openSettings = () => {
     setDraftKey(settings.apiKey);
     setDraftModel(settings.model);
-    setDraftWorkspace(settings.workspace);
     setSettingsOpen(true);
   };
 
+  /** 工作目录独立选择，直接保存，不经过 API Key 设置弹窗 */
   const pickWorkspace = async () => {
     if (!inTauri()) return;
     const picked = await open({ directory: true, multiple: false });
-    if (typeof picked === "string") setDraftWorkspace(picked);
+    if (typeof picked === "string") {
+      setSettings((prev) => ({ ...prev, workspace: picked }));
+    }
   };
 
   const saveSettings = () => {
-    setSettings({
+    setSettings((prev) => ({
+      ...prev,
       apiKey: draftKey.trim(),
       model: draftModel || DEFAULT_MODEL,
-      workspace: draftWorkspace.trim(),
-    });
+    }));
     setSettingsOpen(false);
   };
 
@@ -250,7 +251,7 @@ export default function AiModule() {
     <div className="module ai-module">
       <header className="module-head">
         <span className="module-icon">
-          <RobotOutlined />
+          <AgentNavIcon />
         </span>
         <div>
           <Typography.Text strong style={{ fontSize: 14 }}>
@@ -265,12 +266,17 @@ export default function AiModule() {
       </header>
 
       <div className="ai-toolbar">
+        <Tooltip title={t("ai.pickDir")}>
+          <Button
+            size="small"
+            type="text"
+            icon={<FolderOpenOutlined />}
+            onClick={() => void pickWorkspace()}
+          />
+        </Tooltip>
         <span className="ai-workspace" title={settings.workspace || t("ai.noWorkspace")}>
           {settings.workspace || t("ai.noWorkspace")}
         </span>
-        <Tooltip title={t("ai.pickDir")}>
-          <Button size="small" icon={<FolderOpenOutlined />} onClick={openSettings} />
-        </Tooltip>
         <span style={{ flex: 1 }} />
         <Tooltip title={t("ai.clear")}>
           <Button
@@ -350,29 +356,6 @@ export default function AiModule() {
           }}
         />
         <div className="ai-composer-bar">
-          <Tooltip title={t("ai.pickDir")}>
-            <Button
-              size="small"
-              type="text"
-              icon={<FolderOpenOutlined />}
-              onClick={openSettings}
-            />
-          </Tooltip>
-          <Tooltip title={t("ai.clear")}>
-            <Button
-              size="small"
-              type="text"
-              icon={<ClearOutlined />}
-              disabled={busy}
-              onClick={() => {
-                setMessages([]);
-                setHistory([]);
-                setChanges([]);
-                setStreamingText("");
-                setStatus("");
-              }}
-            />
-          </Tooltip>
           <span style={{ flex: 1 }} />
           <Select
             size="small"
@@ -427,19 +410,6 @@ export default function AiModule() {
                 { value: "deepseek-reasoner", label: "deepseek-reasoner" },
               ]}
             />
-          </label>
-          <label className="ai-field">
-            <span>{t("ai.workspace")}</span>
-            <div className="ai-workspace-row">
-              <Input
-                value={draftWorkspace}
-                placeholder="/path/to/project"
-                onChange={(event) => setDraftWorkspace(event.target.value)}
-              />
-              <Button icon={<FolderOpenOutlined />} onClick={() => void pickWorkspace()}>
-                {t("ai.pickDir")}
-              </Button>
-            </div>
           </label>
         </div>
       </Modal>

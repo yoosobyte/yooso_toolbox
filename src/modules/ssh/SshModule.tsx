@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button, Typography } from "antd";
-import { CloudServerOutlined, PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined } from "@ant-design/icons";
 import SessionList from "./SessionList";
+import { SshNavIcon } from "../../components/NavIcons";
 import SessionForm from "./SessionForm";
 import TerminalTabs from "./TerminalTabs";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
@@ -29,7 +30,7 @@ export default function SshModule() {
     <div className="module">
       <header className="module-head">
         <span className="module-icon">
-          <CloudServerOutlined />
+          <SshNavIcon />
         </span>
         <div>
           <Typography.Text strong style={{ fontSize: 14 }}>

@@ -28,23 +28,8 @@ function safeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, "_").trim() || "note";
 }
 
-const SIDE_WIDTH_KEY = "note.sideWidth";
-const DEFAULT_SIDE_WIDTH = 232;
-const MIN_SIDE_WIDTH = 180;
+const MIN_SIDE_WIDTH = 200;
 const MAX_SIDE_WIDTH = 560;
-
-function loadSideWidth(): number {
-  try {
-    const raw = localStorage.getItem(SIDE_WIDTH_KEY);
-    const value = raw === null ? Number.NaN : Number(raw);
-    if (Number.isFinite(value) && value >= MIN_SIDE_WIDTH) {
-      return Math.min(MAX_SIDE_WIDTH, value);
-    }
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_SIDE_WIDTH;
-}
 
 export default function NoteModule() {
   const t = useT(useUiStore((state) => state.lang));
@@ -58,8 +43,11 @@ export default function NoteModule() {
   const [menu, setMenu] = useState<{ x: number; y: number; noteId: string } | null>(
     null,
   );
-  const [sideWidth, setSideWidth] = useState(loadSideWidth);
+  const sideWidth = useUiStore((state) => state.sideWidth);
+  const setSideWidth = useUiStore((state) => state.setSideWidth);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  /** 已自动切过预览的笔记，避免编辑时反复强制切换 */
+  const autoPreviewRef = useRef<string | null>(null);
 
   const ordered = useMemo(
     () => [...notes].sort((a, b) => b.updatedAt - a.updatedAt),
@@ -70,13 +58,17 @@ export default function NoteModule() {
     ? notes.find((note) => note.id === menu.noteId) ?? null
     : null;
 
+  /* 打开内容较多的 Markdown 笔记时，直接进入预览 */
   useEffect(() => {
-    try {
-      localStorage.setItem(SIDE_WIDTH_KEY, String(Math.round(sideWidth)));
-    } catch {
-      /* ignore */
+    if (!activeId || autoPreviewRef.current === activeId) return;
+    autoPreviewRef.current = activeId;
+    const note = notes.find((item) => item.id === activeId);
+    if (!note || note.format !== "md") return;
+    const lines = note.content.split("\n").length;
+    if (lines > 30 || note.content.length > 1200) {
+      setPreview(true);
     }
-  }, [sideWidth]);
+  }, [activeId, notes]);
 
   /** 拖动左右分栏之间的分隔条调整左侧宽度 */
   const startSideResize = (event: React.MouseEvent<HTMLDivElement>) => {

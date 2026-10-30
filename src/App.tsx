@@ -2,14 +2,13 @@ import { useMemo, useState } from "react";
 import { Tooltip, Typography } from "antd";
 import {
   ApiOutlined,
-  CodeOutlined,
   QrcodeOutlined,
   SettingOutlined,
   ToolOutlined,
 } from "@ant-design/icons";
 import {
+  AgentNavIcon,
   BrowserNavIcon,
-  DbNavIcon,
   NoteNavIcon,
   SshNavIcon,
   TextNavIcon,
@@ -35,6 +34,7 @@ import { MODULE_ORDER, type ModuleKey } from "./modules/keys";
 import { useT } from "./i18n";
 import AppLogo from "./AppLogo";
 import { APP_VERSION } from "./version";
+import {DatabaseIcon} from "./modules/db/icons.tsx";
 
 
 
@@ -90,7 +90,7 @@ const MODULES: ModuleDef[] = [
     label: "DB",
     titleKey: "DB",
     descKey: "module.dbDesc",
-    icon: <DbNavIcon />,
+    icon: <DatabaseIcon />,
     ready: true,
     featureKeys: [],
   },
@@ -135,7 +135,7 @@ const MODULES: ModuleDef[] = [
     label: "AI",
     titleKey: "AI",
     descKey: "module.aiDesc",
-    icon: <CodeOutlined />,
+    icon: <AgentNavIcon />,
     ready: true,
     featureKeys: [],
   },
@@ -152,14 +152,20 @@ const MODULES: ModuleDef[] = [
 
 export default function App() {
   const [activeKey, setActiveKey] = useState<ModuleKey>(
-    () => useUiStore.getState().defaultModule ?? "db",
+    () => useUiStore.getState().defaultModule ?? "note",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 头部模块（SSH / API）常驻；其余模块首次打开后再保持挂载，避免一启动就请求外网/占用资源
-  const [mounted, setMounted] = useState<Partial<Record<ModuleKey, boolean>>>({
-    ssh: true,
-    api: true,
-    db: true,
+  const [mounted, setMounted] = useState<Partial<Record<ModuleKey, boolean>>>(() => {
+    const initial: Partial<Record<ModuleKey, boolean>> = {
+      ssh: true,
+      api: true,
+      db: true,
+    };
+    // 默认打开的模块也要在启动时挂载，否则会显示空白
+    const defaultModule = useUiStore.getState().defaultModule;
+    if (defaultModule) initial[defaultModule] = true;
+    return initial;
   });
   const lang = useUiStore((state) => state.lang);
   const showStatusBar = useUiStore((state) => state.showStatusBar);

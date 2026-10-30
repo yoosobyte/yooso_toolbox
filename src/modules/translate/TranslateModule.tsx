@@ -7,10 +7,10 @@ import {
   LoadingOutlined,
   ReloadOutlined,
   ThunderboltOutlined,
-  TranslationOutlined,
 } from "@ant-design/icons";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useUiStore } from "../../stores/uiStore";
+import { TranslateNavIcon } from "../../components/NavIcons";
 import { useT } from "../../i18n";
 import { copyText } from "../../clipboard";
 import { errText } from "../../utils";
@@ -97,7 +97,7 @@ export default function TranslateModule() {
     <div className="module tr-module">
       <header className="module-head">
         <span className="module-icon">
-          <TranslationOutlined />
+          <TranslateNavIcon />
         </span>
         <div>
           <Typography.Text strong style={{ fontSize: 14 }}>
