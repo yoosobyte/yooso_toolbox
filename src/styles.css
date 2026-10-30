@@ -6139,7 +6139,8 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .db-filter-row {
-  grid-template-columns: 28px 150px 160px minmax(100px, 1fr) 88px 28px;
+  grid-template-columns: 28px 150px 160px 200px 88px 28px;
+  justify-content: start;
 }
 
 .db-structure-view,
