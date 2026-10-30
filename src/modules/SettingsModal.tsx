@@ -5,6 +5,7 @@ import {
   Divider,
   Modal,
   Segmented,
+  Select,
   Space,
   Switch,
   Tag,
@@ -24,6 +25,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { checkUpdate } from "../api";
 import type { UpdateInfo } from "../types";
 import { useUiStore } from "../stores/uiStore";
+import { MODULE_ORDER } from "./keys";
 import type { ThemeSetting } from "../stores/uiStore";
 import type { LangSetting } from "../i18n";
 import { useT } from "../i18n";
@@ -47,6 +49,8 @@ export default function SettingsModal({ open, onClose }: Props) {
   const setLanguage = useUiStore((state) => state.setLanguage);
   const setTheme = useUiStore((state) => state.setTheme);
   const setShowStatusBar = useUiStore((state) => state.setShowStatusBar);
+  const defaultModule = useUiStore((state) => state.defaultModule);
+  const setDefaultModule = useUiStore((state) => state.setDefaultModule);
   const t = useT(lang);
   const { message } = AntdApp.useApp();
 
@@ -122,6 +126,26 @@ export default function SettingsModal({ open, onClose }: Props) {
               { label: t("settings.themeLight"), value: "light" },
               { label: t("settings.themeDark"), value: "dark" },
             ]}
+          />
+        </section>
+
+        {/* 默认打开的 tab */}
+        <section className="settings-row">
+          <div className="settings-label">
+            <LayoutOutlined /> {t("settings.defaultTab")}
+            <Typography.Text type="secondary" className="settings-hint">
+              {t("settings.defaultTabHint")}
+            </Typography.Text>
+          </div>
+          <Select
+            value={defaultModule}
+            onChange={(value) => setDefaultModule(value)}
+            style={{ width: 180 }}
+            options={MODULE_ORDER.map((key) => ({
+              value: key,
+              label:
+                key === "qrcode" ? t("module.qr") : t(`module.${key}`),
+            }))}
           />
         </section>
 

@@ -16,6 +16,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
 import { copyText } from "../../clipboard";
+import { SideResizer, useSideWidth } from "../../components/SideResizer";
 import { loadImageElement } from "./qrRender";
 
 interface Props {
@@ -40,6 +41,7 @@ export default function QrScanPanel({ onUseContent }: Props) {
   const [image, setImage] = useState<ImageInfo | null>(null);
   const [decoded, setDecoded] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [panelWidth, setPanelWidth] = useSideWidth("qr.sideWidth", 400, 300);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(
@@ -121,7 +123,7 @@ export default function QrScanPanel({ onUseContent }: Props) {
 
   return (
     <div className="qr-body">
-      <section className="qr-panel qr-scan-col">
+      <section className="qr-panel qr-scan-col" style={{ width: panelWidth }}>
         <div className="qr-panel-head">
           <span className="qr-panel-title">
             <ScanOutlined /> {t("qr.scan")}
@@ -180,6 +182,8 @@ export default function QrScanPanel({ onUseContent }: Props) {
           )}
         </div>
       </section>
+
+      <SideResizer width={panelWidth} min={300} onChange={setPanelWidth} />
 
       <section className="qr-preview qr-result">
         <div className="qr-preview-head">

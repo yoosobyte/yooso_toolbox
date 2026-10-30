@@ -10,6 +10,7 @@ import { useRedisStore } from "../../stores/redisStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
+import { SideResizer, useSideWidth } from "../../components/SideResizer";
 import RedisConnectionList from "./RedisConnectionList";
 import RedisForm from "./RedisForm";
 import RedisBrowser from "./RedisBrowser";
@@ -40,6 +41,7 @@ export default function RedisModule() {
   const [refreshToken, setRefreshToken] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<RedisConfig | null>(null);
+  const [sideWidth, setSideWidth] = useSideWidth("redis.sideWidth", 252);
 
   useEffect(() => {
     void load();
@@ -173,6 +175,7 @@ export default function RedisModule() {
 
       <div className="redis-body">
         <RedisConnectionList
+          width={sideWidth}
           connections={connections}
           activeId={active?.id ?? null}
           connectingId={connectingId}
@@ -181,6 +184,8 @@ export default function RedisModule() {
           onEdit={openEdit}
           onDelete={deleteConnection}
         />
+
+        <SideResizer width={sideWidth} onChange={setSideWidth} />
 
         <section className="redis-main">
           {active ? (
@@ -239,7 +244,7 @@ export default function RedisModule() {
               </span>
               <div className="redis-welcome-title">{t("redis.selectConnection")}</div>
               <div className="redis-hint">{t("redis.emptyConnections")}</div>
-              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              <Button type="default" icon={<PlusOutlined />} onClick={openCreate}>
                 {t("redis.newConnection")}
               </Button>
             </div>

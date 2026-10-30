@@ -1,7 +1,10 @@
+mod ai;
 mod api;
 mod core;
 mod database;
 mod files;
+mod network;
+mod tools;
 mod redis;
 mod ssh;
 mod translate;
@@ -80,6 +83,17 @@ pub fn run() {
             ssh::commands::ssh_processes,
             ssh::commands::ssh_kill_process,
             update::check_update,
+            api::favicon::fetch_favicon,
+            api::fetch_page_title,
+            ai::ai_chat,
+            network::network_info,
+            tools::md5_hash,
+            ai::ai_chat_stream,
+            ai::ai_delete_file,
+            ai::ai_list_dir,
+            ai::ai_read_file,
+            ai::ai_write_file,
+            api::browser::browser_eval,
             api::http_request,
             ssh::commands::sftp_list,
             ssh::commands::sftp_mkdir,

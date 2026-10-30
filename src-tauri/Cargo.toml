@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.7", features = [] }
 
 [dependencies]
-tauri = { version = "2.12", features = [] }
+tauri = { version = "2.12", features = ["unstable"] }
 tauri-plugin-dialog = "2.8"
 tauri-plugin-opener = "2.7"
 tauri-plugin-clipboard-manager = "2"
@@ -22,8 +22,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
+# 跨平台枚举本机网卡 / 内网 IP（macOS / Windows / Linux）
+if-addrs = "0.13"
+# MD5 小工具
+md5 = "0.7"
 # 检查更新：读远端版本 txt（rustls，避免依赖系统 OpenSSL）
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 base64 = "0.23"
 # Redis 客户端（纯 Rust，tokio 异步）

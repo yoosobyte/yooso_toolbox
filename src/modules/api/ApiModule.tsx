@@ -43,6 +43,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { copyText } from "../../clipboard";
 import { errText, formatBytes } from "../../utils";
+import { SideResizer, useSideWidth } from "../../components/SideResizer";
 import KeyValueEditor, { HeaderTable, emptyRow } from "./KeyValueEditor";
 
 const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
@@ -126,6 +127,7 @@ export default function ApiModule() {
   const [saveMode, setSaveMode] = useState<"update" | "new">("new");
   const [keyword, setKeyword] = useState("");
   const [lastSent, setLastSent] = useState<{ method: HttpMethod; url: string } | null>(null);
+  const [sideWidth, setSideWidth] = useSideWidth("api.sideWidth", 262);
 
   const patch = (next: Partial<ApiRequest>) => setRequest((prev) => ({ ...prev, ...next }));
 
@@ -343,7 +345,7 @@ export default function ApiModule() {
       </header>
 
       <div className="api-body">
-        <aside className="api-side">
+        <aside className="api-side" style={{ width: sideWidth }}>
           <Button
             size="large"
             icon={<PlusOutlined />}
@@ -439,6 +441,8 @@ export default function ApiModule() {
           </div>
           </div>
         </aside>
+
+        <SideResizer width={sideWidth} onChange={setSideWidth} />
 
         <section className="api-main">
           <div className="api-bar">
