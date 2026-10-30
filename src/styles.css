@@ -5485,9 +5485,17 @@ body.sftp-resizing .sftp-resizer::after {
 
 .db-filter-row {
   display: grid;
-  grid-template-columns: 150px 130px minmax(100px, 1fr) 28px;
+  grid-template-columns: 28px 150px 130px minmax(100px, 1fr) 76px 28px;
   align-items: center;
   gap: 6px;
+}
+
+.db-filter-row > .ant-checkbox-wrapper {
+  justify-self: center;
+}
+
+.db-filter-row-disabled {
+  opacity: 0.62;
 }
 
 .db-grid-resizable {
@@ -6090,14 +6098,25 @@ body.sftp-resizing .sftp-resizer::after {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(240px, 1fr));
-  gap: 16px 24px;
+  grid-template-columns: minmax(0, 760px);
+  gap: 14px;
   align-content: start;
-  max-width: 900px;
   padding: 18px;
   overflow: auto;
 }
 
 .db-settings-form .db-field {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 16px;
   min-width: 0;
+}
+
+.db-settings-form .db-label {
+  text-align: left;
+}
+
+.db-settings-form .db-hint {
+  grid-column: 2;
 }

@@ -363,10 +363,14 @@ pub struct DbColumnInfo {
 #[serde(rename_all = "camelCase")]
 pub struct DbFilter {
     pub column: String,
-    /// eq / neq / contains / startsWith / endsWith / gt / gte / lt / lte / isNull / isNotNull
+    /// eq / neq / contains / notContains / startsWith / endsWith / gt / gte / lt / lte /
+    /// isNull / isNotNull / in / notIn
     pub operator: String,
     #[serde(default)]
     pub value: Option<String>,
+    /// 当前条件与上一个条件之间的连接符：and / or
+    #[serde(default)]
+    pub conjunction: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

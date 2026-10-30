@@ -34,6 +34,7 @@ export interface DbFilter {
   column: string;
   operator: string;
   value?: string | null;
+  conjunction?: "and" | "or";
 }
 
 export interface DbKey {
