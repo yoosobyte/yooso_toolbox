@@ -142,7 +142,7 @@ export default function DbForm({ open, initial, onClose, onSaved }: Props) {
                       type="button"
                       className={`db-color-swatch${draft.color === value ? " active" : ""}`}
                       style={{
-                        backgroundColor: `color-mix(in srgb, ${value} 30%, var(--bg-panel))`,
+                        backgroundColor: `color-mix(in srgb, ${value} 22%, #fff)`,
                       }}
                       title={value}
                       onClick={() => patch({ color: value })}
