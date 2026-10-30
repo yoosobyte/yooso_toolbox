@@ -16,6 +16,90 @@ interface Props {
   onSqlChange?: (sql: string) => void;
 }
 
+interface SqlResult {
+  statement: string;
+  result: DbQueryResult | null;
+  error: string | null;
+}
+
+function splitSqlStatements(input: string): string[] {
+  const statements: string[] = [];
+  let current = "";
+  let quote: "'" | '"' | "`" | null = null;
+  let lineComment = false;
+  let blockComment = false;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+    const next = input[index + 1];
+
+    if (lineComment) {
+      current += char;
+      if (char === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      current += char;
+      if (char === "*" && next === "/") {
+        current += next;
+        index += 1;
+        blockComment = false;
+      }
+      continue;
+    }
+    if (quote) {
+      current += char;
+      if (char === "\\" && quote !== "`") {
+        if (next) {
+          current += next;
+          index += 1;
+        }
+        continue;
+      }
+      if (char === quote) {
+        if (next === quote) {
+          current += next;
+          index += 1;
+        } else {
+          quote = null;
+        }
+      }
+      continue;
+    }
+    if (char === "-" && next === "-") {
+      lineComment = true;
+      current += char;
+      continue;
+    }
+    if (char === "#") {
+      lineComment = true;
+      current += char;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      blockComment = true;
+      current += char;
+      continue;
+    }
+    if (char === "'" || char === '"' || char === "`") {
+      quote = char;
+      current += char;
+      continue;
+    }
+    if (char === ";") {
+      const statement = current.trim();
+      if (statement) statements.push(statement);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  const statement = current.trim();
+  if (statement) statements.push(statement);
+  return statements;
+}
+
 export default function DbSqlView({
   connectionId,
   database,
@@ -24,29 +108,43 @@ export default function DbSqlView({
 }: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const [sql, setSql] = useState(initialSql ?? "");
-  const [result, setResult] = useState<DbQueryResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<SqlResult[]>([]);
+  const [activeResult, setActiveResult] = useState(0);
   const [running, setRunning] = useState(false);
   const [editorHeight, setEditorHeight] = useState(320);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const highlightRef = useRef<HTMLPreElement | null>(null);
 
   const run = async () => {
-    const statement = sql.trim();
-    if (!statement || running) return;
+    const statements = splitSqlStatements(sql);
+    if (statements.length === 0 || running) return;
+
     setRunning(true);
-    setError(null);
+    setResults([]);
+    setActiveResult(0);
+    const collected: SqlResult[] = [];
+
     try {
-      const next = await dbQuery(connectionId, database, statement);
-      setResult(next);
-    } catch (reason) {
-      setResult(null);
-      setError(errText(reason));
+      for (const statement of statements) {
+        try {
+          const next = await dbQuery(connectionId, database, statement);
+          collected.push({ statement, result: next, error: null });
+          setResults([...collected]);
+        } catch (reason) {
+          collected.push({ statement, result: null, error: errText(reason) });
+          setResults([...collected]);
+          setActiveResult(collected.length - 1);
+          break;
+        }
+      }
     } finally {
       setRunning(false);
     }
   };
 
+  const current = results[activeResult] ?? null;
+  const result = current?.result ?? null;
+  const error = current?.error ?? null;
   const hasRows = (result?.columns.length ?? 0) > 0;
 
   const startResize = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -138,6 +236,21 @@ export default function DbSqlView({
       />
 
       <div className="db-sql-result">
+        {results.length > 1 && (
+          <div className="db-sql-result-tabs">
+            {results.map((item, index) => (
+              <button
+                key={index}
+                type="button"
+                className={`db-sql-result-tab${activeResult === index ? " active" : ""}`}
+                title={item.statement}
+                onClick={() => setActiveResult(index)}
+              >
+                {t("db.result", { index: index + 1 })}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="db-sql-status">
           {running ? (
             <span className="db-muted">

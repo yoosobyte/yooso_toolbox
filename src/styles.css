@@ -6571,3 +6571,43 @@ body.sftp-resizing .sftp-resizer::after {
 .sql-punct {
   color: var(--sql-punct);
 }
+
+.db-sql-result-tabs {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 4px 8px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.db-sql-result-tabs::-webkit-scrollbar {
+  display: none;
+  height: 0;
+}
+
+.db-sql-result-tab {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.db-sql-result-tab:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.db-sql-result-tab.active {
+  border-color: var(--border);
+  background: var(--bg-panel);
+  color: var(--text);
+}
