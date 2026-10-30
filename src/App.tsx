@@ -191,7 +191,7 @@ export default function App() {
   return (
     <div className="app">
       <aside className="rail">
-        <div className="rail-logo" title="Yooso Toolbox">
+        <div className="rail-logo" title="悦盒">
           <AppLogo />
         </div>
         <div className="rail-group">
