@@ -170,6 +170,7 @@ export default function BrowserModule({ obscured = false }: Props) {
   const webviewsRef = useRef<Map<string, Webview>>(new Map());
   const activeIdRef = useRef<string | null>(null);
   const originRef = useRef<{ x: number; y: number } | null>(null);
+  const fullscreenRef = useRef(false);
   const dialogOpenRef = useRef(false);
   activeIdRef.current = activeId;
 
@@ -186,12 +187,20 @@ export default function BrowserModule({ obscured = false }: Props) {
   const loadOrigin = async () => {
     if (originRef.current) return originRef.current;
     const isMac = /mac/i.test(navigator.userAgent);
+    const isWindows = /windows/i.test(navigator.userAgent);
     try {
       const win = getCurrentWindow();
-      const [scale, outer] = await Promise.all([
+      const [scale, outer, fullscreen] = await Promise.all([
         win.scaleFactor(),
         win.outerPosition(),
+        win.isFullscreen(),
       ]);
+      fullscreenRef.current = fullscreen;
+      // 全屏 / Windows：子 WebView 坐标相对窗口客户区，原点就是 0
+      if (fullscreen || isWindows) {
+        originRef.current = { x: 0, y: 0 };
+        return originRef.current;
+      }
       const candidates = [
         window.outerHeight - window.innerHeight,
         window.screenY - outer.y / scale,
@@ -219,12 +228,13 @@ export default function BrowserModule({ obscured = false }: Props) {
     await webview
       .setPosition(new PhysicalPosition(x, y))
       .catch(() => undefined);
-    // 尺寸向上取整，底部再多探约 3px，避免缩放取整后露出缝隙
+    // 窗口模式底部多探 3px 盖住缝隙；全屏时窗口底边就是屏幕底边，不能再多探
+    const bottomExtra = fullscreenRef.current ? 0 : Math.round(3 * dpr);
     await webview
       .setSize(
         new PhysicalSize(
           Math.ceil(rect.width * dpr) + 2,
-          Math.ceil(rect.height * dpr) + Math.round(3 * dpr),
+          Math.ceil(rect.height * dpr) + bottomExtra,
         ),
       )
       .catch(() => undefined);
@@ -337,6 +347,21 @@ export default function BrowserModule({ obscured = false }: Props) {
       window.removeEventListener("resize", sync);
     };
   }, [native, activeId]);
+
+  /* 窗口尺寸 / 全屏状态变化时，重新计算坐标原点 */
+  useEffect(() => {
+    if (!native) return;
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow()
+      .onResized(() => {
+        originRef.current = null;
+      })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => undefined);
+    return () => unlisten?.();
+  }, [native]);
 
   /* 组件卸载时销毁所有子 WebView */
   useEffect(() => {
