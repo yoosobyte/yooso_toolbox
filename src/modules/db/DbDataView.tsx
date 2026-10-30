@@ -500,7 +500,9 @@ export default function DbDataView({ connectionId, database, table, refreshToken
               />
               <Button
                 size="small"
-                type="text"
+                type="default"
+                className="db-filter-delete"
+                title={t("common.delete")}
                 icon={<CloseOutlined />}
                 onClick={() =>
                   setDraft((prev) => prev.filter((item) => item.id !== filter.id))
