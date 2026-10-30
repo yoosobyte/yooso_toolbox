@@ -748,9 +748,11 @@ export default function DbStructureView({ connectionId, database, table, refresh
                     })}
                     <td className="db-structure-cell db-structure-check">
                       <Checkbox
-                        checked={row.nullable}
+                        checked={!row.nullable}
                         disabled={!enabled}
-                        onChange={(event) => void toggleNullable(rowIndex, event.target.checked)}
+                        onChange={(event) =>
+                          void toggleNullable(rowIndex, !event.target.checked)
+                        }
                       />
                     </td>
                     <td
@@ -800,10 +802,10 @@ export default function DbStructureView({ connectionId, database, table, refresh
                     <td className="db-structure-cell">{draftInput("length", "length", true)}</td>
                     <td className="db-structure-cell db-structure-check">
                       <Checkbox
-                        checked={draft.nullable}
+                        checked={!draft.nullable}
                         onChange={(event) =>
                           setDraft((current) =>
-                            current ? { ...current, nullable: event.target.checked } : current,
+                            current ? { ...current, nullable: !event.target.checked } : current,
                           )
                         }
                       />
