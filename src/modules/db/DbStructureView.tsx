@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { App as AntdApp, Button, Checkbox, Spin, Tooltip } from "antd";
+import { App as AntdApp, Button, Checkbox, Select, Spin, Tooltip } from "antd";
 import {
   CheckOutlined,
   CloseOutlined,
@@ -40,17 +40,85 @@ interface Props {
   refreshToken: number;
 }
 
-type EditableField =
-  | "field"
-  | "type"
-  | "length"
-  | "defaultValue"
-  | "comment";
+type EditableField = "field" | "length" | "defaultValue" | "comment";
+
+const TYPE_OPTIONS = [
+  "varchar",
+  "char",
+  "text",
+  "tinytext",
+  "mediumtext",
+  "longtext",
+  "int",
+  "integer",
+  "bigint",
+  "smallint",
+  "tinyint",
+  "mediumint",
+  "decimal",
+  "numeric",
+  "float",
+  "double",
+  "date",
+  "datetime",
+  "timestamp",
+  "time",
+  "year",
+  "json",
+  "blob",
+  "tinyblob",
+  "mediumblob",
+  "longblob",
+  "binary",
+  "varbinary",
+  "enum",
+  "set",
+  "bit",
+];
+
+const TYPE_LENGTH_DEFAULTS: Record<string, string> = {
+  varchar: "255",
+  char: "1",
+  binary: "255",
+  varbinary: "255",
+  decimal: "10,2",
+  numeric: "10,2",
+  bit: "1",
+};
+
+const AUTO_INCREMENT_TYPES = new Set([
+  "tinyint",
+  "smallint",
+  "mediumint",
+  "int",
+  "integer",
+  "bigint",
+]);
+
+const COLLATION_TYPES = new Set([
+  "char",
+  "varchar",
+  "tinytext",
+  "text",
+  "mediumtext",
+  "longtext",
+  "enum",
+  "set",
+]);
+
+const defaultLengthForType = (type: string) => TYPE_LENGTH_DEFAULTS[type] ?? "";
+const supportsAutoIncrement = (type: string) => AUTO_INCREMENT_TYPES.has(type);
+const supportsCollation = (type: string) => COLLATION_TYPES.has(type);
+const stripAutoIncrement = (value: string) =>
+  value
+    .replace(/\bauto_increment\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
 const emptyColumn = (collation: string): ColumnDefinition => ({
   field: "",
-  type: "",
-  length: "",
+  type: "varchar",
+  length: "255",
   suffix: "",
   collation,
   nullable: true,
@@ -254,11 +322,9 @@ export default function DbStructureView({ connectionId, database, table, refresh
     const current = rows[currentEdit.row];
     if (!current) return;
     const value =
-      currentEdit.field === "field" || currentEdit.field === "type"
-        ? currentEdit.value.trim()
-        : currentEdit.value;
+      currentEdit.field === "field" ? currentEdit.value.trim() : currentEdit.value;
     if (value === String(current[currentEdit.field])) return;
-    if (!value && (currentEdit.field === "field" || currentEdit.field === "type")) {
+    if (!value && currentEdit.field === "field") {
       message.warning(t("db.columnRequired"));
       setReload((counter) => counter + 1);
       return;
@@ -306,6 +372,70 @@ export default function DbStructureView({ connectionId, database, table, refresh
     } finally {
       setApplying(false);
     }
+  };
+
+  const typeOptions = Array.from(
+    new Set([...TYPE_OPTIONS, ...rows.map((row) => row.type).filter(Boolean)]),
+  ).map((value) => ({ value, label: value }));
+
+  const changeType = async (rowIndex: number, type: string) => {
+    if (applying || draft) return;
+    const current = rows[rowIndex];
+    if (!current) return;
+    const length = defaultLengthForType(type);
+    const extra = supportsAutoIncrement(type)
+      ? current.extra
+      : stripAutoIncrement(current.extra);
+    const collation = supportsCollation(type)
+      ? current.collation || defaultCollation
+      : "";
+    const suffix = supportsCollation(type) ? "" : current.suffix;
+    if (
+      type === current.type &&
+      length === current.length &&
+      extra === current.extra &&
+      collation === current.collation &&
+      suffix === current.suffix
+    ) {
+      return;
+    }
+    setApplying(true);
+    try {
+      await dbExecDdl(
+        connectionId,
+        buildModifyColumnSql({
+          database,
+          table,
+          oldName: current.field,
+          column: { ...current, type, length, extra, collation, suffix },
+        }),
+      );
+      message.success(t("db.columnUpdated"));
+      setReload((counter) => counter + 1);
+    } catch (reason) {
+      message.error(errText(reason));
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const changeDraftType = (type: string) => {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            type,
+            length: defaultLengthForType(type),
+            extra: supportsAutoIncrement(type)
+              ? current.extra
+              : stripAutoIncrement(current.extra),
+            collation: supportsCollation(type)
+              ? current.collation || defaultCollation
+              : "",
+            suffix: supportsCollation(type) ? "" : current.suffix,
+          }
+        : current,
+    );
   };
 
   const canUsePrimaryKey = (column: ColumnDefinition): boolean => {
@@ -364,15 +494,12 @@ export default function DbStructureView({ connectionId, database, table, refresh
   const toggleAutoIncrement = async (rowIndex: number, checked: boolean) => {
     if (applying || draft) return;
     const current = rows[rowIndex];
-    if (!current) return;
+    if (!current || !supportsAutoIncrement(current.type)) return;
     const extra = checked
       ? current.extra.toLowerCase().includes("auto_increment")
         ? current.extra
         : `${current.extra} auto_increment`.trim()
-      : current.extra
-          .replace(/\bauto_increment\b/gi, "")
-          .replace(/\s+/g, " ")
-          .trim();
+      : stripAutoIncrement(current.extra);
     setApplying(true);
     try {
       await dbExecDdl(
@@ -548,10 +675,6 @@ export default function DbStructureView({ connectionId, database, table, refresh
         }
       }}
     >
-      <div className="db-view-toolbar">
-        <span className="db-muted">{t("db.tableStructure")}</span>
-      </div>
-
       <div className="db-structure-area">
         {error ? (
           <div className="db-error">{error}</div>
@@ -574,15 +697,18 @@ export default function DbStructureView({ connectionId, database, table, refresh
                 <col style={{ width: "33%" }} />
               </colgroup>
               <thead>
+                <tr className="db-structure-title-row">
+                  <th colSpan={9}>{t("db.tableStructure")}</th>
+                </tr>
                 <tr>
                   <th className="db-structure-gutter" />
                   <th>{t("db.colField")}</th>
                   <th>{t("db.colType")}</th>
                   <th>{t("db.colLength")}</th>
-                  <th>{t("db.colNullable")}</th>
-                  <th>{t("db.colKey")}</th>
+                  <th className="db-structure-center">{t("db.colNullable")}</th>
+                  <th className="db-structure-center">{t("db.colKey")}</th>
                   <th>{t("db.colDefault")}</th>
-                  <th>{t("db.colAutoIncrement")}</th>
+                  <th className="db-structure-center">{t("db.colAutoIncrement")}</th>
                   <th>{t("db.colComment")}</th>
                 </tr>
               </thead>
@@ -598,7 +724,19 @@ export default function DbStructureView({ connectionId, database, table, refresh
                       onClick={(event) => selectRow(rowIndex, event)}
                     />
                     {editCell(rowIndex, "field", row.field, { placeholder: "column" })}
-                    {editCell(rowIndex, "type", row.type, { mono: true, placeholder: "type" })}
+                    <td className="db-structure-cell">
+                      <Select
+                        className="db-structure-type-select"
+                        size="small"
+                        variant="borderless"
+                        value={row.type}
+                        disabled={!enabled}
+                        options={typeOptions}
+                        onChange={(value) => void changeType(rowIndex, value)}
+                        popupMatchSelectWidth={false}
+                        style={{ width: "100%" }}
+                      />
+                    </td>
                     {editCell(rowIndex, "length", row.length, {
                       mono: true,
                       placeholder: "length",
@@ -625,11 +763,15 @@ export default function DbStructureView({ connectionId, database, table, refresh
                     </td>
                     {editCell(rowIndex, "defaultValue", row.defaultValue, { mono: true, placeholder: "default" })}
                     <td className="db-structure-cell db-structure-check">
-                      <Checkbox
-                        checked={row.extra.toLowerCase().includes("auto_increment")}
-                        disabled={!enabled}
-                        onChange={(event) => void toggleAutoIncrement(rowIndex, event.target.checked)}
-                      />
+                      {supportsAutoIncrement(row.type) ? (
+                        <Checkbox
+                          checked={row.extra.toLowerCase().includes("auto_increment")}
+                          disabled={!enabled}
+                          onChange={(event) => void toggleAutoIncrement(rowIndex, event.target.checked)}
+                        />
+                      ) : (
+                        <span className="db-structure-empty" />
+                      )}
                     </td>
                     {editCell(rowIndex, "comment", row.comment, { placeholder: "comment" })}
                   </tr>
@@ -639,7 +781,18 @@ export default function DbStructureView({ connectionId, database, table, refresh
                   <tr className="db-structure-draft">
                     <td className="db-structure-gutter" />
                     <td className="db-structure-cell">{draftInput("field", "column")}</td>
-                    <td className="db-structure-cell">{draftInput("type", "type", true)}</td>
+                    <td className="db-structure-cell">
+                      <Select
+                        className="db-structure-type-select"
+                        size="small"
+                        variant="borderless"
+                        value={draft.type}
+                        options={typeOptions}
+                        onChange={changeDraftType}
+                        popupMatchSelectWidth={false}
+                        style={{ width: "100%" }}
+                      />
+                    </td>
                     <td className="db-structure-cell">{draftInput("length", "length", true)}</td>
                     <td className="db-structure-cell db-structure-check">
                       <Checkbox
@@ -656,24 +809,25 @@ export default function DbStructureView({ connectionId, database, table, refresh
                     </td>
                     <td className="db-structure-cell">{draftInput("defaultValue", "default", true)}</td>
                     <td className="db-structure-cell db-structure-check">
-                      <Checkbox
-                        checked={draft.extra.toLowerCase().includes("auto_increment")}
-                        onChange={(event) =>
-                          setDraft((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  extra: event.target.checked
-                                    ? `${current.extra} auto_increment`.trim()
-                                    : current.extra
-                                        .replace(/\bauto_increment\b/gi, "")
-                                        .replace(/\s+/g, " ")
-                                        .trim(),
-                                }
-                              : current,
-                          )
-                        }
-                      />
+                      {supportsAutoIncrement(draft.type) ? (
+                        <Checkbox
+                          checked={draft.extra.toLowerCase().includes("auto_increment")}
+                          onChange={(event) =>
+                            setDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    extra: event.target.checked
+                                      ? `${current.extra} auto_increment`.trim()
+                                      : stripAutoIncrement(current.extra),
+                                  }
+                                : current,
+                            )
+                          }
+                        />
+                      ) : (
+                        <span className="db-structure-empty" />
+                      )}
                     </td>
                     <td className="db-structure-cell">{draftInput("comment", "comment")}</td>
                   </tr>

@@ -6070,3 +6070,33 @@ body.sftp-resizing .sftp-resizer::after {
 .db-index-actions .db-action-btn {
   padding: 0 4px;
 }
+
+.db-structure-table th.db-structure-center {
+  text-align: center;
+}
+
+.db-structure-title-row th {
+  position: static;
+  height: 30px;
+  border-right: none;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.db-structure-type-select.ant-select {
+  width: 100%;
+}
+
+.db-structure-type-select .ant-select-selector {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.db-structure-type-select .ant-select-selection-item {
+  padding-inline-end: 16px;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 11.5px;
+}
