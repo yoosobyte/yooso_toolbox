@@ -6488,3 +6488,86 @@ body.sftp-resizing .sftp-resizer::after {
 .db-tree-query {
   color: var(--text-dim);
 }
+
+.db-sql-editor {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.db-sql-highlight,
+.db-sql-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 10px 12px;
+  border: none;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+.db-sql-highlight {
+  pointer-events: none;
+  color: var(--text-2);
+  background: var(--bg-panel);
+  scrollbar-width: none;
+}
+
+.db-sql-highlight::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.db-sql-input {
+  resize: none;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--text);
+}
+
+.db-sql-input::placeholder {
+  color: var(--text-mute);
+  -webkit-text-fill-color: var(--text-mute);
+}
+
+.db-sql-input::selection {
+  background: var(--accent-soft);
+}
+
+.sql-keyword {
+  color: var(--sql-keyword);
+  font-weight: 600;
+}
+
+.sql-type {
+  color: var(--sql-type);
+}
+
+.sql-string {
+  color: var(--sql-string);
+}
+
+.sql-number {
+  color: var(--sql-number);
+}
+
+.sql-identifier {
+  color: var(--sql-identifier);
+}
+
+.sql-comment {
+  color: var(--sql-comment);
+  font-style: italic;
+}
+
+.sql-punct {
+  color: var(--sql-punct);
+}
