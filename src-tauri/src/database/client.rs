@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::core::models::{
     DbColumnInfo, DbConfig, DbConnectInfo, DbFilter, DbKey, DbQueryResult, DbTableInfo,
+    DbTableOptions,
 };
 use crate::AppState;
 
@@ -611,6 +612,41 @@ pub async fn db_table_indexes(
         None,
     )
     .await
+}
+
+#[tauri::command]
+pub async fn db_table_options(
+    state: State<'_, AppState>,
+    id: String,
+    database: String,
+    table: String,
+) -> Result<DbTableOptions, String> {
+    let connection = connection(&state, &id).await?;
+    let mut conn = connection.conn.lock().await;
+    let result = run_query_params(
+        &mut conn,
+        "SELECT TABLE_NAME, TABLE_COMMENT, ENGINE, AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?"
+            .to_string(),
+        Params::Positional(vec![
+            Value::Bytes(database.into_bytes()),
+            Value::Bytes(table.into_bytes()),
+        ]),
+        None,
+        Vec::new(),
+    )
+    .await?;
+    let row = result
+        .rows
+        .into_iter()
+        .next()
+        .ok_or_else(|| "表不存在".to_string())?;
+    let value = |index: usize| row.get(index).cloned().flatten().unwrap_or_default();
+    Ok(DbTableOptions {
+        name: value(0),
+        comment: value(1),
+        engine: value(2),
+        auto_increment: value(3).parse().ok(),
+    })
 }
 
 #[tauri::command]

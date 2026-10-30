@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { App as AntdApp, Button, Input, Select, Spin, Tooltip } from "antd";
-import { CheckOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
+import {
+  CheckOutlined,
+  DeleteOutlined,
+  KeyOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
@@ -204,7 +210,9 @@ export default function DbIndexView({ connectionId, database, table }: Props) {
   return (
     <div className="db-index-view">
       <div className="db-view-toolbar">
-        <span className="db-muted">{t("db.tableIndexes")}</span>
+        <Button size="small" type="text" icon={<KeyOutlined />}>
+          {t("db.indexes")}
+        </Button>
         <span style={{ flex: 1 }} />
         <Tooltip title={t("db.addIndex")}>
           <Button size="small" type="text" icon={<PlusOutlined />} onClick={add} />

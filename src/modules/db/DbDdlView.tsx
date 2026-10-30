@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { App as AntdApp, Button, Tooltip } from "antd";
-import { CopyOutlined, ReloadOutlined } from "@ant-design/icons";
+import { CodeOutlined, CopyOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
@@ -17,7 +17,6 @@ export default function DbDdlView({ connectionId, database, table }: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const { message } = AntdApp.useApp();
   const [sql, setSql] = useState("");
-  const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +49,9 @@ export default function DbDdlView({ connectionId, database, table }: Props) {
   return (
     <div className="db-ddl-view">
       <div className="db-view-toolbar">
-        <span className="db-muted">{t("db.tableDdl")}</span>
+        <Button size="small" type="text" icon={<CodeOutlined />}>
+          {t("db.ddl")}
+        </Button>
         <span style={{ flex: 1 }} />
         <Tooltip title={t("db.refreshData")}>
           <Button
@@ -71,12 +72,6 @@ export default function DbDdlView({ connectionId, database, table }: Props) {
         </Button>
       </div>
       {error && <div className="db-error">{error}</div>}
-      <textarea
-        className="db-ddl-comment"
-        value={comment}
-        placeholder={t("db.ddlCommentPlaceholder")}
-        onChange={(event) => setComment(event.target.value)}
-      />
       <textarea
         className="db-ddl-input"
         spellCheck={false}

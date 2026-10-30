@@ -83,6 +83,16 @@ export const dbCloneTable = (
 export const dbDatabaseCollation = (id: string, database: string) =>
   invoke<string | null>("db_database_collation", { id, database });
 
+export interface DbTableOptions {
+  name: string;
+  comment: string;
+  engine: string;
+  autoIncrement: number | null;
+}
+
+export const dbTableOptions = (id: string, database: string, table: string) =>
+  invoke<DbTableOptions>("db_table_options", { id, database, table });
+
 export const dbTableDdl = (id: string, database: string, table: string) =>
   invoke<string>("db_table_ddl", { id, database, table });
 

@@ -5,13 +5,15 @@ import DbDataView from "./DbDataView";
 import DbStructureView from "./DbStructureView";
 import DbDdlView from "./DbDdlView";
 import DbIndexView from "./DbIndexView";
+import DbSettingsView from "./DbSettingsView";
 
 interface Props {
   connectionId: string;
   database: string;
   table: string;
-  view: "data" | "structure" | "ddl" | "index";
-  onViewChange: (view: "data" | "structure" | "ddl" | "index") => void;
+  view: "data" | "structure" | "index" | "settings" | "ddl";
+  onViewChange: (view: "data" | "structure" | "index" | "settings" | "ddl") => void;
+  onTableRenamed: (table: string) => void;
 }
 
 export default function DbTableTab({
@@ -20,6 +22,7 @@ export default function DbTableTab({
   table,
   view,
   onViewChange,
+  onTableRenamed,
 }: Props) {
   const t = useT(useUiStore((state) => state.lang));
 
@@ -29,11 +32,14 @@ export default function DbTableTab({
         <Segmented
           size="small"
           value={view}
-          onChange={(next) => onViewChange(next as "data" | "structure" | "ddl" | "index")}
+          onChange={(next) =>
+            onViewChange(next as "data" | "structure" | "index" | "settings" | "ddl")
+          }
           options={[
             { value: "data", label: t("db.data") },
             { value: "structure", label: t("db.structure") },
             { value: "index", label: t("db.indexes") },
+            { value: "settings", label: t("db.settings") },
             { value: "ddl", label: t("db.ddl") },
           ]}
         />
@@ -68,6 +74,17 @@ export default function DbTableTab({
       {view === "index" && (
         <div className="db-slot" style={{ display: "flex" }}>
           <DbIndexView connectionId={connectionId} database={database} table={table} />
+        </div>
+      )}
+
+      {view === "settings" && (
+        <div className="db-slot" style={{ display: "flex" }}>
+          <DbSettingsView
+            connectionId={connectionId}
+            database={database}
+            table={table}
+            onRenamed={onTableRenamed}
+          />
         </div>
       )}
     </div>
