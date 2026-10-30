@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 export interface DbConfig {
   id: string;
   name: string;
+  color?: string | null;
   kind: string;
   host: string;
   port: number;

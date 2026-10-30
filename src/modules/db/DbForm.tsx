@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { App as AntdApp, Button, Checkbox, Input, InputNumber, Modal, Select } from "antd";
+import { App as AntdApp, Button, Checkbox, ColorPicker, Input, InputNumber, Modal, Select } from "antd";
 import { useDbStore } from "../../stores/dbStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
@@ -18,6 +18,7 @@ function emptyDraft(): DbConfig {
   return {
     id: crypto.randomUUID(),
     name: "",
+    color: "#3b82f6",
     kind: "mysql",
     host: "127.0.0.1",
     port: 3306,
@@ -116,6 +117,16 @@ export default function DbForm({ open, initial, onClose, onSaved }: Props) {
               value={draft.name}
               placeholder={t("db.namePlaceholder")}
               onChange={(event) => patch({ name: event.target.value })}
+            />
+          </label>
+          <label className="db-field">
+            <span className="db-label">{t("db.color")}</span>
+            <ColorPicker
+              value={draft.color ?? "#3b82f6"}
+              format="hex"
+              showText
+              disabledAlpha
+              onChange={(color) => patch({ color: color.toHexString() })}
             />
           </label>
           <label className="db-field">

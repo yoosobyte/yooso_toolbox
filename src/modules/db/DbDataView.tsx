@@ -422,7 +422,9 @@ export default function DbDataView({ connectionId, database, table, refreshToken
           }}
         >
           {t("db.filter")}
-          <span className="db-filter-count">{filters.length}</span>
+          {filters.length > 0 && (
+            <span className="db-filter-count">{filters.length}</span>
+          )}
         </Button>
       </div>
 

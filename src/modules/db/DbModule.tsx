@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { App as AntdApp, Button, Typography } from "antd";
 import {
   ClearOutlined,
@@ -8,6 +9,7 @@ import {
   DeleteOutlined,
   DisconnectOutlined,
   PlusOutlined,
+  TableOutlined,
 } from "@ant-design/icons";
 import { useDbStore } from "../../stores/dbStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -481,9 +483,21 @@ export default function DbModule() {
   const selection = activeTableTab
     ? { database: activeTableTab.database, table: activeTableTab.table }
     : null;
+  const connectionColor =
+    active?.color && /^#[0-9a-f]{6}$/i.test(active.color)
+      ? active.color
+      : "#3b82f6";
+  const duplicatedTableNames = new Set(
+    tableTabs
+      .map((tab) => tab.table)
+      .filter((name, index, all) => all.indexOf(name) !== index),
+  );
 
   return (
-    <div className="module db-module">
+    <div
+      className="module db-module"
+      style={{ "--db-conn-color": connectionColor } as CSSProperties}
+    >
       <header className="module-head">
         <span className="module-icon">
           <DatabaseIcon />
@@ -580,15 +594,18 @@ export default function DbModule() {
                         }
                       }}
                     >
+                      <TableOutlined />
                       <span className="db-tab-label">
                         <span className="db-tab-table">{tab.table}</span>
-                        <span className="db-tab-db-wrap">
-                          <span className="db-tab-db-open">(</span>
-                          <span className="db-tab-db" title={tab.database}>
-                            {tab.database}
+                        {duplicatedTableNames.has(tab.table) && (
+                          <span className="db-tab-db-wrap">
+                            <span className="db-tab-db-open">(</span>
+                            <span className="db-tab-db" title={tab.database}>
+                              {tab.database}
+                            </span>
+                            <span className="db-tab-db-close">)</span>
                           </span>
-                          <span className="db-tab-db-close">)</span>
-                        </span>
+                        )}
                       </span>
                       <button
                         type="button"
