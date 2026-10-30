@@ -56,23 +56,8 @@ interface TableTab {
 
 const SYSTEM_DATABASES = new Set(["information_schema", "mysql", "performance_schema", "sys"]);
 
-const SIDE_WIDTH_KEY = "db.sideWidth";
-const DEFAULT_SIDE_WIDTH = 272;
 const MIN_SIDE_WIDTH = 200;
 const MAX_SIDE_WIDTH = 560;
-
-function loadSideWidth(): number {
-  try {
-    const raw = localStorage.getItem(SIDE_WIDTH_KEY);
-    const value = raw === null ? Number.NaN : Number(raw);
-    if (Number.isFinite(value) && value >= MIN_SIDE_WIDTH) {
-      return Math.min(MAX_SIDE_WIDTH, value);
-    }
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_SIDE_WIDTH;
-}
 
 function pickDatabase(databases: string[], preferred: string | null): string | null {
   if (preferred && databases.includes(preferred)) return preferred;
@@ -132,7 +117,8 @@ export default function DbModule() {
     key: string;
   } | null>(null);
 
-  const [sideWidth, setSideWidth] = useState(loadSideWidth);
+  const sideWidth = useUiStore((state) => state.sideWidth);
+  const setSideWidth = useUiStore((state) => state.setSideWidth);
   const dbRequest = useRef(0);
   const activeIdRef = useRef<string | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -151,14 +137,6 @@ export default function DbModule() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(SIDE_WIDTH_KEY, String(Math.round(sideWidth)));
-    } catch {
-      /* ignore */
-    }
-  }, [sideWidth]);
 
   /** 拖动左右分栏之间的分隔条调整左侧宽度 */
   const startSideResize = (event: React.MouseEvent<HTMLDivElement>) => {

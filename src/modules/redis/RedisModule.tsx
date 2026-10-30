@@ -10,7 +10,7 @@ import { useRedisStore } from "../../stores/redisStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
-import { SideResizer, useSideWidth } from "../../components/SideResizer";
+import { SideResizer } from "../../components/SideResizer";
 import RedisConnectionList from "./RedisConnectionList";
 import RedisForm from "./RedisForm";
 import RedisBrowser from "./RedisBrowser";
@@ -41,7 +41,8 @@ export default function RedisModule() {
   const [refreshToken, setRefreshToken] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<RedisConfig | null>(null);
-  const [sideWidth, setSideWidth] = useSideWidth("redis.sideWidth", 252);
+  const sideWidth = useUiStore((state) => state.sideWidth);
+  const setSideWidth = useUiStore((state) => state.setSideWidth);
 
   useEffect(() => {
     void load();
@@ -138,7 +139,7 @@ export default function RedisModule() {
     <div className="module redis-module">
       <header className="module-head">
         <span className="module-icon">
-          <CodeOutlined />
+          <RedisIcon />
         </span>
         <div>
           <Typography.Text strong style={{ fontSize: 14 }}>

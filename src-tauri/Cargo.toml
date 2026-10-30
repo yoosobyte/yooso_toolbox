@@ -41,6 +41,11 @@ tar = "0.4"
 flate2 = "1"
 
 # 关闭 WebView2 的浏览器快捷键（否则 Ctrl+Shift+C 会打开开发者工具）
+[target.'cfg(target_os = "macos")'.dependencies]
+# 让 dev 模式下的系统对话框（访达）跟随中文
+objc2 = "0.6"
+objc2-foundation = "0.3"
+
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
 windows = { version = "0.62", features = ["Win32_Foundation"] }

@@ -417,27 +417,17 @@ export default function BrowserModule({ obscured = false }: Props) {
     }
   };
 
-  /* 模块可见时自动打开标记的站点；切走后关闭所有 tab */
+  /* 模块可见时自动打开标记的站点；切走只隐藏 WebView，保留已打开的 tab */
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const closeAllTabs = () => {
-      for (const webview of webviewsRef.current.values()) {
-        void webview.close().catch(() => undefined);
-      }
-      webviewsRef.current.clear();
-      setTabs([]);
-      setActiveId(null);
-      setAddress("");
-    };
     const observer = new ResizeObserver(() => {
       const visible = el.getBoundingClientRect().width > 0;
       if (visible && !visibleRef.current) {
         visibleRef.current = true;
         autoOpenRef.current();
-      } else if (!visible && visibleRef.current) {
+      } else if (!visible) {
         visibleRef.current = false;
-        closeAllTabs();
       }
     });
     observer.observe(el);

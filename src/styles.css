@@ -377,7 +377,9 @@ button {
 }
 
 .sessions-head {
-  padding: 10px 10px 8px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 10px;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -538,8 +540,10 @@ button {
 
 .tab-bar {
   flex: none;
+  height: 44px;
+  box-sizing: border-box;
   display: flex;
-  align-items: stretch;
+  align-items: flex-end;
   gap: 2px;
   padding: 4px 6px 0;
   background: var(--bg-panel);
@@ -7939,4 +7943,23 @@ body.side-resizing {
   border-radius: 6px;
   background: var(--surface);
   word-break: break-all;
+}
+
+.qr-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qr-group + .qr-group {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.qr-group-title {
+  color: var(--text-mute);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
 }

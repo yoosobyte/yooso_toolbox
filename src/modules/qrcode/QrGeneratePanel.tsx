@@ -4,17 +4,18 @@ import { App as AntdApp, Button, Input, Select, Slider, Tooltip, Typography } fr
 import {
   ClearOutlined,
   CodeOutlined,
+  DeleteOutlined,
   DownloadOutlined,
+  EyeOutlined,
   FileImageOutlined,
   PictureOutlined,
   QrcodeOutlined,
-  DeleteOutlined,
 } from "@ant-design/icons";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText, basename } from "../../utils";
 import { saveDataUrl, saveText } from "../../save";
-import { SideResizer, useSideWidth } from "../../components/SideResizer";
+import { SideResizer } from "../../components/SideResizer";
 import {
   buildMatrix,
   drawQr,
@@ -59,7 +60,8 @@ export default function QrGeneratePanel({ content, onContentChange }: Props) {
   const { message } = AntdApp.useApp();
 
   const [ecLevel, setEcLevel] = useState<EcLevel>("M");
-  const [panelWidth, setPanelWidth] = useSideWidth("qr.sideWidth", 400, 300);
+  const panelWidth = useUiStore((state) => state.sideWidth);
+  const setPanelWidth = useUiStore((state) => state.setSideWidth);
   const [margin, setMargin] = useState(2);
   const [fg, setFg] = useState("#000000");
   const [bg, setBg] = useState("#ffffff");
@@ -169,126 +171,136 @@ export default function QrGeneratePanel({ content, onContentChange }: Props) {
         </div>
 
         <div className="qr-panel-scroll">
-          <div className="qr-field">
-            <Input.TextArea
-              value={content}
-              onChange={(event) => onContentChange(event.target.value)}
-              placeholder={t("qr.contentPlaceholder")}
-              autoSize={{ minRows: 4, maxRows: 8 }}
-              className="qr-content"
-              allowClear
-            />
-            <div className="qr-hint qr-count">{content.length}</div>
-          </div>
-
-          <div className="qr-grid">
+          <div className="qr-group">
+            <div className="qr-group-title">{t("qr.groupContent")}</div>
             <div className="qr-field">
-              <span className="qr-label">{t("qr.ecLevel")}</span>
-              <Select
-                value={ecLevel}
-                onChange={(value) => setEcLevel(value as EcLevel)}
-                options={EC_LEVELS}
-                disabled={!!logo}
+              <Input.TextArea
+                value={content}
+                onChange={(event) => onContentChange(event.target.value)}
+                placeholder={t("qr.contentPlaceholder")}
+                autoSize={{ minRows: 4, maxRows: 8 }}
+                className="qr-content"
+                allowClear
               />
-              <span className="qr-hint">
-                {logo ? t("qr.logoHint") : t("qr.ecHint")}
-              </span>
-            </div>
-            <div className="qr-field">
-              <span className="qr-label">{t("qr.margin")}</span>
-              <Select
-                value={margin}
-                onChange={(value) => setMargin(Number(value))}
-                options={MARGIN_OPTIONS}
-              />
-              <span className="qr-hint">{t("qr.marginHint")}</span>
+              <div className="qr-hint qr-count">{content.length}</div>
             </div>
           </div>
 
-          <div className="qr-grid">
-            <div className="qr-field">
-              <span className="qr-label">{t("qr.foreground")}</span>
-              <div className="qr-color-row">
-                <input
-                  type="color"
-                  className="qr-color"
-                  value={fg}
-                  onChange={(event) => setFg(event.target.value)}
-                  aria-label={t("qr.foreground")}
+          <div className="qr-group">
+            <div className="qr-group-title">{t("qr.groupStyle")}</div>
+            <div className="qr-grid">
+              <div className="qr-field">
+                <span className="qr-label">{t("qr.ecLevel")}</span>
+                <Select
+                  value={ecLevel}
+                  onChange={(value) => setEcLevel(value as EcLevel)}
+                  options={EC_LEVELS}
+                  disabled={!!logo}
                 />
-                <span className="qr-color-code">{fg.toUpperCase()}</span>
-              </div>
-            </div>
-            <div className="qr-field">
-              <span className="qr-label">{t("qr.background")}</span>
-              <div className="qr-color-row">
-                <input
-                  type="color"
-                  className="qr-color"
-                  value={bg}
-                  onChange={(event) => setBg(event.target.value)}
-                  aria-label={t("qr.background")}
-                />
-                <span className="qr-color-code">{bg.toUpperCase()}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="qr-field">
-            <span className="qr-label">{t("qr.logo")}</span>
-            <div className="qr-logo-row">
-              <Button icon={<PictureOutlined />} onClick={pickLogo} size="small">
-                {logo ? t("qr.logoReplace") : t("qr.logoPick")}
-              </Button>
-              {logo && (
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<DeleteOutlined />}
-                  onClick={() => {
-                    setLogo(null);
-                    setLogoName("");
-                  }}
-                >
-                  {t("qr.logoRemove")}
-                </Button>
-              )}
-              {logo && (
-                <span className="qr-logo-name" title={logoName}>
-                  {logoName}
+                <span className="qr-hint">
+                  {logo ? t("qr.logoHint") : t("qr.ecHint")}
                 </span>
-              )}
-            </div>
-            {logo && (
-              <div className="qr-field qr-logo-size">
-                <div className="qr-label">
-                  <span>{t("qr.logoSize")}</span>
-                  <span className="qr-hint">{Math.round(logo.ratio * 100)}%</span>
-                </div>
-                <Slider
-                  min={12}
-                  max={30}
-                  value={Math.round(logo.ratio * 100)}
-                  onChange={(value) => setLogo({ ...logo, ratio: value / 100 })}
-                />
               </div>
-            )}
-            <input
-              ref={logoInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/svg+xml"
-              hidden
-              onChange={onLogoChange}
-            />
+              <div className="qr-field">
+                <span className="qr-label">{t("qr.margin")}</span>
+                <Select
+                  value={margin}
+                  onChange={(value) => setMargin(Number(value))}
+                  options={MARGIN_OPTIONS}
+                />
+                <span className="qr-hint">{t("qr.marginHint")}</span>
+              </div>
+            </div>
+            <div className="qr-grid">
+              <div className="qr-field">
+                <span className="qr-label">{t("qr.foreground")}</span>
+                <div className="qr-color-row">
+                  <input
+                    type="color"
+                    className="qr-color"
+                    value={fg}
+                    onChange={(event) => setFg(event.target.value)}
+                    aria-label={t("qr.foreground")}
+                  />
+                  <span className="qr-color-code">{fg.toUpperCase()}</span>
+                </div>
+              </div>
+              <div className="qr-field">
+                <span className="qr-label">{t("qr.background")}</span>
+                <div className="qr-color-row">
+                  <input
+                    type="color"
+                    className="qr-color"
+                    value={bg}
+                    onChange={(event) => setBg(event.target.value)}
+                    aria-label={t("qr.background")}
+                  />
+                  <span className="qr-color-code">{bg.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="qr-group">
+            <div className="qr-group-title">{t("qr.groupLogo")}</div>
+            <div className="qr-field">
+              <div className="qr-logo-row">
+                <Button icon={<PictureOutlined />} onClick={pickLogo} size="small">
+                  {logo ? t("qr.logoReplace") : t("qr.logoPick")}
+                </Button>
+                {logo && (
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    onClick={() => {
+                      setLogo(null);
+                      setLogoName("");
+                    }}
+                  >
+                    {t("qr.logoRemove")}
+                  </Button>
+                )}
+                {logo && (
+                  <span className="qr-logo-name" title={logoName}>
+                    {logoName}
+                  </span>
+                )}
+              </div>
+              {logo && (
+                <div className="qr-field qr-logo-size">
+                  <div className="qr-label">
+                    <span>{t("qr.logoSize")}</span>
+                    <span className="qr-hint">{Math.round(logo.ratio * 100)}%</span>
+                  </div>
+                  <Slider
+                    min={12}
+                    max={30}
+                    value={Math.round(logo.ratio * 100)}
+                    onChange={(value) => setLogo({ ...logo, ratio: value / 100 })}
+                  />
+                </div>
+              )}
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                hidden
+                onChange={onLogoChange}
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      <SideResizer width={panelWidth} min={300} onChange={setPanelWidth} />
+      <SideResizer width={panelWidth} onChange={setPanelWidth} />
 
       <section className="qr-preview">
         <div className="qr-preview-head">
-          <span className="qr-preview-title">{t("qr.preview")}</span>
+          <span className="qr-preview-title">
+            <EyeOutlined />
+            {t("qr.preview")}
+          </span>
           {preview.status === "ok" && (
             <span className="qr-hint qr-meta">
               {t("qr.meta", { version: preview.matrix.version, size: preview.matrix.size })}

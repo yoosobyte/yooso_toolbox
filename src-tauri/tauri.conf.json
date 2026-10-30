@@ -48,6 +48,10 @@
           "English"
         ]
       }
-    }
+    },
+    "resources": [
+      "zh-Hans.lproj",
+      "en.lproj"
+    ]
   }
 }

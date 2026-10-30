@@ -13,7 +13,7 @@ import {
 import {
   AlignLeftOutlined,
   ClearOutlined,
-  CloudServerOutlined,
+  ApiOutlined,
   CodeOutlined,
   CopyOutlined,
   DeleteOutlined,
@@ -43,7 +43,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { copyText } from "../../clipboard";
 import { errText, formatBytes } from "../../utils";
-import { SideResizer, useSideWidth } from "../../components/SideResizer";
+import { SideResizer } from "../../components/SideResizer";
 import KeyValueEditor, { HeaderTable, emptyRow } from "./KeyValueEditor";
 
 const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
@@ -127,7 +127,8 @@ export default function ApiModule() {
   const [saveMode, setSaveMode] = useState<"update" | "new">("new");
   const [keyword, setKeyword] = useState("");
   const [lastSent, setLastSent] = useState<{ method: HttpMethod; url: string } | null>(null);
-  const [sideWidth, setSideWidth] = useSideWidth("api.sideWidth", 262);
+  const sideWidth = useUiStore((state) => state.sideWidth);
+  const setSideWidth = useUiStore((state) => state.setSideWidth);
 
   const patch = (next: Partial<ApiRequest>) => setRequest((prev) => ({ ...prev, ...next }));
 
@@ -329,7 +330,7 @@ export default function ApiModule() {
     <div className="module api-module">
       <header className="module-head">
         <span className="module-icon">
-          <CloudServerOutlined />
+          <ApiOutlined />
         </span>
         <div>
           <Typography.Text strong style={{ fontSize: 14 }}>

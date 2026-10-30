@@ -13,6 +13,8 @@ interface Persisted {
   theme: ThemeSetting;
   showStatusBar: boolean;
   defaultModule: ModuleKey;
+  /** 数据库 / Redis 共用的左侧栏宽度 */
+  sideWidth: number;
 }
 
 function read(): Persisted {
@@ -24,13 +26,23 @@ function read(): Persisted {
         language: parsed.language ?? "system",
         theme: parsed.theme ?? "system",
         showStatusBar: parsed.showStatusBar ?? true,
-        defaultModule: (parsed.defaultModule as ModuleKey) ?? "db",
+        defaultModule: (parsed.defaultModule as ModuleKey) ?? "note",
+        sideWidth:
+          typeof parsed.sideWidth === "number" && parsed.sideWidth !== 272
+            ? parsed.sideWidth
+            : 310,
       };
     }
   } catch {
     /* 忽略损坏的本地配置 */
   }
-  return { language: "system", theme: "system", showStatusBar: true, defaultModule: "db" };
+  return {
+    language: "system",
+    theme: "system",
+    showStatusBar: true,
+    defaultModule: "note",
+    sideWidth: 310,
+  };
 }
 
 function systemTheme(): Theme {
@@ -52,6 +64,8 @@ interface UiState {
   showStatusBar: boolean;
   /** 启动后默认打开的模块 */
   defaultModule: ModuleKey;
+  /** 数据库 / Redis 共用的左侧栏宽度 */
+  sideWidth: number;
   /** 实际生效的语言 / 主题（跟随系统时会随系统变化） */
   lang: Lang;
   activeTheme: Theme;
@@ -59,6 +73,7 @@ interface UiState {
   setTheme: (value: ThemeSetting) => void;
   setShowStatusBar: (value: boolean) => void;
   setDefaultModule: (value: ModuleKey) => void;
+  setSideWidth: (value: number) => void;
   /** 监听系统主题变化 */
   syncSystem: () => void;
 }
@@ -71,6 +86,8 @@ function persist(state: {
   theme: ThemeSetting;
   showStatusBar: boolean;
   defaultModule: ModuleKey;
+  /** 数据库 / Redis 共用的左侧栏宽度 */
+  sideWidth: number;
 }) {
   localStorage.setItem(KEY, JSON.stringify(state satisfies Persisted));
 }
@@ -80,6 +97,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   theme: initial.theme,
   showStatusBar: initial.showStatusBar,
   defaultModule: initial.defaultModule,
+  sideWidth: initial.sideWidth,
   lang: resolveLang(initial.language),
   activeTheme: resolveTheme(initial.theme),
 
@@ -89,6 +107,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       theme: get().theme,
       showStatusBar: get().showStatusBar,
       defaultModule: get().defaultModule,
+      sideWidth: get().sideWidth,
     });
     set({ language: value, lang: resolveLang(value) });
   },
@@ -99,6 +118,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       theme: value,
       showStatusBar: get().showStatusBar,
       defaultModule: get().defaultModule,
+      sideWidth: get().sideWidth,
     });
     const active = resolveTheme(value);
     applyTheme(active);
@@ -111,6 +131,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       theme: get().theme,
       showStatusBar: value,
       defaultModule: get().defaultModule,
+      sideWidth: get().sideWidth,
     });
     set({ showStatusBar: value });
   },
@@ -121,8 +142,20 @@ export const useUiStore = create<UiState>((set, get) => ({
       theme: get().theme,
       showStatusBar: get().showStatusBar,
       defaultModule: value,
+      sideWidth: get().sideWidth,
     });
     set({ defaultModule: value });
+  },
+
+  setSideWidth: (value) => {
+    persist({
+      language: get().language,
+      theme: get().theme,
+      showStatusBar: get().showStatusBar,
+      defaultModule: get().defaultModule,
+      sideWidth: value,
+    });
+    set({ sideWidth: value });
   },
 
   syncSystem: () => {
