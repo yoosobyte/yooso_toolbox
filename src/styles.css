@@ -6120,3 +6120,28 @@ body.sftp-resizing .sftp-resizer::after {
 .db-settings-form .db-hint {
   grid-column: 2;
 }
+
+.db-filter-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.db-filter-head {
+  gap: 10px;
+}
+
+.db-filter-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.db-filter-panel {
+  max-height: 320px;
+}
+
+.db-filter-row {
+  grid-template-columns: 28px 150px 160px minmax(100px, 1fr) 88px 28px;
+}
