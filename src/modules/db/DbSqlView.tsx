@@ -111,15 +111,18 @@ export default function DbSqlView({
   const [results, setResults] = useState<SqlResult[]>([]);
   const [activeResult, setActiveResult] = useState(0);
   const [running, setRunning] = useState(false);
+  const [runMode, setRunMode] = useState<"all" | "selected" | null>(null);
+  const [selectedSql, setSelectedSql] = useState("");
   const [editorHeight, setEditorHeight] = useState(320);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const highlightRef = useRef<HTMLPreElement | null>(null);
 
-  const run = async () => {
-    const statements = splitSqlStatements(sql);
+  const execute = async (text: string, mode: "all" | "selected") => {
+    const statements = splitSqlStatements(text);
     if (statements.length === 0 || running) return;
 
     setRunning(true);
+    setRunMode(mode);
     setResults([]);
     setActiveResult(0);
     const collected: SqlResult[] = [];
@@ -139,7 +142,18 @@ export default function DbSqlView({
       }
     } finally {
       setRunning(false);
+      setRunMode(null);
     }
+  };
+
+  const run = () => execute(sql, "all");
+  const runSelected = () => execute(selectedSql, "selected");
+
+  const updateSelection = (event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = event.currentTarget;
+    const start = target.selectionStart ?? 0;
+    const end = target.selectionEnd ?? 0;
+    setSelectedSql(end > start ? target.value.slice(start, end) : "");
   };
 
   const current = results[activeResult] ?? null;
@@ -181,11 +195,23 @@ export default function DbSqlView({
             type="default"
             size="small"
             icon={<CaretRightOutlined />}
-            loading={running}
-            disabled={!sql.trim()}
+            loading={running && runMode === "all"}
+            disabled={!sql.trim() || running}
             onClick={() => void run()}
           >
-            {running ? t("db.running") : t("db.run")}
+            {running && runMode === "all" ? t("db.running") : t("db.run")}
+          </Button>
+          <Button
+            type="default"
+            size="small"
+            icon={<CaretRightOutlined />}
+            loading={running && runMode === "selected"}
+            disabled={!selectedSql.trim() || running}
+            onClick={() => void runSelected()}
+          >
+            {running && runMode === "selected"
+              ? t("db.running")
+              : t("db.runSelected")}
           </Button>
           <span className="db-hint">{t("db.sqlHint")}</span>
           <span style={{ flex: 1 }} />
@@ -209,8 +235,12 @@ export default function DbSqlView({
             placeholder={t("db.sqlPlaceholder")}
             onChange={(event) => {
               setSql(event.target.value);
+              setSelectedSql("");
               onSqlChange?.(event.target.value);
             }}
+            onSelect={updateSelection}
+            onKeyUp={updateSelection}
+            onMouseUp={updateSelection}
             onScroll={(event) => {
               const highlight = highlightRef.current;
               if (!highlight) return;
