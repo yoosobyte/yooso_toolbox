@@ -151,8 +151,14 @@ npm install
 # 2. 开发模式（自动拉起 Vite + Tauri 窗口）
 npm run tauri dev
 
-# 3. 生产构建（生成 NSIS 安装包）
+# 3.1. win生产构建（生成 NSIS 安装包）
 npm run tauri build
+
+# 3.1. mac生产构建
+npm run tauri build -- --bundles app
+
+# 3.3. win生产构建（单exe）
+npm run tauri build -- --no-bundle
 ```
 
 ### 应用图标
