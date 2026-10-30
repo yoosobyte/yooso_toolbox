@@ -40,6 +40,7 @@ interface Props {
   onFilterChange: (value: string) => void;
   onSelectTable: (database: string, table: string) => void;
   onSelectQuery: (query: DbQueryDef) => void;
+  onQueryContextMenu: (event: React.MouseEvent, query: DbQueryDef) => void;
   onTableContextMenu: (
     event: React.MouseEvent,
     database: string,
@@ -76,6 +77,7 @@ export default function DbTree({
   onFilterChange,
   onSelectTable,
   onSelectQuery,
+  onQueryContextMenu,
   onTableContextMenu,
   onDatabaseContextMenu,
   onCreateTable,
@@ -293,6 +295,9 @@ export default function DbTree({
                                 key={query.id}
                                 className={`db-tree-query${activeQueryId === query.id ? " active" : ""}`}
                                 onClick={() => onSelectQuery(query)}
+                                onContextMenu={(event) =>
+                                  onQueryContextMenu(event, query)
+                                }
                                 role="button"
                                 tabIndex={0}
                                 title={`${query.name} (${database})`}
