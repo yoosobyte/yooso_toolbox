@@ -6450,3 +6450,11 @@ body.sftp-resizing .sftp-resizer::after {
   user-select: none;
   -webkit-user-select: none;
 }
+
+.db-tree-conn,
+.db-tree-conn .db-tree-conn-name,
+.db-tree-db,
+.db-tree-db .db-tree-name {
+  user-select: none;
+  -webkit-user-select: none;
+}
