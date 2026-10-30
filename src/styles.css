@@ -26,6 +26,13 @@
   --success: #22c55e;
   --overlay: #0b1220f2;
   --shadow: #00000066;
+  --sql-keyword: #c792ea;
+  --sql-type: #82aaff;
+  --sql-string: #c3e88d;
+  --sql-number: #f78c6c;
+  --sql-identifier: #ffcb6b;
+  --sql-comment: #637777;
+  --sql-punct: #89ddff;
 }
 
 /* ---- 浅色调色板 ---- */
@@ -53,6 +60,13 @@
   --success: #16a34a;
   --overlay: rgba(255, 255, 255, 0.94);
   --shadow: rgba(15, 23, 42, 0.16);
+  --sql-keyword: #7c3aed;
+  --sql-type: #1d4ed8;
+  --sql-string: #15803d;
+  --sql-number: #c2410c;
+  --sql-identifier: #a16207;
+  --sql-comment: #6b7280;
+  --sql-punct: #0369a1;
 }
 
 * {
@@ -5960,19 +5974,54 @@ body.sftp-resizing .sftp-resizer::after {
   gap: 8px;
 }
 
-.db-ddl-input {
+.db-ddl-code {
   flex: 1;
   min-height: 0;
-  padding: 10px 12px;
-  border: none;
-  border-radius: 0;
-  outline: none;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
   background: transparent;
   color: var(--text);
   font-family: "Cascadia Mono", "Consolas", monospace;
   font-size: 12px;
-  line-height: 1.7;
-  resize: none;
+  line-height: 1.75;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.db-ddl-empty {
+  color: var(--text-mute);
+  font-style: italic;
+}
+
+.db-ddl-code .sql-keyword {
+  color: var(--sql-keyword);
+  font-weight: 600;
+}
+
+.db-ddl-code .sql-type {
+  color: var(--sql-type);
+}
+
+.db-ddl-code .sql-string {
+  color: var(--sql-string);
+}
+
+.db-ddl-code .sql-number {
+  color: var(--sql-number);
+}
+
+.db-ddl-code .sql-identifier {
+  color: var(--sql-identifier);
+}
+
+.db-ddl-code .sql-comment {
+  color: var(--sql-comment);
+  font-style: italic;
+}
+
+.db-ddl-code .sql-punct {
+  color: var(--sql-punct);
 }
 
 .db-structure-view,
@@ -5987,9 +6036,6 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 
-.db-ddl-input[readonly] {
-  color: var(--text-dim);
-}
 
 .db-index-view {
   border: 1px solid var(--border);
@@ -6161,7 +6207,7 @@ body.sftp-resizing .sftp-resizer::after {
   gap: 0;
 }
 
-.db-ddl-view .db-ddl-input {
+.db-ddl-view .db-ddl-code {
   margin: 0;
 }
 
