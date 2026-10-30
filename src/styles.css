@@ -6408,3 +6408,20 @@ body.sftp-resizing .sftp-resizer::after {
     0 0 0 2px var(--bg-panel),
     0 0 0 3px var(--text-dim);
 }
+
+.db-color-swatch {
+  color: #1f2937;
+}
+
+.db-tree-query {
+  background: color-mix(in srgb, var(--db-conn-color) 6%, transparent);
+}
+
+.db-tree-query:hover {
+  background: color-mix(in srgb, var(--db-conn-color) 12%, var(--surface));
+}
+
+.db-tree-query.active {
+  background: color-mix(in srgb, var(--db-conn-color) 18%, var(--bg-panel));
+  color: var(--text);
+}

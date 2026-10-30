@@ -8,6 +8,7 @@ import {
   CopyOutlined,
   DeleteOutlined,
   DisconnectOutlined,
+  DownloadOutlined,
   PlusOutlined,
   TableOutlined,
 } from "@ant-design/icons";
@@ -19,22 +20,24 @@ import DbForm from "./DbForm";
 import DbTree from "./DbTree";
 import { DatabaseIcon } from "./icons";
 import { copyText } from "../../clipboard";
+import { saveText } from "../../save";
 import DbTableTab from "./DbTableTab";
 import DbSqlView from "./DbSqlView";
 import DbNewTableModal from "./DbNewTableModal";
-import DbCloneTableModal from "./DbCloneTableModal";
 import DbNewQueryModal from "./DbNewQueryModal";
 import {
   dbConnect,
   dbDatabases,
   dbDisconnect,
   dbExecDdl,
+  dbQuery,
+  dbTableDdl,
   dbTables,
   type DbConfig,
   type DbConnectInfo,
   type DbTableInfo,
 } from "./api";
-import { qualified } from "./ddl";
+import { escapeSqlString, qualified, quoteIdent } from "./ddl";
 import {
   createQueryDef,
   loadQueries,
@@ -87,11 +90,6 @@ export default function DbModule() {
   const [editing, setEditing] = useState<DbConfig | null>(null);
   const [newTableDatabase, setNewTableDatabase] = useState<string | null>(null);
   const [newQueryDatabase, setNewQueryDatabase] = useState<string | null>(null);
-  const [cloneTarget, setCloneTarget] = useState<{
-    database: string;
-    table: string;
-    withData: boolean;
-  } | null>(null);
   const [tableMenu, setTableMenu] = useState<{
     x: number;
     y: number;
@@ -287,6 +285,64 @@ export default function DbModule() {
     setExpandedDatabases((prev) => new Set(prev).add(database));
     if (tablesByDb[database] === undefined) {
       void loadTablesFor(active.id, database);
+    }
+  };
+
+  const copyTableStructure = async (database: string, table: string) => {
+    if (!active) return;
+    try {
+      const ddl = await dbTableDdl(active.id, database, table);
+      await copyText(ddl);
+      message.success(t("db.structureCopied"));
+    } catch (error) {
+      message.error(errText(error));
+    }
+  };
+
+  const exportTableSql = async (database: string, table: string) => {
+    if (!active) return;
+    try {
+      const ddl = await dbTableDdl(active.id, database, table);
+      const result = await dbQuery(
+        active.id,
+        database,
+        `SELECT * FROM ${qualified(database, table)}`,
+      );
+      const lines = [
+        "-- Yooso Toolbox SQL export",
+        `-- ${qualified(database, table)}`,
+        "SET NAMES utf8mb4;",
+        "SET FOREIGN_KEY_CHECKS=0;",
+        "",
+        `${ddl.trim().replace(/;?$/, "")};`,
+      ];
+      if (result.rows.length > 0) {
+        const columns = result.columns.map((column) => quoteIdent(column.name)).join(", ");
+        const values = result.rows.map(
+          (row) =>
+            `(${row
+              .map((value) =>
+                value === null ? "NULL" : `'${escapeSqlString(value)}'`,
+              )
+              .join(", ")})`,
+        );
+        lines.push(
+          "",
+          `INSERT INTO ${qualified(database, table)} (${columns}) VALUES`,
+          `${values.join(",\n")};`,
+        );
+      }
+      lines.push("", "SET FOREIGN_KEY_CHECKS=1;");
+      const filename = `${database}.${table}.sql`.replace(/[\\/:*?"<>|]/g, "_");
+      const path = await saveText(
+        filename,
+        lines.join("\n"),
+        [{ name: "SQL", extensions: ["sql"] }],
+        "application/sql",
+      );
+      if (path) message.success(t("db.sqlSaved", { path }));
+    } catch (error) {
+      message.error(errText(error));
     }
   };
 
@@ -486,7 +542,6 @@ export default function DbModule() {
       moved: false,
       pointerId: event.pointerId,
     };
-    bar.setPointerCapture(event.pointerId);
   };
 
   const onTabsPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -494,7 +549,10 @@ export default function DbModule() {
     const bar = tabsBarRef.current;
     if (!drag || !bar) return;
     const delta = event.clientX - drag.startX;
-    if (Math.abs(delta) > 4) drag.moved = true;
+    if (Math.abs(delta) > 4 && !drag.moved) {
+      drag.moved = true;
+      bar.setPointerCapture(drag.pointerId);
+    }
     if (drag.moved) {
       event.preventDefault();
       bar.scrollLeft = drag.startScroll - delta;
@@ -825,12 +883,9 @@ export default function DbModule() {
           <button
             type="button"
             onClick={() => {
+              const target = tableMenu;
               setTableMenu(null);
-              setCloneTarget({
-                database: tableMenu.database,
-                table: tableMenu.table,
-                withData: false,
-              });
+              void copyTableStructure(target.database, target.table);
             }}
           >
             <CopyOutlined />
@@ -839,15 +894,12 @@ export default function DbModule() {
           <button
             type="button"
             onClick={() => {
+              const target = tableMenu;
               setTableMenu(null);
-              setCloneTarget({
-                database: tableMenu.database,
-                table: tableMenu.table,
-                withData: true,
-              });
+              void exportTableSql(target.database, target.table);
             }}
           >
-            <CopyOutlined />
+            <DownloadOutlined />
             {t("db.copyStructureData")}
           </button>
         </div>
@@ -899,17 +951,6 @@ export default function DbModule() {
         }}
       />
 
-      <DbCloneTableModal
-        open={cloneTarget !== null}
-        connectionId={active?.id ?? ""}
-        database={cloneTarget?.database ?? ""}
-        sourceTable={cloneTarget?.table ?? ""}
-        withData={cloneTarget?.withData ?? false}
-        onClose={() => setCloneTarget(null)}
-        onCreated={(table) => {
-          if (cloneTarget) handleTableCreated(cloneTarget.database, table);
-        }}
-      />
 
       <DbForm
         open={formOpen}
