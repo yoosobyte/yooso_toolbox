@@ -28,6 +28,7 @@ import type { ThemeSetting } from "../stores/uiStore";
 import type { LangSetting } from "../i18n";
 import { useT } from "../i18n";
 import { APP_VERSION } from "../version";
+import AppLogo from "../AppLogo";
 import { errText } from "../utils";
 
 interface Props {
@@ -204,7 +205,9 @@ export default function SettingsModal({ open, onClose }: Props) {
           </div>
           <div className="about-card">
             <div className="about-brand">
-              <span className="about-logo">YT</span>
+              <span className="about-logo">
+                <AppLogo />
+              </span>
               <div className="about-brand-text">
                 <div className="about-title">
                   Yooso Toolbox

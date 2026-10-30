@@ -22,6 +22,7 @@ import Placeholder from "./modules/Placeholder";
 import SettingsModal from "./modules/SettingsModal";
 import { useUiStore } from "./stores/uiStore";
 import { useT } from "./i18n";
+import AppLogo from "./AppLogo";
 import { APP_VERSION } from "./version";
 
 type ModuleKey =
@@ -139,7 +140,7 @@ export default function App() {
     <div className="app">
       <aside className="rail">
         <div className="rail-logo" title="Yooso Toolbox">
-          <span>YT</span>
+          <AppLogo />
         </div>
         <div className="rail-group">
           {MODULES.map((item) => (

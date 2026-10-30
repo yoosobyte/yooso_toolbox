@@ -310,6 +310,8 @@ pub struct DbConfig {
     pub id: String,
     #[serde(default)]
     pub name: String,
+    #[serde(default)]
+    pub color: Option<String>,
     #[serde(default = "default_db_kind")]
     pub kind: String,
     #[serde(default)]
