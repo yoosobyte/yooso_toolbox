@@ -6145,3 +6145,25 @@ body.sftp-resizing .sftp-resizer::after {
 .db-filter-row {
   grid-template-columns: 28px 150px 160px minmax(100px, 1fr) 88px 28px;
 }
+
+.db-structure-view,
+.db-ddl-view {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.db-structure-view .db-structure-area {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.db-ddl-view {
+  gap: 8px;
+}
+
+.db-ddl-view .db-ddl-input {
+  margin: 0 10px 10px;
+}
