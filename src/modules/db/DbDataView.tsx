@@ -74,6 +74,7 @@ export default function DbDataView({ connectionId, database, table, refreshToken
 
   const [filters, setFilters] = useState<DbFilter[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [filterApplying, setFilterApplying] = useState(false);
   const [draft, setDraft] = useState<DraftFilter[]>([]);
 
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
@@ -112,7 +113,10 @@ export default function DbDataView({ connectionId, database, table, refreshToken
         setError(errText(reason));
       })
       .finally(() => {
-        if (current === request.current) setLoading(false);
+        if (current === request.current) {
+          setLoading(false);
+          setFilterApplying(false);
+        }
       });
   }, [
     connectionId,
@@ -347,14 +351,16 @@ export default function DbDataView({ connectionId, database, table, refreshToken
         value: filter.value ?? "",
         conjunction: filter.conjunction,
       }));
+    setFilterApplying(true);
     setFilters(next);
     setPage(0);
-    setFilterOpen(false);
+    setReload((value) => value + 1);
   };
 
   const resetFilters = () => {
     setDraft([]);
     setFilters([]);
+    setFilterApplying(false);
     setPage(0);
     setFilterOpen(false);
   };
@@ -516,6 +522,7 @@ export default function DbDataView({ connectionId, database, table, refreshToken
               size="small"
               type="primary"
               icon={<CheckOutlined />}
+              loading={filterApplying}
               onClick={applyFilters}
             >
               {t("db.filterApply")}
