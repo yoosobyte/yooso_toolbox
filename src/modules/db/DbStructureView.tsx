@@ -504,7 +504,22 @@ export default function DbStructureView({ connectionId, database, table, refresh
   );
 
   return (
-    <div className="db-structure-view">
+    <div
+      className="db-structure-view"
+      onMouseDownCapture={(event) => {
+        const target = event.target as HTMLElement;
+        if (event.shiftKey && !target.closest("input, textarea")) {
+          event.preventDefault();
+          window.getSelection()?.removeAllRanges();
+        }
+      }}
+      onMouseUpCapture={(event) => {
+        const target = event.target as HTMLElement;
+        if (event.shiftKey && !target.closest("input, textarea")) {
+          window.getSelection()?.removeAllRanges();
+        }
+      }}
+    >
       <div className="db-view-toolbar">
         <span className="db-muted">{t("db.tableStructure")}</span>
       </div>
@@ -551,6 +566,7 @@ export default function DbStructureView({ connectionId, database, table, refresh
                   >
                     <td
                       className="db-structure-gutter db-row-select"
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={(event) => selectRow(rowIndex, event)}
                     />
                     {editCell(rowIndex, "field", row.field, { placeholder: "column" })}

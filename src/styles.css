@@ -5970,3 +5970,14 @@ body.sftp-resizing .sftp-resizer::after {
 .db-ddl-input:focus {
   border-color: var(--accent);
 }
+
+.db-structure-view,
+.db-structure-table {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.db-structure-input {
+  user-select: text;
+  -webkit-user-select: text;
+}
