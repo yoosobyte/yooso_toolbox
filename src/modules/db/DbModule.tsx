@@ -106,6 +106,14 @@ export default function DbModule() {
 
   const dbRequest = useRef(0);
   const activeIdRef = useRef<string | null>(null);
+  const tabsBarRef = useRef<HTMLDivElement | null>(null);
+  const tabDragRef = useRef<{
+    startX: number;
+    startScroll: number;
+    moved: boolean;
+    pointerId: number;
+  } | null>(null);
+  const suppressTabClickRef = useRef(false);
   const openQueries = openQueryIds
     .map((id) => queryDefs.find((query) => query.id === id))
     .filter((query): query is DbQueryDef => Boolean(query));
@@ -467,6 +475,52 @@ export default function DbModule() {
     void loadDatabases(active.id, activeDatabase);
   };
 
+  const onTabsPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const bar = tabsBarRef.current;
+    if (!bar) return;
+    suppressTabClickRef.current = false;
+    tabDragRef.current = {
+      startX: event.clientX,
+      startScroll: bar.scrollLeft,
+      moved: false,
+      pointerId: event.pointerId,
+    };
+    bar.setPointerCapture(event.pointerId);
+  };
+
+  const onTabsPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = tabDragRef.current;
+    const bar = tabsBarRef.current;
+    if (!drag || !bar) return;
+    const delta = event.clientX - drag.startX;
+    if (Math.abs(delta) > 4) drag.moved = true;
+    if (drag.moved) {
+      event.preventDefault();
+      bar.scrollLeft = drag.startScroll - delta;
+    }
+  };
+
+  const onTabsPointerUp = () => {
+    const drag = tabDragRef.current;
+    const bar = tabsBarRef.current;
+    if (!drag) return;
+    if (drag.moved) suppressTabClickRef.current = true;
+    try {
+      bar?.releasePointerCapture(drag.pointerId);
+    } catch {
+      // pointer capture may already be released
+    }
+    tabDragRef.current = null;
+  };
+
+  const onTabsClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!suppressTabClickRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressTabClickRef.current = false;
+  };
+
   const activeTableTab = tableTabs.find((tab) => tab.key === activeTabKey) ?? null;
   const activeQueryTab =
     openQueries.find((query) => `q:${query.id}` === activeTabKey) ?? null;
@@ -574,7 +628,15 @@ export default function DbModule() {
               </div>
             ) : (
               <>
-                <div className="db-tabs-bar">
+                <div
+                  className="db-tabs-bar"
+                  ref={tabsBarRef}
+                  onPointerDown={onTabsPointerDown}
+                  onPointerMove={onTabsPointerMove}
+                  onPointerUp={onTabsPointerUp}
+                  onPointerCancel={onTabsPointerUp}
+                  onClickCapture={onTabsClickCapture}
+                >
                   {tableTabs.map((tab) => (
                     <div
                       key={tab.key}
