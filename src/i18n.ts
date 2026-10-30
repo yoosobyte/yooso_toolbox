@@ -9,10 +9,10 @@ export type Lang = "zh" | "en";
 export type LangSetting = "system" | Lang;
 
 const zh = {
-  "app.name": "Yooso Toolbox",
+  "app.name": "悦盒",
   "app.tagline": "远程终端 · 文件传输 · 会话管理",
   "app.settings": "设置",
-  "app.status": "Yooso Toolbox v{version} · Tauri 2 + React + Ant Design",
+  "app.status": "悦盒 v{version} · Tauri 2 + React + Ant Design",
   "app.phase": "SSH / SFTP · 数据库 · API · 文本 · 二维码 · 翻译 · Redis",
 
   "module.ssh": "SSH",
@@ -887,10 +887,10 @@ const zh = {
 };
 
 const en: Record<string, string> = {
-  "app.name": "Yooso Toolbox",
+  "app.name": "悦盒",
   "app.tagline": "Terminal · File transfer · Sessions",
   "app.settings": "Settings",
-  "app.status": "Yooso Toolbox v{version} · Tauri 2 + React + Ant Design",
+  "app.status": "悦盒 v{version} · Tauri 2 + React + Ant Design",
   "app.phase": "SSH / SFTP · Database · API · Text · QR · Translate · Redis",
 
   "module.ssh": "SSH",

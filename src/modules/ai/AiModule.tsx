@@ -63,7 +63,7 @@ function loadSettings(): AiSettings {
   return { apiKey: "", model: DEFAULT_MODEL, workspace: "" };
 }
 
-const SYSTEM_PROMPT = `你是 Yooso Toolbox 里的 AI 编码助手，帮助用户阅读和修改项目代码。
+const SYSTEM_PROMPT = `你是「悦盒」里的 AI 编码助手，帮助用户阅读和修改项目代码。
 工作目录：{workspace}
 
 规则：

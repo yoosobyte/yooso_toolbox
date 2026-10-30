@@ -234,7 +234,7 @@ export default function SettingsModal({ open, onClose }: Props) {
               </span>
               <div className="about-brand-text">
                 <div className="about-title">
-                  Yooso Toolbox
+                  悦盒
                   <span className="about-version">v{APP_VERSION}</span>
                 </div>
                 <div className="about-subtitle">

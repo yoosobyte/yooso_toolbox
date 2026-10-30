@@ -1,7 +1,7 @@
 [package]
 name = "yooso-toolbox"
 version = "0.1.0"
-description = "Yooso Toolbox - SSH / SFTP 工具箱"
+description = "悦盒 - SSH / SFTP 工具箱"
 authors = ["yooso"]
 edition = "2021"
 rust-version = "1.89"

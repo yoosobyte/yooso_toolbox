@@ -372,7 +372,7 @@ export default function DbModule() {
         `SELECT * FROM ${qualified(database, table)}`,
       );
       const lines = [
-        "-- Yooso Toolbox SQL export",
+        "-- 悦盒 SQL export",
         `-- ${qualified(database, table)}`,
         "SET NAMES utf8mb4;",
         "SET FOREIGN_KEY_CHECKS=0;",
