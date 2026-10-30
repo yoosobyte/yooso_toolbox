@@ -7,6 +7,7 @@ import { useT } from "../../i18n";
 import { errText } from "../../utils";
 import DbResultGrid from "./DbResultGrid";
 import { dbQuery, type DbQueryResult } from "./api";
+import { highlightSql } from "./sqlHighlight";
 
 interface Props {
   connectionId: string;
@@ -28,6 +29,7 @@ export default function DbSqlView({
   const [running, setRunning] = useState(false);
   const [editorHeight, setEditorHeight] = useState(320);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const highlightRef = useRef<HTMLPreElement | null>(null);
 
   const run = async () => {
     const statement = sql.trim();
@@ -93,22 +95,38 @@ export default function DbSqlView({
             {database ? t("db.databaseLabel") + ": " + database : t("db.noDatabase")}
           </span>
         </div>
-        <textarea
-          className="db-sql-input"
-          spellCheck={false}
-          value={sql}
-          placeholder={t("db.sqlPlaceholder")}
-          onChange={(event) => {
-            setSql(event.target.value);
-            onSqlChange?.(event.target.value);
-          }}
-          onKeyDown={(event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-              event.preventDefault();
-              void run();
-            }
-          }}
-        />
+        <div className="db-sql-editor">
+          <pre
+            ref={highlightRef}
+            className="db-sql-highlight"
+            aria-hidden="true"
+          >
+            {highlightSql(sql)}
+          </pre>
+          <textarea
+            className="db-sql-input"
+            spellCheck={false}
+            wrap="off"
+            value={sql}
+            placeholder={t("db.sqlPlaceholder")}
+            onChange={(event) => {
+              setSql(event.target.value);
+              onSqlChange?.(event.target.value);
+            }}
+            onScroll={(event) => {
+              const highlight = highlightRef.current;
+              if (!highlight) return;
+              highlight.scrollTop = event.currentTarget.scrollTop;
+              highlight.scrollLeft = event.currentTarget.scrollLeft;
+            }}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                event.preventDefault();
+                void run();
+              }
+            }}
+          />
+        </div>
       </div>
 
       <div
