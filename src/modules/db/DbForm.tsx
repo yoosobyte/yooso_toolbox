@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { App as AntdApp, Button, Checkbox, ColorPicker, Input, InputNumber, Modal, Select } from "antd";
+import { App as AntdApp, Button, Checkbox, Input, InputNumber, Modal, Select } from "antd";
+import { CheckOutlined } from "@ant-design/icons";
 import { useDbStore } from "../../stores/dbStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
@@ -13,6 +14,16 @@ interface Props {
   onClose: () => void;
   onSaved: (config: DbConfig) => void;
 }
+
+const DB_COLORS = [
+  "#3b82f6",
+  "#22c55e",
+  "#a855f7",
+  "#f59e0b",
+  "#ec4899",
+  "#06b6d4",
+  "#64748b",
+];
 
 function emptyDraft(): DbConfig {
   return {
@@ -121,13 +132,27 @@ export default function DbForm({ open, initial, onClose, onSaved }: Props) {
           </label>
           <label className="db-field">
             <span className="db-label">{t("db.color")}</span>
-            <ColorPicker
-              value={draft.color ?? "#3b82f6"}
-              format="hex"
-              showText
-              disabledAlpha
-              onChange={(color) => patch({ color: color.toHexString() })}
-            />
+            <div className="db-color-swatches">
+              {Array.from(new Set([...DB_COLORS, draft.color].filter(Boolean))).map(
+                (color) => {
+                  const value = color ?? DB_COLORS[0];
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`db-color-swatch${draft.color === value ? " active" : ""}`}
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${value} 30%, var(--bg-panel))`,
+                      }}
+                      title={value}
+                      onClick={() => patch({ color: value })}
+                    >
+                      {draft.color === value && <CheckOutlined />}
+                    </button>
+                  );
+                },
+              )}
+            </div>
           </label>
           <label className="db-field">
             <span className="db-label">{t("db.type")}</span>
