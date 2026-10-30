@@ -21,6 +21,7 @@ import DbTableTab from "./DbTableTab";
 import DbSqlView from "./DbSqlView";
 import DbNewTableModal from "./DbNewTableModal";
 import DbCloneTableModal from "./DbCloneTableModal";
+import DbNewQueryModal from "./DbNewQueryModal";
 import {
   dbConnect,
   dbDatabases,
@@ -32,6 +33,12 @@ import {
   type DbTableInfo,
 } from "./api";
 import { qualified } from "./ddl";
+import {
+  createQueryDef,
+  loadQueries,
+  saveQueries,
+  type DbQueryDef,
+} from "./queries";
 
 interface TableTab {
   key: string;
@@ -67,7 +74,9 @@ export default function DbModule() {
   const [tablesByDb, setTablesByDb] = useState<Record<string, DbTableInfo[]>>({});
   const [connectionExpanded, setConnectionExpanded] = useState(true);
   const [tableTabs, setTableTabs] = useState<TableTab[]>([]);
-  const [activeTabKey, setActiveTabKey] = useState("sql");
+  const [queryDefs, setQueryDefs] = useState<DbQueryDef[]>(() => loadQueries());
+  const [openQueryIds, setOpenQueryIds] = useState<string[]>([]);
+  const [activeTabKey, setActiveTabKey] = useState<string | null>(null);
   const [tableFilter, setTableFilter] = useState("");
   const [loadingDatabases, setLoadingDatabases] = useState(false);
   const [loadingTableDbs, setLoadingTableDbs] = useState<Set<string>>(new Set());
@@ -75,6 +84,7 @@ export default function DbModule() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<DbConfig | null>(null);
   const [newTableDatabase, setNewTableDatabase] = useState<string | null>(null);
+  const [newQueryDatabase, setNewQueryDatabase] = useState<string | null>(null);
   const [cloneTarget, setCloneTarget] = useState<{
     database: string;
     table: string;
@@ -94,6 +104,9 @@ export default function DbModule() {
 
   const dbRequest = useRef(0);
   const activeIdRef = useRef<string | null>(null);
+  const openQueries = openQueryIds
+    .map((id) => queryDefs.find((query) => query.id === id))
+    .filter((query): query is DbQueryDef => Boolean(query));
 
   useEffect(() => {
     void load();
@@ -111,7 +124,8 @@ export default function DbModule() {
 
   const clearTabs = () => {
     setTableTabs([]);
-    setActiveTabKey("sql");
+    setOpenQueryIds([]);
+    setActiveTabKey(null);
   };
 
   const loadTablesFor = async (connectionId: string, database: string) => {
@@ -277,15 +291,65 @@ export default function DbModule() {
     setActiveDatabase(database);
   };
 
-  const closeTableTab = (key: string) => {
-    const index = tableTabs.findIndex((tab) => tab.key === key);
+  const openQuery = (query: DbQueryDef) => {
+    setOpenQueryIds((prev) =>
+      prev.includes(query.id) ? prev : [...prev, query.id],
+    );
+    setActiveTabKey(`q:${query.id}`);
+    setActiveDatabase(query.database);
+    setExpandedDatabases((prev) => new Set(prev).add(query.database));
+  };
+
+  const createQuery = (database: string, name: string) => {
+    if (!active) return;
+    const query = createQueryDef(active.id, database, name);
+    const next = [...queryDefs, query];
+    setQueryDefs(next);
+    saveQueries(next);
+    setOpenQueryIds((prev) => [...prev, query.id]);
+    setActiveTabKey(`q:${query.id}`);
+    setActiveDatabase(database);
+    setExpandedDatabases((prev) => new Set(prev).add(database));
+  };
+
+  const updateQuerySql = (id: string, sql: string) => {
+    setQueryDefs((previous) => {
+      const next = previous.map((query) =>
+        query.id === id ? { ...query, sql } : query,
+      );
+      saveQueries(next);
+      return next;
+    });
+  };
+
+  const closeTab = (key: string) => {
+    const keys = [
+      ...tableTabs.map((tab) => tab.key),
+      ...openQueries.map((query) => `q:${query.id}`),
+    ];
+    const index = keys.indexOf(key);
     if (index < 0) return;
-    const next = tableTabs.filter((tab) => tab.key !== key);
-    setTableTabs(next);
+    const fallback = keys[index - 1] ?? keys[index + 1] ?? null;
+
+    if (key.startsWith("q:")) {
+      const id = key.slice(2);
+      setOpenQueryIds((prev) => prev.filter((queryId) => queryId !== id));
+    } else {
+      setTableTabs((prev) => prev.filter((tab) => tab.key !== key));
+    }
+
     if (activeTabKey === key) {
-      const fallback = next[index - 1] ?? next[index] ?? null;
-      setActiveTabKey(fallback?.key ?? "sql");
-      if (fallback) setActiveDatabase(fallback.database);
+      setActiveTabKey(fallback);
+      if (fallback) {
+        const table = tableTabs.find((tab) => tab.key === fallback);
+        if (table) setActiveDatabase(table.database);
+        else {
+          const query = openQueries.find(
+            (item) => `q:${item.id}` === fallback,
+          );
+          if (query) setActiveDatabase(query.database);
+        }
+      }
     }
   };
 
@@ -334,7 +398,7 @@ export default function DbModule() {
             active.id,
             `TRUNCATE TABLE ${qualified(target.database, target.table)}`,
           );
-          closeTableTab(tableKey(target.database, target.table));
+          closeTab(tableKey(target.database, target.table));
           message.success(t("db.tableTruncated"));
           reloadAfterTableChange(target.database);
         } catch (reason) {
@@ -359,7 +423,7 @@ export default function DbModule() {
             active.id,
             `DROP TABLE ${qualified(target.database, target.table)}`,
           );
-          closeTableTab(tableKey(target.database, target.table));
+          closeTab(tableKey(target.database, target.table));
           message.success(t("db.tableDropped"));
           reloadAfterTableChange(target.database);
         } catch (reason) {
@@ -402,7 +466,18 @@ export default function DbModule() {
   };
 
   const activeTableTab = tableTabs.find((tab) => tab.key === activeTabKey) ?? null;
-  const effectiveTabKey = activeTableTab ? activeTabKey : "sql";
+  const activeQueryTab =
+    openQueries.find((query) => `q:${query.id}` === activeTabKey) ?? null;
+  const effectiveTabKey = activeTableTab
+    ? activeTabKey
+    : activeQueryTab
+      ? activeTabKey
+      : null;
+  const activeQueryId = activeQueryTab?.id ?? null;
+  const dbQueries = active
+    ? queryDefs.filter((query) => query.connectionId === active.id)
+    : [];
+  const tabCount = tableTabs.length + openQueries.length;
   const selection = activeTableTab
     ? { database: activeTableTab.database, table: activeTableTab.table }
     : null;
@@ -450,6 +525,8 @@ export default function DbModule() {
             expandedDatabases={expandedDatabases}
             tablesByDb={tablesByDb}
             selection={selection}
+            queries={dbQueries}
+            activeQueryId={activeQueryId}
             filter={tableFilter}
             connectionExpanded={connectionExpanded}
             loadingDatabases={loadingDatabases}
@@ -459,6 +536,7 @@ export default function DbModule() {
             onToggleDatabase={toggleDatabase}
             onFilterChange={setTableFilter}
             onSelectTable={openTable}
+            onSelectQuery={openQuery}
             onTableContextMenu={openTableMenu}
             onDatabaseContextMenu={openDatabaseMenu}
             onCreateTable={() => {
@@ -472,93 +550,135 @@ export default function DbModule() {
 
         <section className="db-main">
           {active ? (
-            <>
-              <div className="db-tabs-bar">
-                <button
-                  type="button"
-                  className={`db-tab db-tab-sql${effectiveTabKey === "sql" ? " active" : ""}`}
-                  onClick={() => setActiveTabKey("sql")}
-                >
+            tabCount === 0 ? (
+              <div className="db-welcome db-welcome-main">
+                <span className="db-welcome-icon">
                   <ConsoleSqlOutlined />
-                  <span>{t("db.sql")}</span>
-                </button>
-
-                {tableTabs.map((tab) => (
-                  <div
-                    key={tab.key}
-                    className={`db-tab${effectiveTabKey === tab.key ? " active" : ""}`}
-                    onClick={() => {
-                      setActiveTabKey(tab.key);
-                      setActiveDatabase(tab.database);
-                    }}
-                    title={`${tab.table} (${tab.database})`}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
+                </span>
+                <div className="db-welcome-title">{t("db.noOpenTabs")}</div>
+                <div className="db-hint">{t("db.openTabsHint")}</div>
+              </div>
+            ) : (
+              <>
+                <div className="db-tabs-bar">
+                  {tableTabs.map((tab) => (
+                    <div
+                      key={tab.key}
+                      className={`db-tab${effectiveTabKey === tab.key ? " active" : ""}`}
+                      onClick={() => {
                         setActiveTabKey(tab.key);
                         setActiveDatabase(tab.database);
-                      }
-                    }}
-                  >
-                    <span className="db-tab-label">
-                      <span className="db-tab-table">{tab.table}</span>
-                      <span className="db-tab-db-wrap">
-                        <span className="db-tab-db-open">(</span>
-                        <span className="db-tab-db" title={tab.database}>
-                          {tab.database}
-                        </span>
-                        <span className="db-tab-db-close">)</span>
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      className="db-tab-close"
-                      title={t("common.close")}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        closeTableTab(tab.key);
+                      }}
+                      title={`${tab.table} (${tab.database})`}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setActiveTabKey(tab.key);
+                          setActiveDatabase(tab.database);
+                        }
                       }}
                     >
-                      <CloseOutlined />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                      <span className="db-tab-label">
+                        <span className="db-tab-table">{tab.table}</span>
+                        <span className="db-tab-db-wrap">
+                          <span className="db-tab-db-open">(</span>
+                          <span className="db-tab-db" title={tab.database}>
+                            {tab.database}
+                          </span>
+                          <span className="db-tab-db-close">)</span>
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        className="db-tab-close"
+                        title={t("common.close")}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          closeTab(tab.key);
+                        }}
+                      >
+                        <CloseOutlined />
+                      </button>
+                    </div>
+                  ))}
 
-              <div className="db-tab-content">
-                {tableTabs.map((tab) => (
-                  <div
-                    key={tab.key}
-                    className="db-slot"
-                    style={{ display: effectiveTabKey === tab.key ? "flex" : "none" }}
-                  >
-                    <DbTableTab
-                      connectionId={active.id}
-                      database={tab.database}
-                      table={tab.table}
-                      view={tab.view}
-                      onViewChange={(view) => setTabView(tab.key, view)}
-                      onTableRenamed={(newName) =>
-                        renameTableTab(tab.database, tab.table, newName)
-                      }
-                    />
-                  </div>
-                ))}
-
-                <div
-                  className="db-slot"
-                  style={{ display: effectiveTabKey === "sql" ? "flex" : "none" }}
-                >
-                  <DbSqlView
-                    key={active.id}
-                    connectionId={active.id}
-                    database={activeDatabase}
-                  />
+                  {openQueries.map((query) => {
+                    const key = `q:${query.id}`;
+                    return (
+                      <div
+                        key={key}
+                        className={`db-tab db-tab-query${effectiveTabKey === key ? " active" : ""}`}
+                        onClick={() => openQuery(query)}
+                        title={`${query.name} (${query.database})`}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openQuery(query);
+                          }
+                        }}
+                      >
+                        <ConsoleSqlOutlined />
+                        <span className="db-tab-query-name">{query.name}</span>
+                        <button
+                          type="button"
+                          className="db-tab-close"
+                          title={t("common.close")}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            closeTab(key);
+                          }}
+                        >
+                          <CloseOutlined />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            </>
+
+                <div className="db-tab-content">
+                  {tableTabs.map((tab) => (
+                    <div
+                      key={tab.key}
+                      className="db-slot"
+                      style={{ display: effectiveTabKey === tab.key ? "flex" : "none" }}
+                    >
+                      <DbTableTab
+                        connectionId={active.id}
+                        database={tab.database}
+                        table={tab.table}
+                        view={tab.view}
+                        onViewChange={(view) => setTabView(tab.key, view)}
+                        onTableRenamed={(newName) =>
+                          renameTableTab(tab.database, tab.table, newName)
+                        }
+                      />
+                    </div>
+                  ))}
+
+                  {openQueries.map((query) => {
+                    const key = `q:${query.id}`;
+                    return (
+                      <div
+                        key={key}
+                        className="db-slot"
+                        style={{ display: effectiveTabKey === key ? "flex" : "none" }}
+                      >
+                        <DbSqlView
+                          connectionId={active.id}
+                          database={query.database}
+                          initialSql={query.sql}
+                          onSqlChange={(sql) => updateQuerySql(query.id, sql)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )
           ) : (
             <div className="db-welcome db-welcome-main">
               <span className="db-welcome-icon">
@@ -598,6 +718,16 @@ export default function DbModule() {
           <button type="button" onClick={() => openNewTable(tableMenu.database)}>
             <PlusOutlined />
             {t("db.newTable")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTableMenu(null);
+              setNewQueryDatabase(tableMenu.database);
+            }}
+          >
+            <ConsoleSqlOutlined />
+            {t("db.newQuery")}
           </button>
           <button
             type="button"
@@ -658,8 +788,27 @@ export default function DbModule() {
             <PlusOutlined />
             {t("db.newTable")}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDatabaseMenu(null);
+              setNewQueryDatabase(databaseMenu.database);
+            }}
+          >
+            <ConsoleSqlOutlined />
+            {t("db.newQuery")}
+          </button>
         </div>
       )}
+
+      <DbNewQueryModal
+        open={newQueryDatabase !== null}
+        database={newQueryDatabase ?? ""}
+        onClose={() => setNewQueryDatabase(null)}
+        onCreate={(name) => {
+          if (newQueryDatabase) createQuery(newQueryDatabase, name);
+        }}
+      />
 
       <DbNewTableModal
         open={newTableDatabase !== null}

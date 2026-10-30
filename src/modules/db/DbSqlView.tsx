@@ -11,11 +11,18 @@ import { dbQuery, type DbQueryResult } from "./api";
 interface Props {
   connectionId: string;
   database: string | null;
+  initialSql?: string;
+  onSqlChange?: (sql: string) => void;
 }
 
-export default function DbSqlView({ connectionId, database }: Props) {
+export default function DbSqlView({
+  connectionId,
+  database,
+  initialSql,
+  onSqlChange,
+}: Props) {
   const t = useT(useUiStore((state) => state.lang));
-  const [sql, setSql] = useState("");
+  const [sql, setSql] = useState(initialSql ?? "");
   const [result, setResult] = useState<DbQueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -91,7 +98,10 @@ export default function DbSqlView({ connectionId, database }: Props) {
           spellCheck={false}
           value={sql}
           placeholder={t("db.sqlPlaceholder")}
-          onChange={(event) => setSql(event.target.value)}
+          onChange={(event) => {
+            setSql(event.target.value);
+            onSqlChange?.(event.target.value);
+          }}
           onKeyDown={(event) => {
             if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
               event.preventDefault();
