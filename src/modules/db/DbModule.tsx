@@ -10,7 +10,6 @@ import {
   DisconnectOutlined,
   DownloadOutlined,
   PlusOutlined,
-  TableOutlined,
 } from "@ant-design/icons";
 import { useDbStore } from "../../stores/dbStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -18,7 +17,7 @@ import { useT } from "../../i18n";
 import { errText } from "../../utils";
 import DbForm from "./DbForm";
 import DbTree from "./DbTree";
-import { DatabaseIcon } from "./icons";
+import { DatabaseIcon, TableIcon } from "./icons";
 import { copyText } from "../../clipboard";
 import { saveText } from "../../save";
 import DbTableTab from "./DbTableTab";
@@ -714,7 +713,7 @@ export default function DbModule() {
                         }
                       }}
                     >
-                      <TableOutlined />
+                      <TableIcon />
                       <span className="db-tab-label">
                         <span className="db-tab-table">{tab.table}</span>
                         {duplicatedTableNames.has(tab.table) && (

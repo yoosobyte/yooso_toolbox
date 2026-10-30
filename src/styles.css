@@ -6458,3 +6458,9 @@ body.sftp-resizing .sftp-resizer::after {
   user-select: none;
   -webkit-user-select: none;
 }
+
+.db-tab .db-table-icon {
+  flex: none;
+  font-size: 12px;
+  color: currentColor;
+}

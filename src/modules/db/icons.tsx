@@ -19,6 +19,26 @@ export function DatabaseIcon() {
   );
 }
 
+export function TableIcon() {
+  return (
+    <span className="db-table-icon" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        width="1em"
+        height="1em"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+        <path d="M3.5 9.5h17M9.5 9.5v10M15 9.5v10" />
+      </svg>
+    </span>
+  );
+}
+
 export function MysqlIcon() {
   return (
     <span className="db-mysql-icon" role="img" aria-label="MySQL">
