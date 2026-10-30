@@ -6438,3 +6438,7 @@ body.sftp-resizing .sftp-resizer::after {
   background: color-mix(in srgb, var(--db-conn-color) 22%, var(--bg-panel));
   color: var(--text);
 }
+
+.db-index-table tbody tr:last-child td {
+  border-bottom: 1px solid var(--border);
+}
