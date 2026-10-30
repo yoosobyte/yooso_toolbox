@@ -6362,3 +6362,18 @@ body.sftp-resizing .sftp-resizer::after {
 .db-tab:hover {
   background: color-mix(in srgb, var(--db-conn-color) 12%, var(--surface));
 }
+
+.db-tabs-bar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+}
+
+.db-tabs-bar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
