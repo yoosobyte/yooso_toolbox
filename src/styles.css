@@ -5964,19 +5964,15 @@ body.sftp-resizing .sftp-resizer::after {
   flex: 1;
   min-height: 0;
   padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: none;
+  border-radius: 0;
   outline: none;
-  background: var(--surface);
+  background: transparent;
   color: var(--text);
   font-family: "Cascadia Mono", "Consolas", monospace;
   font-size: 12px;
   line-height: 1.7;
   resize: none;
-}
-
-.db-ddl-input:focus {
-  border-color: var(--accent);
 }
 
 .db-structure-view,
@@ -6161,9 +6157,9 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .db-ddl-view {
-  gap: 8px;
+  gap: 0;
 }
 
 .db-ddl-view .db-ddl-input {
-  margin: 0 10px 10px;
+  margin: 0;
 }
