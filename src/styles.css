@@ -6241,3 +6241,53 @@ body.sftp-resizing .sftp-resizer::after {
   user-select: none;
   -webkit-user-select: none;
 }
+
+.db-tree-query {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 46px;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.db-tree-query:hover {
+  background: var(--surface);
+}
+
+.db-tree-query.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.db-tree-query > .anticon {
+  flex: none;
+  color: var(--accent-text);
+  font-size: 13px;
+}
+
+.db-tree-query .db-tree-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-tab-query {
+  max-width: 240px;
+}
+
+.db-tab-query > .anticon {
+  flex: none;
+  font-size: 12px;
+}
+
+.db-tab-query-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

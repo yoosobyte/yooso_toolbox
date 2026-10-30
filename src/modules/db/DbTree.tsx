@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Button, Input, Spin, Tooltip } from "antd";
 import {
+  CodeOutlined,
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
@@ -13,6 +14,7 @@ import {
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import type { DbConfig, DbTableInfo } from "./api";
+import type { DbQueryDef } from "./queries";
 import { DatabaseIcon, MysqlIcon } from "./icons";
 
 
@@ -45,6 +47,8 @@ interface Props {
   expandedDatabases: Set<string>;
   tablesByDb: Record<string, DbTableInfo[]>;
   selection: { database: string; table: string } | null;
+  queries: DbQueryDef[];
+  activeQueryId: string | null;
   filter: string;
   connectionExpanded: boolean;
   loadingDatabases: boolean;
@@ -54,6 +58,7 @@ interface Props {
   onToggleDatabase: (database: string) => void;
   onFilterChange: (value: string) => void;
   onSelectTable: (database: string, table: string) => void;
+  onSelectQuery: (query: DbQueryDef) => void;
   onTableContextMenu: (
     event: React.MouseEvent,
     database: string,
@@ -78,6 +83,8 @@ export default function DbTree({
   expandedDatabases,
   tablesByDb,
   selection,
+  queries,
+  activeQueryId,
   filter,
   connectionExpanded,
   loadingDatabases,
@@ -87,6 +94,7 @@ export default function DbTree({
   onToggleDatabase,
   onFilterChange,
   onSelectTable,
+  onSelectQuery,
   onTableContextMenu,
   onDatabaseContextMenu,
   onCreateTable,
@@ -223,6 +231,7 @@ export default function DbTree({
                   {databases.map((database) => {
                     const dbExpanded = expandedDatabases.has(database);
                     const tables = filtered[database];
+                    const dbQueries = queries.filter((query) => query.database === database);
                     const tablesLoaded = tablesByDb[database] !== undefined;
                     const tablesLoading = loadingTables.has(database);
                     return (
@@ -289,7 +298,26 @@ export default function DbTree({
                                   </div>
                                 );
                               })}
-                            {!tablesLoading && tables && tables.length === 0 && (
+                            {dbQueries.map((query) => (
+                              <div
+                                key={query.id}
+                                className={`db-tree-query${activeQueryId === query.id ? " active" : ""}`}
+                                onClick={() => onSelectQuery(query)}
+                                role="button"
+                                tabIndex={0}
+                                title={`${query.name} (${database})`}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    onSelectQuery(query);
+                                  }
+                                }}
+                              >
+                                <CodeOutlined />
+                                <span className="db-tree-name">{query.name}</span>
+                              </div>
+                            ))}
+                            {!tablesLoading && tables && tables.length === 0 && dbQueries.length === 0 && (
                               <div className="db-empty db-tree-empty">{t("db.noTables")}</div>
                             )}
                           </>
