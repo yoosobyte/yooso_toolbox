@@ -5,6 +5,7 @@ import {
   DownOutlined,
   EditOutlined,
   EyeOutlined,
+  FileTextOutlined,
   MoreOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -15,7 +16,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import type { DbConfig, DbTableInfo } from "./api";
 import type { DbQueryDef } from "./queries";
-import { DatabaseIcon, MysqlIcon, QueryIcon, TableIcon } from "./icons";
+import { DatabaseIcon, MysqlIcon, TableIcon } from "./icons";
 
 
 interface Props {
@@ -302,7 +303,7 @@ export default function DbTree({
                                   }
                                 }}
                               >
-                                <QueryIcon />
+                                <FileTextOutlined />
                                 <span className="db-tree-name">{query.name}</span>
                               </div>
                             ))}

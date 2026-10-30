@@ -8,6 +8,7 @@ import {
   DeleteOutlined,
   DisconnectOutlined,
   DownloadOutlined,
+  FileTextOutlined,
   PlusOutlined,
   TableOutlined,
 } from "@ant-design/icons";
@@ -17,7 +18,7 @@ import { useT } from "../../i18n";
 import { errText } from "../../utils";
 import DbForm from "./DbForm";
 import DbTree from "./DbTree";
-import { DatabaseIcon, QueryIcon } from "./icons";
+import { DatabaseIcon } from "./icons";
 import { copyText } from "../../clipboard";
 import { saveText } from "../../save";
 import DbTableTab from "./DbTableTab";
@@ -678,7 +679,7 @@ export default function DbModule() {
             tabCount === 0 ? (
               <div className="db-welcome db-welcome-main">
                 <span className="db-welcome-icon">
-                  <QueryIcon />
+                  <FileTextOutlined />
                 </span>
                 <div className="db-welcome-title">{t("db.noOpenTabs")}</div>
                 <div className="db-hint">{t("db.openTabsHint")}</div>
@@ -757,7 +758,7 @@ export default function DbModule() {
                           }
                         }}
                       >
-                        <QueryIcon />
+                        <FileTextOutlined />
                         <span className="db-tab-query-name">{query.name}</span>
                         <button
                           type="button"
@@ -862,7 +863,7 @@ export default function DbModule() {
               setNewQueryDatabase(tableMenu.database);
             }}
           >
-            <QueryIcon />
+            <FileTextOutlined />
             {t("db.newQuery")}
           </button>
           <button
@@ -925,7 +926,7 @@ export default function DbModule() {
               setNewQueryDatabase(databaseMenu.database);
             }}
           >
-            <QueryIcon />
+            <FileTextOutlined />
             {t("db.newQuery")}
           </button>
         </div>
