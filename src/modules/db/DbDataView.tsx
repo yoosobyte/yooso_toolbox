@@ -424,16 +424,10 @@ export default function DbDataView({ connectionId, database, table, refreshToken
         <div className="db-filter-panel" onClick={(event) => event.stopPropagation()}>
           <div className="db-filter-head">
             <span className="db-filter-title">{t("db.filter")}</span>
-            <span style={{ flex: 1 }} />
-            <Button size="small" icon={<PlusOutlined />} onClick={addFilter}>
+            <Button size="small" type="text" icon={<PlusOutlined />} onClick={addFilter}>
               {t("db.filterAdd")}
             </Button>
-            <Button size="small" type="primary" onClick={applyFilters}>
-              {t("db.filterApply")}
-            </Button>
-            <Button size="small" icon={<ClearOutlined />} onClick={resetFilters}>
-              {t("db.filterReset")}
-            </Button>
+            <span style={{ flex: 1 }} />
           </div>
 
           {draft.map((filter) => (
@@ -474,7 +468,7 @@ export default function DbDataView({ connectionId, database, table, refreshToken
                     value: isUnary(String(value)) ? "" : filter.value,
                   })
                 }
-                style={{ width: 130 }}
+                style={{ width: 160 }}
               />
               <Input
                 size="small"
@@ -502,7 +496,7 @@ export default function DbDataView({ connectionId, database, table, refreshToken
                 onChange={(value) =>
                   patchFilter(filter.id, { conjunction: value as "and" | "or" })
                 }
-                style={{ width: 76 }}
+                style={{ width: 88 }}
               />
               <Button
                 size="small"
@@ -514,6 +508,20 @@ export default function DbDataView({ connectionId, database, table, refreshToken
               />
             </div>
           ))}
+
+          <div className="db-filter-footer">
+            <Button
+              size="small"
+              type="primary"
+              icon={<CheckOutlined />}
+              onClick={applyFilters}
+            >
+              {t("db.filterApply")}
+            </Button>
+            <Button size="small" icon={<ClearOutlined />} onClick={resetFilters}>
+              {t("db.filterReset")}
+            </Button>
+          </div>
         </div>
       )}
 
