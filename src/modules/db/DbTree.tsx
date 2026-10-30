@@ -262,6 +262,28 @@ export default function DbTree({
                                 <Spin size="small" />
                               </div>
                             )}
+                            {dbQueries.map((query) => (
+                              <div
+                                key={query.id}
+                                className={`db-tree-query${activeQueryId === query.id ? " active" : ""}`}
+                                onClick={() => onSelectQuery(query)}
+                                onContextMenu={(event) =>
+                                  onQueryContextMenu(event, query)
+                                }
+                                role="button"
+                                tabIndex={0}
+                                title={`${query.name} (${database})`}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    onSelectQuery(query);
+                                  }
+                                }}
+                              >
+                                <FileTextOutlined />
+                                <span className="db-tree-name">{query.name}</span>
+                              </div>
+                            ))}
                             {!tablesLoading &&
                               tables?.map((table) => {
                                 const selected =
@@ -290,28 +312,6 @@ export default function DbTree({
                                   </div>
                                 );
                               })}
-                            {dbQueries.map((query) => (
-                              <div
-                                key={query.id}
-                                className={`db-tree-query${activeQueryId === query.id ? " active" : ""}`}
-                                onClick={() => onSelectQuery(query)}
-                                onContextMenu={(event) =>
-                                  onQueryContextMenu(event, query)
-                                }
-                                role="button"
-                                tabIndex={0}
-                                title={`${query.name} (${database})`}
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter" || event.key === " ") {
-                                    event.preventDefault();
-                                    onSelectQuery(query);
-                                  }
-                                }}
-                              >
-                                <FileTextOutlined />
-                                <span className="db-tree-name">{query.name}</span>
-                              </div>
-                            ))}
                             {!tablesLoading && tables && tables.length === 0 && dbQueries.length === 0 && (
                               <div className="db-empty db-tree-empty">{t("db.noTables")}</div>
                             )}
