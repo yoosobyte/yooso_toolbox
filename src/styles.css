@@ -6442,3 +6442,11 @@ body.sftp-resizing .sftp-resizer::after {
 .db-index-table tbody tr:last-child td {
   border-bottom: 1px solid var(--border);
 }
+
+.db-table-tab-bar,
+.db-table-tab-bar .ant-segmented,
+.db-table-tab-bar .ant-segmented-item,
+.db-table-tab-bar .ant-segmented-item-label {
+  user-select: none;
+  -webkit-user-select: none;
+}
