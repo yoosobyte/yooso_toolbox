@@ -1618,6 +1618,43 @@ body.sftp-resizing .sftp-resizer::after {
   font-size: 14px !important;
 }
 
+/* 确认弹窗：图标与标题排在同一行，正文从左边开始不再缩进 */
+.ant-modal-confirm .ant-modal-confirm-body {
+  display: block;
+}
+
+.ant-modal-confirm .ant-modal-confirm-body > .anticon {
+  margin: 0 6px 0 0;
+  vertical-align: -2px;
+  font-size: 16px;
+}
+
+.ant-modal-confirm .ant-modal-confirm-paragraph {
+  display: inline;
+}
+
+.ant-modal-confirm .ant-modal-confirm-title {
+  display: inline;
+}
+
+.ant-modal-confirm .ant-modal-confirm-content {
+  display: block;
+  margin-top: 6px;
+  max-width: 100%;
+}
+
+/* 没有标题的确认框保持 antd 默认的左右布局 */
+.ant-modal-confirm .ant-modal-confirm-body:not(.ant-modal-confirm-body-has-title) {
+  display: flex;
+}
+
+.ant-modal-confirm
+  .ant-modal-confirm-body:not(.ant-modal-confirm-body-has-title)
+  .ant-modal-confirm-paragraph {
+  display: flex;
+  max-width: calc(100% - 24px);
+}
+
 .ant-form-item-label > label {
   font-size: 12px !important;
   color: var(--text-2) !important;
@@ -3697,6 +3734,23 @@ body.sftp-resizing .sftp-resizer::after {
   color: var(--text-dim);
 }
 
+/* Redis 品牌图标（官方 logo） */
+.redis-logo-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.redis-side-head .redis-logo-icon {
+  font-size: 14px;
+  color: #dc382d;
+}
+
+.redis-welcome-icon .redis-logo-icon {
+  color: #dc382d;
+}
+
 .redis-count {
   margin-left: auto;
   min-width: 18px;
@@ -4522,17 +4576,51 @@ body.sftp-resizing .sftp-resizer::after {
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 12px;
+  gap: 0;
   padding: 12px 14px;
 }
 
 .db-side {
   width: 272px;
+  max-width: 60%;
   flex: none;
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-height: 0;
+}
+
+/* 左右分栏之间的拖动分隔条 */
+.db-side-resizer {
+  flex: none;
+  position: relative;
+  width: 13px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.db-side-resizer::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 34px;
+  margin: -17px 0 0 -1.5px;
+  border-radius: 3px;
+  background: var(--border-strong);
+  transition: background 0.15s ease;
+}
+
+.db-side-resizer:hover::after,
+body.db-resizing .db-side-resizer::after {
+  background: var(--accent);
+}
+
+body.db-resizing {
+  cursor: col-resize;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .db-conn-card,
@@ -4804,6 +4892,21 @@ body.sftp-resizing .sftp-resizer::after {
 
 .db-tree-icon-btn.danger:hover {
   color: var(--danger);
+}
+
+/* 连接行「更多」下拉：菜单项压扁一些，圆角更小 */
+.ant-dropdown .ant-dropdown-menu.db-conn-menu {
+  border-radius: 4px;
+}
+
+.ant-dropdown .ant-dropdown-menu.db-conn-menu .ant-dropdown-menu-item {
+  padding-block: 1px;
+  line-height: 20px;
+  border-radius: 3px;
+}
+
+.ant-dropdown .ant-dropdown-menu.db-conn-menu .ant-dropdown-menu-item-divider {
+  margin-block: 1px;
 }
 
 .db-tree-conn .ant-spin {
@@ -5131,6 +5234,18 @@ body.sftp-resizing .sftp-resizer::after {
   padding: 24px;
   color: var(--text-mute);
   font-size: 12.5px;
+}
+
+/* 加载中/空数据占位行：只替换表体，保留表头不动 */
+.db-grid-status-row td {
+  max-width: none;
+  padding: 0;
+  border-right: none;
+  white-space: normal;
+}
+
+.db-grid tbody .db-grid-status-row:hover td {
+  background: transparent;
 }
 
 .db-pager {
@@ -5499,7 +5614,7 @@ body.sftp-resizing .sftp-resizer::after {
 
 .db-filter-row {
   display: grid;
-  grid-template-columns: 28px 150px 130px minmax(100px, 1fr) 76px 28px;
+  grid-template-columns: 88px 28px 150px 130px minmax(100px, 1fr) 28px;
   align-items: center;
   gap: 6px;
 }
@@ -6185,8 +6300,13 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .db-filter-row {
-  grid-template-columns: 28px 150px 160px 200px 88px 28px;
+  grid-template-columns: 88px 28px 150px 160px 200px 28px;
   justify-content: start;
+}
+
+/* 只有一条条件时没有连接符，直接顶格排列 */
+.db-filter-row-single {
+  grid-template-columns: 28px 150px 160px 200px 28px;
 }
 
 .db-structure-view,

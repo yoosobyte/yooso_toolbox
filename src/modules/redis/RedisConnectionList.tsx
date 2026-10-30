@@ -1,12 +1,12 @@
 import { Button, Tooltip } from "antd";
 import {
-  DatabaseOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
+import { RedisIcon } from "./icons";
 import type { RedisConfig } from "./api";
 
 interface Props {
@@ -38,7 +38,7 @@ export default function RedisConnectionList({
 
       <div className="redis-side-card">
         <div className="redis-side-head">
-          <DatabaseOutlined />
+          <RedisIcon />
           <span>{t("redis.connections")}</span>
           <span className="redis-count">{connections.length}</span>
         </div>

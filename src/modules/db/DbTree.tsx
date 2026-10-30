@@ -1,13 +1,14 @@
 import { useMemo } from "react";
+import type { CSSProperties } from "react";
 import { Button, Dropdown, Input, Spin, Tooltip } from "antd";
 import {
   DeleteOutlined,
+  DisconnectOutlined,
   DownOutlined,
   EditOutlined,
   EyeOutlined,
   FileTextOutlined,
   MoreOutlined,
-  PlusOutlined,
   ReloadOutlined,
   RightOutlined,
   SearchOutlined,
@@ -16,6 +17,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import type { DbConfig, DbTableInfo } from "./api";
 import type { DbQueryDef } from "./queries";
+import { connectionColor } from "./colors";
 import { DatabaseIcon, MysqlIcon, TableIcon } from "./icons";
 
 
@@ -50,10 +52,10 @@ interface Props {
     event: React.MouseEvent,
     database: string,
   ) => void;
-  onCreateTable: () => void;
   onRefresh: () => void;
   onEdit: (config: DbConfig) => void;
   onDelete: (config: DbConfig) => void;
+  onDisconnect: (config: DbConfig) => void;
 }
 
 export default function DbTree({
@@ -80,10 +82,10 @@ export default function DbTree({
   onQueryContextMenu,
   onTableContextMenu,
   onDatabaseContextMenu,
-  onCreateTable,
   onRefresh,
   onEdit,
   onDelete,
+  onDisconnect,
 }: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const keyword = filter.trim().toLowerCase();
@@ -104,15 +106,6 @@ export default function DbTree({
         <DatabaseIcon />
         <span>{t("db.connections")}</span>
         <span className="db-count">{connections.length}</span>
-        <Tooltip title={t("db.newTable")}>
-          <Button
-            size="small"
-            type="text"
-            icon={<PlusOutlined />}
-            onClick={onCreateTable}
-            disabled={!activeId || !activeDatabase}
-          />
-        </Tooltip>
         <Tooltip title={t("db.refresh")}>
           <Button
             size="small"
@@ -151,6 +144,7 @@ export default function DbTree({
             <div key={config.id}>
               <div
                 className={`db-tree-conn${active ? " active" : ""}`}
+                style={{ "--db-conn-color": connectionColor(config.color) } as CSSProperties}
                 onClick={() => onToggleConnection(config)}
                 role="button"
                 tabIndex={0}
@@ -176,13 +170,24 @@ export default function DbTree({
                     trigger={["click"]}
                     placement="bottomRight"
                     menu={{
+                      className: "db-conn-menu",
                       items: [
+                        ...(active
+                          ? [
+                              {
+                                key: "disconnect",
+                                label: t("db.disconnect"),
+                                icon: <DisconnectOutlined />,
+                              },
+                              { type: "divider" as const },
+                            ]
+                          : []),
                         {
                           key: "edit",
                           label: t("db.edit"),
                           icon: <EditOutlined />,
                         },
-                        { type: "divider" },
+                        { type: "divider" as const },
                         {
                           key: "delete",
                           label: t("common.delete"),
@@ -191,7 +196,8 @@ export default function DbTree({
                         },
                       ],
                       onClick: ({ key }) => {
-                        if (key === "edit") onEdit(config);
+                        if (key === "disconnect") onDisconnect(config);
+                        else if (key === "edit") onEdit(config);
                         else if (key === "delete") onDelete(config);
                       },
                     }}
