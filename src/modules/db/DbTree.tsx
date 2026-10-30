@@ -59,6 +59,10 @@ interface Props {
     database: string,
     table: string,
   ) => void;
+  onDatabaseContextMenu: (
+    event: React.MouseEvent,
+    database: string,
+  ) => void;
   onCreateTable: () => void;
   onRefresh: () => void;
   onEdit: (config: DbConfig) => void;
@@ -84,6 +88,7 @@ export default function DbTree({
   onFilterChange,
   onSelectTable,
   onTableContextMenu,
+  onDatabaseContextMenu,
   onCreateTable,
   onRefresh,
   onEdit,
@@ -225,6 +230,10 @@ export default function DbTree({
                         <div
                           className={`db-tree-db${database === activeDatabase ? " active" : ""}`}
                           onClick={() => onToggleDatabase(database)}
+                          onContextMenu={(event) => {
+                            event.preventDefault();
+                            onDatabaseContextMenu(event, database);
+                          }}
                           role="button"
                           tabIndex={0}
                           title={database}

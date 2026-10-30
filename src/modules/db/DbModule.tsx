@@ -16,6 +16,7 @@ import { errText } from "../../utils";
 import DbForm from "./DbForm";
 import DbTree from "./DbTree";
 import { DatabaseIcon } from "./icons";
+import { copyText } from "../../clipboard";
 import DbTableTab from "./DbTableTab";
 import DbSqlView from "./DbSqlView";
 import DbNewTableModal from "./DbNewTableModal";
@@ -73,7 +74,7 @@ export default function DbModule() {
   const [treeError, setTreeError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<DbConfig | null>(null);
-  const [newTableOpen, setNewTableOpen] = useState(false);
+  const [newTableDatabase, setNewTableDatabase] = useState<string | null>(null);
   const [cloneTarget, setCloneTarget] = useState<{
     database: string;
     table: string;
@@ -85,6 +86,11 @@ export default function DbModule() {
     database: string;
     table: string;
   } | null>(null);
+  const [databaseMenu, setDatabaseMenu] = useState<{
+    x: number;
+    y: number;
+    database: string;
+  } | null>(null);
 
   const dbRequest = useRef(0);
   const activeIdRef = useRef<string | null>(null);
@@ -94,11 +100,14 @@ export default function DbModule() {
   }, [load]);
 
   useEffect(() => {
-    if (!tableMenu) return;
-    const close = () => setTableMenu(null);
+    if (!tableMenu && !databaseMenu) return;
+    const close = () => {
+      setTableMenu(null);
+      setDatabaseMenu(null);
+    };
     window.addEventListener("mousedown", close);
     return () => window.removeEventListener("mousedown", close);
-  }, [tableMenu]);
+  }, [tableMenu, databaseMenu]);
 
   const clearTabs = () => {
     setTableTabs([]);
@@ -360,13 +369,26 @@ export default function DbModule() {
     });
   };
 
+  const openNewTable = (database: string) => {
+    setTableMenu(null);
+    setDatabaseMenu(null);
+    setNewTableDatabase(database);
+  };
+
   const openTableMenu = (
     event: React.MouseEvent,
     database: string,
     table: string,
   ) => {
     event.preventDefault();
+    setDatabaseMenu(null);
     setTableMenu({ x: event.clientX, y: event.clientY, database, table });
+  };
+
+  const openDatabaseMenu = (event: React.MouseEvent, database: string) => {
+    event.preventDefault();
+    setTableMenu(null);
+    setDatabaseMenu({ x: event.clientX, y: event.clientY, database });
   };
 
   const handleTableCreated = (database: string, table: string) => {
@@ -438,7 +460,10 @@ export default function DbModule() {
             onFilterChange={setTableFilter}
             onSelectTable={openTable}
             onTableContextMenu={openTableMenu}
-            onCreateTable={() => setNewTableOpen(true)}
+            onDatabaseContextMenu={openDatabaseMenu}
+            onCreateTable={() => {
+              if (activeDatabase) openNewTable(activeDatabase);
+            }}
             onRefresh={refreshTree}
             onEdit={openEdit}
             onDelete={deleteConnection}
@@ -558,6 +583,24 @@ export default function DbModule() {
         >
           <button
             type="button"
+            onClick={() => {
+              const table = tableMenu.table;
+              setTableMenu(null);
+              void copyText(table).then(
+                () => message.success(t("db.tableNameCopied")),
+                () => message.error(t("common.copyFailed")),
+              );
+            }}
+          >
+            <CopyOutlined />
+            {t("db.copyTableName")}
+          </button>
+          <button type="button" onClick={() => openNewTable(tableMenu.database)}>
+            <PlusOutlined />
+            {t("db.newTable")}
+          </button>
+          <button
+            type="button"
             onClick={() => truncateTable(tableMenu)}
           >
             <ClearOutlined />
@@ -601,13 +644,30 @@ export default function DbModule() {
         </div>
       )}
 
+      {databaseMenu && (
+        <div
+          className="db-context-menu"
+          style={{ left: databaseMenu.x, top: databaseMenu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => openNewTable(databaseMenu.database)}
+          >
+            <PlusOutlined />
+            {t("db.newTable")}
+          </button>
+        </div>
+      )}
+
       <DbNewTableModal
-        open={newTableOpen}
+        open={newTableDatabase !== null}
         connectionId={active?.id ?? ""}
-        database={activeDatabase ?? ""}
-        onClose={() => setNewTableOpen(false)}
+        database={newTableDatabase ?? ""}
+        onClose={() => setNewTableDatabase(null)}
         onCreated={(table) => {
-          if (activeDatabase) handleTableCreated(activeDatabase, table);
+          if (newTableDatabase) handleTableCreated(newTableDatabase, table);
         }}
       />
 

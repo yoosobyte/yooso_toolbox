@@ -6235,3 +6235,9 @@ body.sftp-resizing .sftp-resizer::after {
   line-height: 1;
   vertical-align: middle;
 }
+
+.db-tree-table,
+.db-tree-table .db-tree-name {
+  user-select: none;
+  -webkit-user-select: none;
+}
