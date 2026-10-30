@@ -4,7 +4,6 @@ import { App as AntdApp, Button, Typography } from "antd";
 import {
   ClearOutlined,
   CloseOutlined,
-  ConsoleSqlOutlined,
   CopyOutlined,
   DeleteOutlined,
   DisconnectOutlined,
@@ -18,7 +17,7 @@ import { useT } from "../../i18n";
 import { errText } from "../../utils";
 import DbForm from "./DbForm";
 import DbTree from "./DbTree";
-import { DatabaseIcon } from "./icons";
+import { DatabaseIcon, QueryIcon } from "./icons";
 import { copyText } from "../../clipboard";
 import { saveText } from "../../save";
 import DbTableTab from "./DbTableTab";
@@ -679,7 +678,7 @@ export default function DbModule() {
             tabCount === 0 ? (
               <div className="db-welcome db-welcome-main">
                 <span className="db-welcome-icon">
-                  <ConsoleSqlOutlined />
+                  <QueryIcon />
                 </span>
                 <div className="db-welcome-title">{t("db.noOpenTabs")}</div>
                 <div className="db-hint">{t("db.openTabsHint")}</div>
@@ -758,7 +757,7 @@ export default function DbModule() {
                           }
                         }}
                       >
-                        <ConsoleSqlOutlined />
+                        <QueryIcon />
                         <span className="db-tab-query-name">{query.name}</span>
                         <button
                           type="button"
@@ -863,7 +862,7 @@ export default function DbModule() {
               setNewQueryDatabase(tableMenu.database);
             }}
           >
-            <ConsoleSqlOutlined />
+            <QueryIcon />
             {t("db.newQuery")}
           </button>
           <button
@@ -926,7 +925,7 @@ export default function DbModule() {
               setNewQueryDatabase(databaseMenu.database);
             }}
           >
-            <ConsoleSqlOutlined />
+            <QueryIcon />
             {t("db.newQuery")}
           </button>
         </div>
