@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Lang, LangSetting } from "../i18n";
+import type { ModuleKey } from "../modules/keys";
 import { resolveLang } from "../i18n";
 
 export type ThemeSetting = "system" | "light" | "dark";
@@ -11,6 +12,7 @@ interface Persisted {
   language: LangSetting;
   theme: ThemeSetting;
   showStatusBar: boolean;
+  defaultModule: ModuleKey;
 }
 
 function read(): Persisted {
@@ -22,12 +24,13 @@ function read(): Persisted {
         language: parsed.language ?? "system",
         theme: parsed.theme ?? "system",
         showStatusBar: parsed.showStatusBar ?? true,
+        defaultModule: (parsed.defaultModule as ModuleKey) ?? "db",
       };
     }
   } catch {
     /* 忽略损坏的本地配置 */
   }
-  return { language: "system", theme: "system", showStatusBar: true };
+  return { language: "system", theme: "system", showStatusBar: true, defaultModule: "db" };
 }
 
 function systemTheme(): Theme {
@@ -47,12 +50,15 @@ interface UiState {
   theme: ThemeSetting;
   /** 是否显示最底部的版本/阶段状态栏 */
   showStatusBar: boolean;
+  /** 启动后默认打开的模块 */
+  defaultModule: ModuleKey;
   /** 实际生效的语言 / 主题（跟随系统时会随系统变化） */
   lang: Lang;
   activeTheme: Theme;
   setLanguage: (value: LangSetting) => void;
   setTheme: (value: ThemeSetting) => void;
   setShowStatusBar: (value: boolean) => void;
+  setDefaultModule: (value: ModuleKey) => void;
   /** 监听系统主题变化 */
   syncSystem: () => void;
 }
@@ -60,7 +66,12 @@ interface UiState {
 const initial = read();
 applyTheme(resolveTheme(initial.theme));
 
-function persist(state: { language: LangSetting; theme: ThemeSetting; showStatusBar: boolean }) {
+function persist(state: {
+  language: LangSetting;
+  theme: ThemeSetting;
+  showStatusBar: boolean;
+  defaultModule: ModuleKey;
+}) {
   localStorage.setItem(KEY, JSON.stringify(state satisfies Persisted));
 }
 
@@ -68,24 +79,50 @@ export const useUiStore = create<UiState>((set, get) => ({
   language: initial.language,
   theme: initial.theme,
   showStatusBar: initial.showStatusBar,
+  defaultModule: initial.defaultModule,
   lang: resolveLang(initial.language),
   activeTheme: resolveTheme(initial.theme),
 
   setLanguage: (value) => {
-    persist({ language: value, theme: get().theme, showStatusBar: get().showStatusBar });
+    persist({
+      language: value,
+      theme: get().theme,
+      showStatusBar: get().showStatusBar,
+      defaultModule: get().defaultModule,
+    });
     set({ language: value, lang: resolveLang(value) });
   },
 
   setTheme: (value) => {
-    persist({ language: get().language, theme: value, showStatusBar: get().showStatusBar });
+    persist({
+      language: get().language,
+      theme: value,
+      showStatusBar: get().showStatusBar,
+      defaultModule: get().defaultModule,
+    });
     const active = resolveTheme(value);
     applyTheme(active);
     set({ theme: value, activeTheme: active });
   },
 
   setShowStatusBar: (value) => {
-    persist({ language: get().language, theme: get().theme, showStatusBar: value });
+    persist({
+      language: get().language,
+      theme: get().theme,
+      showStatusBar: value,
+      defaultModule: get().defaultModule,
+    });
     set({ showStatusBar: value });
+  },
+
+  setDefaultModule: (value) => {
+    persist({
+      language: get().language,
+      theme: get().theme,
+      showStatusBar: get().showStatusBar,
+      defaultModule: value,
+    });
+    set({ defaultModule: value });
   },
 
   syncSystem: () => {

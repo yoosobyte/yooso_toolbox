@@ -2,11 +2,15 @@ import { useMemo, useState } from "react";
 import { Tooltip, Typography } from "antd";
 import {
   ApiOutlined,
+  CodeOutlined,
   QrcodeOutlined,
   SettingOutlined,
+  ToolOutlined,
 } from "@ant-design/icons";
 import {
+  BrowserNavIcon,
   DbNavIcon,
+  NoteNavIcon,
   SshNavIcon,
   TextNavIcon,
   TranslateNavIcon,
@@ -17,24 +21,22 @@ import ApiModule from "./modules/api/ApiModule";
 import QrModule from "./modules/qrcode/QrModule";
 import TranslateModule from "./modules/translate/TranslateModule";
 import TextModule from "./modules/text/TextModule";
+import NoteModule from "./modules/note/NoteModule";
+import BrowserModule from "./modules/browser/BrowserModule";
+import AiModule from "./modules/ai/AiModule";
+import ToolsModule from "./modules/tools/ToolsModule";
 import RedisModule from "./modules/redis/RedisModule";
 import { RedisIcon } from "./modules/redis/icons";
 import DbModule from "./modules/db/DbModule";
 import Placeholder from "./modules/Placeholder";
 import SettingsModal from "./modules/SettingsModal";
 import { useUiStore } from "./stores/uiStore";
+import { MODULE_ORDER, type ModuleKey } from "./modules/keys";
 import { useT } from "./i18n";
 import AppLogo from "./AppLogo";
 import { APP_VERSION } from "./version";
 
-type ModuleKey =
-  | "ssh"
-  | "text"
-  | "qrcode"
-  | "db"
-  | "redis"
-  | "api"
-  | "translate";
+
 
 interface ModuleDef {
   key: ModuleKey;
@@ -62,6 +64,15 @@ const MODULES: ModuleDef[] = [
     titleKey: "Text",
     descKey: "module.textDesc",
     icon: <TextNavIcon />,
+    ready: true,
+    featureKeys: [],
+  },
+  {
+    key: "note",
+    label: "Note",
+    titleKey: "Note",
+    descKey: "module.noteDesc",
+    icon: <NoteNavIcon />,
     ready: true,
     featureKeys: [],
   },
@@ -110,10 +121,39 @@ const MODULES: ModuleDef[] = [
     ready: true,
     featureKeys: [],
   },
+  {
+    key: "browser",
+    label: "Browser",
+    titleKey: "Browser",
+    descKey: "module.browserDesc",
+    icon: <BrowserNavIcon />,
+    ready: true,
+    featureKeys: [],
+  },
+  {
+    key: "ai",
+    label: "AI",
+    titleKey: "AI",
+    descKey: "module.aiDesc",
+    icon: <CodeOutlined />,
+    ready: true,
+    featureKeys: [],
+  },
+  {
+    key: "tools",
+    label: "Tools",
+    titleKey: "Tools",
+    descKey: "module.toolsDesc",
+    icon: <ToolOutlined />,
+    ready: true,
+    featureKeys: [],
+  },
 ];
 
 export default function App() {
-  const [activeKey, setActiveKey] = useState<ModuleKey>("db");
+  const [activeKey, setActiveKey] = useState<ModuleKey>(
+    () => useUiStore.getState().defaultModule ?? "db",
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 头部模块（SSH / API）常驻；其余模块首次打开后再保持挂载，避免一启动就请求外网/占用资源
   const [mounted, setMounted] = useState<Partial<Record<ModuleKey, boolean>>>({
@@ -130,12 +170,22 @@ export default function App() {
     setMounted((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
   };
 
-  const railLabel = (key: ModuleKey) =>
-    key === "qrcode" ? t("module.qr") : t(`module.${key}`);
+  const railLabel = (key: ModuleKey) => {
+    if (key === "qrcode") return t("module.qr");
+    return t(`module.${key}`);
+  };
 
   const activeModule = useMemo(
     () => MODULES.find((item) => item.key === activeKey) ?? MODULES[0],
     [activeKey],
+  );
+
+  const sortedModules = useMemo(
+    () =>
+      MODULE_ORDER.map((key) => MODULES.find((item) => item.key === key)).filter(
+        (item): item is ModuleDef => Boolean(item),
+      ),
+    [],
   );
 
   return (
@@ -145,13 +195,17 @@ export default function App() {
           <AppLogo />
         </div>
         <div className="rail-group">
-          {MODULES.map((item) => (
+          {sortedModules.map((item) => (
             <Tooltip
               key={item.key}
               title={
                 item.ready
-                  ? item.key === "db"
-                    ? t("module.db")
+                  ? item.key === "db" ||
+                    item.key === "note" ||
+                    item.key === "browser" ||
+                    item.key === "ai" ||
+                    item.key === "tools"
+                    ? t(`module.${item.key}`)
                     : item.titleKey
                   : `${item.titleKey} · ${t("module.planned")}`
               }
@@ -210,6 +264,14 @@ export default function App() {
             <TextModule />
           </div>
         )}
+        {mounted.note && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "note" ? "flex" : "none" }}
+          >
+            <NoteModule />
+          </div>
+        )}
         {mounted.redis && (
           <div
             className="module-slot"
@@ -242,7 +304,31 @@ export default function App() {
             <TranslateModule />
           </div>
         )}
-        {!["ssh", "api", "text", "qrcode", "translate", "redis", "db"].includes(activeModule.key) && (
+        {mounted.browser && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "browser" ? "flex" : "none" }}
+          >
+            <BrowserModule obscured={settingsOpen} />
+          </div>
+        )}
+        {mounted.ai && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "ai" ? "flex" : "none" }}
+          >
+            <AiModule />
+          </div>
+        )}
+        {mounted.tools && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "tools" ? "flex" : "none" }}
+          >
+            <ToolsModule />
+          </div>
+        )}
+        {!["ssh", "api", "text", "note", "qrcode", "translate", "browser", "ai", "tools", "redis", "db"].includes(activeModule.key) && (
           <Placeholder
             title={activeModule.titleKey}
             desc={t(activeModule.descKey)}

@@ -13,6 +13,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { copyText } from "../../clipboard";
 import { errText } from "../../utils";
+import { SideResizer, useSideWidth } from "../../components/SideResizer";
 import { translateText, type TranslateLine, type TranslateResult } from "./api";
 import {
   looksLikeEnglish,
@@ -74,6 +75,7 @@ export default function QuickTranslate({ line, onLineChange, onOpenWeb }: Props)
   const [result, setResult] = useState<TranslateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [panelWidth, setPanelWidth] = useSideWidth("translate.sideWidth", 400, 300);
   const cacheRef = useRef<Map<string, TranslateResult>>(new Map());
 
   useEffect(() => {
@@ -212,7 +214,7 @@ export default function QuickTranslate({ line, onLineChange, onOpenWeb }: Props)
 
   return (
     <div className="tr-quick-body">
-      <section className="tr-quick-panel">
+      <section className="tr-quick-panel" style={{ width: panelWidth }}>
         <div className="tr-panel-head">
           <span className="tr-panel-title">
             <ThunderboltOutlined /> {t("translate.tabQuick")}
@@ -294,6 +296,8 @@ export default function QuickTranslate({ line, onLineChange, onOpenWeb }: Props)
           <div className="tr-hint">{t("translate.quickHint")}</div>
         </div>
       </section>
+
+      <SideResizer width={panelWidth} min={300} onChange={setPanelWidth} />
 
       <section className="tr-quick-result">
         <div className="tr-panel-head">

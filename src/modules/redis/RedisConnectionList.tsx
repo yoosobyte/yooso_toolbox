@@ -10,6 +10,7 @@ import { RedisIcon } from "./icons";
 import type { RedisConfig } from "./api";
 
 interface Props {
+  width: number;
   connections: RedisConfig[];
   activeId: string | null;
   connectingId: string | null;
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function RedisConnectionList({
+  width,
   connections,
   activeId,
   connectingId,
@@ -31,8 +33,8 @@ export default function RedisConnectionList({
   const t = useT(useUiStore((state) => state.lang));
 
   return (
-    <aside className="redis-side">
-      <Button type="primary" block icon={<PlusOutlined />} onClick={onCreate}>
+    <aside className="redis-side" style={{ width }}>
+      <Button type="default" block icon={<PlusOutlined />} onClick={onCreate}>
         {t("redis.newConnection")}
       </Button>
 

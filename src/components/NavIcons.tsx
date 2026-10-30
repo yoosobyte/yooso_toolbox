@@ -57,12 +57,38 @@ export function DbNavIcon() {
   );
 }
 
-/** 翻译：语言 */
+/** 翻译：翻译符号（文 + A） */
 export function TranslateNavIcon() {
   return (
+    <svg
+      viewBox="0 0 256 256"
+      width="1em"
+      height="1em"
+      fill="currentColor"
+      aria-hidden="true"
+      style={{ display: "block" }}
+    >
+      <path d="m247.15 212.42l-56-112a8 8 0 0 0-14.31 0l-21.71 43.43A88 88 0 0 1 108 126.93A103.65 103.65 0 0 0 135.69 64H160a8 8 0 0 0 0-16h-56V32a8 8 0 0 0-16 0v16H32a8 8 0 0 0 0 16h87.63A87.76 87.76 0 0 1 96 116.35a87.7 87.7 0 0 1-19-31a8 8 0 1 0-15.08 5.34A103.6 103.6 0 0 0 84 127a87.55 87.55 0 0 1-52 17a8 8 0 0 0 0 16a103.46 103.46 0 0 0 64-22.08a104.2 104.2 0 0 0 51.44 21.31l-26.6 53.19a8 8 0 0 0 14.31 7.16L148.94 192h70.11l13.79 27.58A8 8 0 0 0 240 224a8 8 0 0 0 7.15-11.58M156.94 176L184 121.89L211.05 176Z" />
+    </svg>
+  );
+}
+
+/** 笔记：笔记本 */
+export function NoteNavIcon() {
+  return (
     <NavIcon>
-      <path d="M9 6.371C9 10.789 6.761 13 4 13m0-6.629h7" />
-      <path d="M5 9c0 2.144 2.252 3.908 6 4m1 7l4-9l4 9m-.9-2h-6.2M6.694 3l.793.582" />
+      <path d="M6 4h11a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1" />
+      <path d="M9 4v18m4-14h2m-2 4h2" />
+    </NavIcon>
+  );
+}
+
+/** 浏览器：地球 */
+export function BrowserNavIcon() {
+  return (
+    <NavIcon>
+      <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0m.6-3h16.8M3.6 15h16.8" />
+      <path d="M11.5 3a17 17 0 0 0 0 18m1-18a17 17 0 0 1 0 18" />
     </NavIcon>
   );
 }

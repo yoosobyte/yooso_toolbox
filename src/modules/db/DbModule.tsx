@@ -126,6 +126,11 @@ export default function DbModule() {
     y: number;
     query: DbQueryDef;
   } | null>(null);
+  const [tabMenu, setTabMenu] = useState<{
+    x: number;
+    y: number;
+    key: string;
+  } | null>(null);
 
   const [sideWidth, setSideWidth] = useState(loadSideWidth);
   const dbRequest = useRef(0);
@@ -180,15 +185,16 @@ export default function DbModule() {
   };
 
   useEffect(() => {
-    if (!tableMenu && !databaseMenu && !queryMenu) return;
+    if (!tableMenu && !databaseMenu && !queryMenu && !tabMenu) return;
     const close = () => {
       setTableMenu(null);
       setDatabaseMenu(null);
       setQueryMenu(null);
+      setTabMenu(null);
     };
     window.addEventListener("mousedown", close);
     return () => window.removeEventListener("mousedown", close);
-  }, [tableMenu, databaseMenu, queryMenu]);
+  }, [tableMenu, databaseMenu, queryMenu, tabMenu]);
 
   const clearTabs = () => {
     setTableTabs([]);
@@ -473,6 +479,24 @@ export default function DbModule() {
           if (query) setActiveDatabase(query.database);
         }
       }
+    }
+  };
+
+  /** 批量关闭 tab；keep 在活动 tab 被关时接替显示 */
+  const closeTabsByKeys = (keys: string[], keep: string) => {
+    const removed = new Set(keys);
+    if (removed.size === 0) return;
+    setTableTabs((prev) => prev.filter((tab) => !removed.has(tab.key)));
+    setOpenQueryIds((prev) => prev.filter((id) => !removed.has(`q:${id}`)));
+    setActiveTabKey((current) => {
+      if (current && !removed.has(current)) return current;
+      return keep;
+    });
+    const table = tableTabs.find((tab) => tab.key === keep);
+    if (table) setActiveDatabase(table.database);
+    else {
+      const query = openQueries.find((item) => `q:${item.id}` === keep);
+      if (query) setActiveDatabase(query.database);
     }
   };
 
@@ -780,7 +804,11 @@ export default function DbModule() {
   const dbQueries = active
     ? queryDefs.filter((query) => query.connectionId === active.id)
     : [];
-  const tabCount = tableTabs.length + openQueries.length;
+  const tabOrder = [
+    ...tableTabs.map((tab) => tab.key),
+    ...openQueries.map((query) => `q:${query.id}`),
+  ];
+  const tabCount = tabOrder.length;
   const selection = activeTableTab
     ? { database: activeTableTab.database, table: activeTableTab.table }
     : null;
@@ -868,7 +896,7 @@ export default function DbModule() {
             tabCount === 0 ? (
               <div className="db-welcome db-welcome-main">
                 <span className="db-welcome-icon">
-                  <FileTextOutlined />
+                  <DatabaseIcon />
                 </span>
                 <div className="db-welcome-title">{t("db.noOpenTabs")}</div>
                 <div className="db-hint">{t("db.openTabsHint")}</div>
@@ -888,6 +916,13 @@ export default function DbModule() {
                     <div
                       key={tab.key}
                       className={`db-tab${effectiveTabKey === tab.key ? " active" : ""}`}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        setTableMenu(null);
+                        setDatabaseMenu(null);
+                        setQueryMenu(null);
+                        setTabMenu({ x: event.clientX, y: event.clientY, key: tab.key });
+                      }}
                       onClick={() => {
                         setActiveTabKey(tab.key);
                         setActiveDatabase(tab.database);
@@ -936,6 +971,13 @@ export default function DbModule() {
                       <div
                         key={key}
                         className={`db-tab db-tab-query${effectiveTabKey === key ? " active" : ""}`}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          setTableMenu(null);
+                          setDatabaseMenu(null);
+                          setQueryMenu(null);
+                          setTabMenu({ x: event.clientX, y: event.clientY, key });
+                        }}
                         onClick={() => openQuery(query)}
                         title={`${query.name} (${query.database})`}
                         role="button"
@@ -1166,6 +1208,66 @@ export default function DbModule() {
           >
             <DeleteOutlined />
             {t("db.deleteQuery")}
+          </button>
+        </div>
+      )}
+
+      {tabMenu && (
+        <div
+          className="db-context-menu"
+          style={{ left: tabMenu.x, top: tabMenu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              const key = tabMenu.key;
+              setTabMenu(null);
+              closeTab(key);
+            }}
+          >
+            <CloseOutlined />
+            {t("db.closeTab")}
+          </button>
+          <button
+            type="button"
+            disabled={tabOrder.length <= 1}
+            onClick={() => {
+              const key = tabMenu.key;
+              setTabMenu(null);
+              closeTabsByKeys(
+                tabOrder.filter((item) => item !== key),
+                key,
+              );
+            }}
+          >
+            <CloseOutlined />
+            {t("db.closeOtherTabs")}
+          </button>
+          <button
+            type="button"
+            disabled={tabOrder.indexOf(tabMenu.key) <= 0}
+            onClick={() => {
+              const key = tabMenu.key;
+              setTabMenu(null);
+              closeTabsByKeys(tabOrder.slice(0, tabOrder.indexOf(key)), key);
+            }}
+          >
+            <CloseOutlined />
+            {t("db.closeTabsLeft")}
+          </button>
+          <button
+            type="button"
+            disabled={tabOrder.indexOf(tabMenu.key) >= tabOrder.length - 1}
+            onClick={() => {
+              const key = tabMenu.key;
+              setTabMenu(null);
+              closeTabsByKeys(tabOrder.slice(tabOrder.indexOf(key) + 1), key);
+            }}
+          >
+            <CloseOutlined />
+            {t("db.closeTabsRight")}
           </button>
         </div>
       )}

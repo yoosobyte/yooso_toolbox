@@ -14,6 +14,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText, basename } from "../../utils";
 import { saveDataUrl, saveText } from "../../save";
+import { SideResizer, useSideWidth } from "../../components/SideResizer";
 import {
   buildMatrix,
   drawQr,
@@ -58,6 +59,7 @@ export default function QrGeneratePanel({ content, onContentChange }: Props) {
   const { message } = AntdApp.useApp();
 
   const [ecLevel, setEcLevel] = useState<EcLevel>("M");
+  const [panelWidth, setPanelWidth] = useSideWidth("qr.sideWidth", 400, 300);
   const [margin, setMargin] = useState(2);
   const [fg, setFg] = useState("#000000");
   const [bg, setBg] = useState("#ffffff");
@@ -155,7 +157,7 @@ export default function QrGeneratePanel({ content, onContentChange }: Props) {
 
   return (
     <div className="qr-body">
-      <section className="qr-panel">
+      <section className="qr-panel" style={{ width: panelWidth }}>
         <div className="qr-panel-head">
           <span className="qr-panel-title">
             <QrcodeOutlined /> {t("qr.content")}
@@ -281,6 +283,8 @@ export default function QrGeneratePanel({ content, onContentChange }: Props) {
           </div>
         </div>
       </section>
+
+      <SideResizer width={panelWidth} min={300} onChange={setPanelWidth} />
 
       <section className="qr-preview">
         <div className="qr-preview-head">
