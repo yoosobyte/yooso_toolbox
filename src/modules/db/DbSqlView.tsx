@@ -178,7 +178,7 @@ export default function DbSqlView({
       <div className="db-sql-editor-wrap" style={{ height: editorHeight }}>
         <div className="db-sql-toolbar">
           <Button
-            type="primary"
+            type="default"
             size="small"
             icon={<CaretRightOutlined />}
             loading={running}
