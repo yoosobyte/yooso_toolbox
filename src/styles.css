@@ -6484,3 +6484,7 @@ body.sftp-resizing .sftp-resizer::after {
 .db-tree-query.active > .anticon {
   color: var(--text);
 }
+
+.db-tree-query {
+  color: var(--text-dim);
+}
