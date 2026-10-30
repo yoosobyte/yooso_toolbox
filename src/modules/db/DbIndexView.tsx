@@ -214,9 +214,6 @@ export default function DbIndexView({ connectionId, database, table }: Props) {
           {t("db.indexes")}
         </Button>
         <span style={{ flex: 1 }} />
-        <Tooltip title={t("db.addIndex")}>
-          <Button size="small" type="text" icon={<PlusOutlined />} onClick={add} />
-        </Tooltip>
         <Tooltip title={t("db.refreshData")}>
           <Button
             size="small"
@@ -226,6 +223,14 @@ export default function DbIndexView({ connectionId, database, table }: Props) {
             onClick={() => setReload((value) => value + 1)}
           />
         </Tooltip>
+        <Button
+          size="small"
+          type="default"
+          icon={<PlusOutlined />}
+          onClick={add}
+        >
+          {t("db.addIndex")}
+        </Button>
       </div>
 
       {error && <div className="db-error">{error}</div>}
