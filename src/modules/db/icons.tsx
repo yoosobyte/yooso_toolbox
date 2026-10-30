@@ -39,6 +39,27 @@ export function TableIcon() {
   );
 }
 
+export function QueryIcon() {
+  return (
+    <span className="db-query-icon" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        width="1em"
+        height="1em"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+        <path d="M7.5 9.5 10.5 12 7.5 14.5" />
+        <path d="M12.5 15h4" />
+      </svg>
+    </span>
+  );
+}
+
 export function MysqlIcon() {
   return (
     <span className="db-mysql-icon" role="img" aria-label="MySQL">

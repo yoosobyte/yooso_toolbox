@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Button, Dropdown, Input, Spin, Tooltip } from "antd";
 import {
-  CodeOutlined,
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
@@ -16,7 +15,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import type { DbConfig, DbTableInfo } from "./api";
 import type { DbQueryDef } from "./queries";
-import { DatabaseIcon, MysqlIcon, TableIcon } from "./icons";
+import { DatabaseIcon, MysqlIcon, QueryIcon, TableIcon } from "./icons";
 
 
 interface Props {
@@ -303,7 +302,7 @@ export default function DbTree({
                                   }
                                 }}
                               >
-                                <CodeOutlined />
+                                <QueryIcon />
                                 <span className="db-tree-name">{query.name}</span>
                               </div>
                             ))}
