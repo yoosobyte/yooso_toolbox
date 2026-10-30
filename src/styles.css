@@ -6425,3 +6425,16 @@ body.sftp-resizing .sftp-resizer::after {
   background: color-mix(in srgb, var(--db-conn-color) 18%, var(--bg-panel));
   color: var(--text);
 }
+
+.db-tree-conn {
+  background: color-mix(in srgb, var(--db-conn-color) 12%, transparent);
+}
+
+.db-tree-conn:hover {
+  background: color-mix(in srgb, var(--db-conn-color) 18%, var(--surface));
+}
+
+.db-tree-conn.active {
+  background: color-mix(in srgb, var(--db-conn-color) 22%, var(--bg-panel));
+  color: var(--text);
+}
