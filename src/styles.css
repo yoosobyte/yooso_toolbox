@@ -6164,3 +6164,9 @@ body.sftp-resizing .sftp-resizer::after {
 .db-ddl-view .db-ddl-input {
   margin: 0;
 }
+
+.db-filter-row > .db-filter-delete {
+  width: 28px;
+  min-width: 28px;
+  padding: 0;
+}
