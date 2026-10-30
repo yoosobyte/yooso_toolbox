@@ -6129,7 +6129,7 @@ body.sftp-resizing .sftp-resizer::after {
 
 .db-filter-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px;
   padding-top: 2px;
 }
