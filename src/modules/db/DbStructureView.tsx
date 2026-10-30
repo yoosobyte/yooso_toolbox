@@ -535,15 +535,15 @@ export default function DbStructureView({ connectionId, database, table, refresh
           <div className="db-structure-scroll">
             <table className="db-structure-table">
               <colgroup>
-                <col style={{ width: 28 }} />
-                <col style={{ width: 170 }} />
-                <col style={{ width: 120 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 62 }} />
-                <col style={{ width: 52 }} />
-                <col style={{ width: 90 }} />
-                <col style={{ width: 90 }} />
-                <col style={{ width: 208 }} />
+                <col style={{ width: "2.5%" }} />
+                <col style={{ width: "17%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "6.5%" }} />
+                <col style={{ width: "5.5%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "33%" }} />
               </colgroup>
               <thead>
                 <tr>

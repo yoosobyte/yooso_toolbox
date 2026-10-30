@@ -5814,7 +5814,7 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .db-structure-table {
-  width: 900px;
+  width: 100%;
   min-width: 900px;
   table-layout: fixed;
   border-collapse: separate;
