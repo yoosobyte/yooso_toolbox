@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Button, Tooltip } from "antd";
-import { CaretRightOutlined, ReloadOutlined } from "@ant-design/icons";
+import { App as AntdApp, Button, Tooltip } from "antd";
+import { CopyOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
-import { dbExecDdl, dbTableDdl } from "./api";
+import { copyText } from "../../clipboard";
+import { dbTableDdl } from "./api";
 
 interface Props {
   connectionId: string;
@@ -14,9 +15,10 @@ interface Props {
 
 export default function DbDdlView({ connectionId, database, table }: Props) {
   const t = useT(useUiStore((state) => state.lang));
+  const { message } = AntdApp.useApp();
   const [sql, setSql] = useState("");
+  const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
-  const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
@@ -37,19 +39,12 @@ export default function DbDdlView({ connectionId, database, table }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionId, database, table]);
 
-  const run = async () => {
-    const statement = sql.trim();
-    if (!statement || running) return;
-    setRunning(true);
-    setError(null);
-    try {
-      await dbExecDdl(connectionId, statement);
-      await load();
-    } catch (reason) {
-      setError(errText(reason));
-    } finally {
-      setRunning(false);
-    }
+  const copy = () => {
+    if (!sql.trim()) return;
+    void copyText(sql).then(
+      () => message.success(t("db.ddlCopied")),
+      () => message.error(t("common.copyFailed")),
+    );
   };
 
   return (
@@ -58,32 +53,36 @@ export default function DbDdlView({ connectionId, database, table }: Props) {
         <span className="db-muted">{t("db.tableDdl")}</span>
         <span style={{ flex: 1 }} />
         <Tooltip title={t("db.refreshData")}>
-          <Button size="small" type="text" icon={<ReloadOutlined />} loading={loading} onClick={() => void load()} />
+          <Button
+            size="small"
+            type="text"
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => void load()}
+          />
         </Tooltip>
         <Button
           size="small"
-          type="primary"
-          icon={<CaretRightOutlined />}
-          loading={running}
+          icon={<CopyOutlined />}
           disabled={!sql.trim()}
-          onClick={() => void run()}
+          onClick={copy}
         >
-          {t("db.runDdl")}
+          {t("db.copyDdl")}
         </Button>
       </div>
       {error && <div className="db-error">{error}</div>}
       <textarea
+        className="db-ddl-comment"
+        value={comment}
+        placeholder={t("db.ddlCommentPlaceholder")}
+        onChange={(event) => setComment(event.target.value)}
+      />
+      <textarea
         className="db-ddl-input"
         spellCheck={false}
+        readOnly
         value={sql}
         placeholder={t("db.ddlPlaceholder")}
-        onChange={(event) => setSql(event.target.value)}
-        onKeyDown={(event) => {
-          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-            event.preventDefault();
-            void run();
-          }
-        }}
       />
     </div>
   );
