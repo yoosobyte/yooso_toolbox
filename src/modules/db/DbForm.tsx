@@ -6,6 +6,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
 import { dbTest, type DbConfig } from "./api";
+import { DB_COLORS, DEFAULT_DB_COLOR } from "./colors";
 import { MysqlIcon } from "./icons";
 
 interface Props {
@@ -15,21 +16,11 @@ interface Props {
   onSaved: (config: DbConfig) => void;
 }
 
-const DB_COLORS = [
-  "#3b82f6",
-  "#22c55e",
-  "#a855f7",
-  "#f59e0b",
-  "#ec4899",
-  "#06b6d4",
-  "#64748b",
-];
-
 function emptyDraft(): DbConfig {
   return {
     id: crypto.randomUUID(),
     name: "",
-    color: "#3b82f6",
+    color: DEFAULT_DB_COLOR,
     kind: "mysql",
     host: "127.0.0.1",
     port: 3306,
@@ -135,7 +126,7 @@ export default function DbForm({ open, initial, onClose, onSaved }: Props) {
             <div className="db-color-swatches">
               {Array.from(new Set([...DB_COLORS, draft.color].filter(Boolean))).map(
                 (color) => {
-                  const value = color ?? DB_COLORS[0];
+                  const value = color ?? DEFAULT_DB_COLOR;
                   return (
                     <button
                       key={value}

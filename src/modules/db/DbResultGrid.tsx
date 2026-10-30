@@ -233,18 +233,6 @@ export default function DbResultGrid({
     setRange({ start: drag.start, end: { row, col } });
   };
 
-  if (loading) {
-    return (
-      <div className="db-grid-loading">
-        <Spin size="small" />
-      </div>
-    );
-  }
-
-  if (rows.length === 0 && !draft) {
-    return <div className="db-grid-empty">{emptyText ?? t("db.emptyResult")}</div>;
-  }
-
   const minRow = range ? Math.min(range.start.row, range.end.row) : -1;
   const maxRow = range ? Math.max(range.start.row, range.end.row) : -1;
   const minCol = range ? Math.min(range.start.col, range.end.col) : -1;
@@ -327,7 +315,23 @@ export default function DbResultGrid({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, rowIndex) => {
+          {loading && (
+            <tr className="db-grid-status-row">
+              <td colSpan={Math.max(1, columns.length + 1)}>
+                <div className="db-grid-loading">
+                  <Spin size="small" />
+                </div>
+              </td>
+            </tr>
+          )}
+          {!loading && rows.length === 0 && !draft && (
+            <tr className="db-grid-status-row">
+              <td colSpan={Math.max(1, columns.length + 1)}>
+                <div className="db-grid-empty">{emptyText ?? t("db.emptyResult")}</div>
+              </td>
+            </tr>
+          )}
+          {!loading && rows.map((row, rowIndex) => {
             const rowSelected = selectedRows?.has(rowIndex) ?? false;
             return (
               <tr
@@ -428,7 +432,7 @@ export default function DbResultGrid({
               </tr>
             );
           })}
-          {draft && (
+          {!loading && draft && (
             <tr className="db-draft-row">
               <td className="db-row-num" />
               {columns.map((column, index) => (

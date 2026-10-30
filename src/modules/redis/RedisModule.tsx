@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { App as AntdApp, Button, Select, Segmented, Typography } from "antd";
 import {
   CodeOutlined,
-  DatabaseOutlined,
   DisconnectOutlined,
   KeyOutlined,
   PlusOutlined,
@@ -14,6 +13,7 @@ import { errText } from "../../utils";
 import RedisConnectionList from "./RedisConnectionList";
 import RedisForm from "./RedisForm";
 import RedisBrowser from "./RedisBrowser";
+import { RedisIcon } from "./icons";
 import RedisConsole from "./RedisConsole";
 import {
   redisConnect,
@@ -235,7 +235,7 @@ export default function RedisModule() {
           ) : (
             <div className="redis-welcome">
               <span className="redis-welcome-icon">
-                <DatabaseOutlined />
+                <RedisIcon />
               </span>
               <div className="redis-welcome-title">{t("redis.selectConnection")}</div>
               <div className="redis-hint">{t("redis.emptyConnections")}</div>

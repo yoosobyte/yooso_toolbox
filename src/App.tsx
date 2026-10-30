@@ -2,13 +2,15 @@ import { useMemo, useState } from "react";
 import { Tooltip, Typography } from "antd";
 import {
   ApiOutlined,
-  CodeOutlined,
-  FileTextOutlined,
   QrcodeOutlined,
   SettingOutlined,
-  CloudServerOutlined,
-  TranslationOutlined,
 } from "@ant-design/icons";
+import {
+  DbNavIcon,
+  SshNavIcon,
+  TextNavIcon,
+  TranslateNavIcon,
+} from "./components/NavIcons";
 import type { ReactNode } from "react";
 import SshModule from "./modules/ssh/SshModule";
 import ApiModule from "./modules/api/ApiModule";
@@ -16,8 +18,8 @@ import QrModule from "./modules/qrcode/QrModule";
 import TranslateModule from "./modules/translate/TranslateModule";
 import TextModule from "./modules/text/TextModule";
 import RedisModule from "./modules/redis/RedisModule";
+import { RedisIcon } from "./modules/redis/icons";
 import DbModule from "./modules/db/DbModule";
-import { DatabaseIcon } from "./modules/db/icons";
 import Placeholder from "./modules/Placeholder";
 import SettingsModal from "./modules/SettingsModal";
 import { useUiStore } from "./stores/uiStore";
@@ -50,7 +52,7 @@ const MODULES: ModuleDef[] = [
     label: "SSH",
     titleKey: "SSH / SFTP",
     descKey: "module.sshDesc",
-    icon: <CloudServerOutlined />,
+    icon: <SshNavIcon />,
     ready: true,
     featureKeys: [],
   },
@@ -59,7 +61,7 @@ const MODULES: ModuleDef[] = [
     label: "Text",
     titleKey: "Text",
     descKey: "module.textDesc",
-    icon: <FileTextOutlined />,
+    icon: <TextNavIcon />,
     ready: true,
     featureKeys: [],
   },
@@ -77,7 +79,7 @@ const MODULES: ModuleDef[] = [
     label: "DB",
     titleKey: "DB",
     descKey: "module.dbDesc",
-    icon: <DatabaseIcon />,
+    icon: <DbNavIcon />,
     ready: true,
     featureKeys: [],
   },
@@ -86,7 +88,7 @@ const MODULES: ModuleDef[] = [
     label: "Redis",
     titleKey: "Redis",
     descKey: "module.redisDesc",
-    icon: <CodeOutlined />,
+    icon: <RedisIcon />,
     ready: true,
     featureKeys: [],
   },
@@ -104,7 +106,7 @@ const MODULES: ModuleDef[] = [
     label: "Translate",
     titleKey: "Translation",
     descKey: "module.translateDesc",
-    icon: <TranslationOutlined />,
+    icon: <TranslateNavIcon />,
     ready: true,
     featureKeys: [],
   },

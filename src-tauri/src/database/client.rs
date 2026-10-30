@@ -79,6 +79,8 @@ fn escape_like(value: &str) -> String {
 fn filter_clause(filters: &[DbFilter], conjunction: Option<&str>) -> (String, Vec<Value>) {
     let mut sql = String::new();
     let mut params = Vec::new();
+    // 链接符在选择器行首（第二行起才有），表示当前条件与上一个条件之间的关系，
+    // 第一行没有上一个条件，它的 conjunction 会被忽略。
     for filter in filters {
         let column = filter.column.trim();
         if column.is_empty() {
@@ -1005,6 +1007,28 @@ mod tests {
             " WHERE ((`status` = ?) OR `role` IN (?, ?)) AND `name` NOT LIKE ? ESCAPE '\\\\'"
         );
         assert_eq!(params.len(), 4);
+    }
+
+    #[test]
+    fn joins_row_with_previous_condition() {
+        // 第二行行首的连接符连接它与上一行：id = 3 或 id = 2
+        let filters = vec![
+            DbFilter {
+                column: "id".into(),
+                operator: "eq".into(),
+                value: Some("3".into()),
+                conjunction: None,
+            },
+            DbFilter {
+                column: "id".into(),
+                operator: "eq".into(),
+                value: Some("2".into()),
+                conjunction: Some("or".into()),
+            },
+        ];
+        let (sql, params) = filter_clause(&filters, Some("and"));
+        assert_eq!(sql, " WHERE (`id` = ?) OR `id` = ?");
+        assert_eq!(params.len(), 2);
     }
 
     #[test]

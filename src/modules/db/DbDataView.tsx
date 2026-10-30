@@ -443,11 +443,31 @@ export default function DbDataView({ connectionId, database, table, refreshToken
             <span style={{ flex: 1 }} />
           </div>
 
-          {draft.map((filter) => (
+          {draft.map((filter, index) => (
             <div
-              className={`db-filter-row${filter.enabled ? "" : " db-filter-row-disabled"}`}
+              className={`db-filter-row${draft.length === 1 ? " db-filter-row-single" : ""}${filter.enabled ? "" : " db-filter-row-disabled"}`}
               key={filter.id}
             >
+              {draft.length > 1 &&
+                (index === 0 ? (
+                  <span aria-hidden="true" />
+                ) : (
+                  <Tooltip title={t("db.filterJoinPrev")}>
+                    <Select
+                      size="small"
+                      value={filter.conjunction}
+                      disabled={!filter.enabled}
+                      options={[
+                        { value: "and", label: t("db.filterAnd") },
+                        { value: "or", label: t("db.filterOr") },
+                      ]}
+                      onChange={(value) =>
+                        patchFilter(filter.id, { conjunction: value as "and" | "or" })
+                      }
+                      style={{ width: "100%" }}
+                    />
+                  </Tooltip>
+                ))}
               <Tooltip title={t("db.filterEnabled")}>
                 <Checkbox
                   checked={filter.enabled}
@@ -497,19 +517,6 @@ export default function DbDataView({ connectionId, database, table, refreshToken
                       : t("db.filterValuePlaceholder")
                 }
                 onChange={(event) => patchFilter(filter.id, { value: event.target.value })}
-              />
-              <Select
-                size="small"
-                value={filter.conjunction}
-                disabled={!filter.enabled}
-                options={[
-                  { value: "and", label: t("db.filterAnd") },
-                  { value: "or", label: t("db.filterOr") },
-                ]}
-                onChange={(value) =>
-                  patchFilter(filter.id, { conjunction: value as "and" | "or" })
-                }
-                style={{ width: 88 }}
               />
               <Button
                 size="small"

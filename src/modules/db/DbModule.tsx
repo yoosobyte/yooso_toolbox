@@ -19,6 +19,7 @@ import { useT } from "../../i18n";
 import { errText } from "../../utils";
 import DbForm from "./DbForm";
 import DbTree from "./DbTree";
+import { connectionColor } from "./colors";
 import { DatabaseIcon } from "./icons";
 import { copyText } from "../../clipboard";
 import { saveText } from "../../save";
@@ -54,6 +55,24 @@ interface TableTab {
 }
 
 const SYSTEM_DATABASES = new Set(["information_schema", "mysql", "performance_schema", "sys"]);
+
+const SIDE_WIDTH_KEY = "db.sideWidth";
+const DEFAULT_SIDE_WIDTH = 272;
+const MIN_SIDE_WIDTH = 200;
+const MAX_SIDE_WIDTH = 560;
+
+function loadSideWidth(): number {
+  try {
+    const raw = localStorage.getItem(SIDE_WIDTH_KEY);
+    const value = raw === null ? Number.NaN : Number(raw);
+    if (Number.isFinite(value) && value >= MIN_SIDE_WIDTH) {
+      return Math.min(MAX_SIDE_WIDTH, value);
+    }
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_SIDE_WIDTH;
+}
 
 function pickDatabase(databases: string[], preferred: string | null): string | null {
   if (preferred && databases.includes(preferred)) return preferred;
@@ -108,8 +127,10 @@ export default function DbModule() {
     query: DbQueryDef;
   } | null>(null);
 
+  const [sideWidth, setSideWidth] = useState(loadSideWidth);
   const dbRequest = useRef(0);
   const activeIdRef = useRef<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const tabsBarRef = useRef<HTMLDivElement | null>(null);
   const tabDragRef = useRef<{
     startX: number;
@@ -125,6 +146,38 @@ export default function DbModule() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDE_WIDTH_KEY, String(Math.round(sideWidth)));
+    } catch {
+      /* ignore */
+    }
+  }, [sideWidth]);
+
+  /** 拖动左右分栏之间的分隔条调整左侧宽度 */
+  const startSideResize = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sideWidth;
+    const containerWidth = bodyRef.current?.clientWidth ?? 960;
+    const maxWidth = Math.max(
+      MIN_SIDE_WIDTH,
+      Math.min(MAX_SIDE_WIDTH, containerWidth - 360),
+    );
+    document.body.classList.add("db-resizing");
+    const onMove = (moveEvent: MouseEvent) => {
+      const next = startWidth + (moveEvent.clientX - startX);
+      setSideWidth(Math.min(maxWidth, Math.max(MIN_SIDE_WIDTH, next)));
+    };
+    const onUp = () => {
+      document.body.classList.remove("db-resizing");
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
 
   useEffect(() => {
     if (!tableMenu && !databaseMenu && !queryMenu) return;
@@ -214,9 +267,9 @@ export default function DbModule() {
     }
   };
 
-  const disconnect = async () => {
-    if (!active) return;
-    await dbDisconnect(active.id).catch(() => undefined);
+  /** 静默清理当前连接的前端状态（不提示，供断开/删除/修改配置复用） */
+  const resetConnectionState = async (connectionId: string) => {
+    await dbDisconnect(connectionId).catch(() => undefined);
     activeIdRef.current = null;
     setActive(null);
     setInfo(null);
@@ -226,6 +279,11 @@ export default function DbModule() {
     setActiveDatabase(null);
     setConnectionExpanded(true);
     clearTabs();
+  };
+
+  const disconnect = async () => {
+    if (!active) return;
+    await resetConnectionState(active.id);
     message.success(t("db.disconnected"));
   };
 
@@ -251,15 +309,7 @@ export default function DbModule() {
       onOk: async () => {
         try {
           if (active?.id === config.id) {
-            await dbDisconnect(config.id).catch(() => undefined);
-            activeIdRef.current = null;
-            setActive(null);
-            setInfo(null);
-            setDatabases([]);
-            setExpandedDatabases(new Set());
-            setTablesByDb({});
-            setActiveDatabase(null);
-            clearTabs();
+            await resetConnectionState(config.id);
           }
           await useDbStore.getState().remove(config.id);
           message.success(t("common.delete"));
@@ -559,10 +609,81 @@ export default function DbModule() {
     });
   };
 
+  const promptRenameTable = (target: { database: string; table: string }) => {
+    if (!active) return;
+    let nextName = target.table;
+    modal.confirm({
+      title: t("db.renameTable"),
+      content: (
+        <Input
+          autoFocus
+          defaultValue={target.table}
+          placeholder={t("db.newTableName")}
+          onChange={(event) => {
+            nextName = event.target.value;
+          }}
+        />
+      ),
+      okText: t("common.save"),
+      cancelText: t("common.cancel"),
+      onOk: async () => {
+        const value = nextName.trim();
+        if (!value) {
+          message.warning(t("db.tableNameRequired"));
+          return;
+        }
+        if (value === target.table) return;
+        try {
+          await dbExecDdl(
+            active.id,
+            `RENAME TABLE ${qualified(target.database, target.table)} TO ${qualified(target.database, value)}`,
+          );
+          message.success(t("db.tableRenamed"));
+          renameTableTab(target.database, target.table, value);
+        } catch (reason) {
+          message.error(errText(reason));
+        }
+      },
+    });
+  };
+
   const openNewTable = (database: string) => {
     setTableMenu(null);
     setDatabaseMenu(null);
     setNewTableDatabase(database);
+  };
+
+  const closeDatabase = (database: string) => {
+    setDatabaseMenu(null);
+    const closingQueryIds = new Set(
+      queryDefs
+        .filter((query) => query.database === database)
+        .map((query) => query.id),
+    );
+    const closingTabKeys = new Set(
+      tableTabs.filter((tab) => tab.database === database).map((tab) => tab.key),
+    );
+
+    setTableTabs((prev) => prev.filter((tab) => tab.database !== database));
+    setOpenQueryIds((prev) => prev.filter((id) => !closingQueryIds.has(id)));
+    setActiveTabKey((current) => {
+      if (!current) return null;
+      if (current.startsWith("q:")) {
+        return closingQueryIds.has(current.slice(2)) ? null : current;
+      }
+      return closingTabKeys.has(current) ? null : current;
+    });
+    setExpandedDatabases((prev) => {
+      const next = new Set(prev);
+      next.delete(database);
+      return next;
+    });
+    setTablesByDb((prev) => {
+      const next = { ...prev };
+      delete next[database];
+      return next;
+    });
+    setActiveDatabase((current) => (current === database ? null : current));
   };
 
   const openTableMenu = (
@@ -663,10 +784,7 @@ export default function DbModule() {
   const selection = activeTableTab
     ? { database: activeTableTab.database, table: activeTableTab.table }
     : null;
-  const connectionColor =
-    active?.color && /^#[0-9a-f]{6}$/i.test(active.color)
-      ? active.color
-      : "#3b82f6";
+  const activeConnectionColor = connectionColor(active?.color);
   const duplicatedTableNames = new Set(
     tableTabs
       .map((tab) => tab.table)
@@ -676,7 +794,7 @@ export default function DbModule() {
   return (
     <div
       className="module db-module"
-      style={{ "--db-conn-color": connectionColor } as CSSProperties}
+      style={{ "--db-conn-color": activeConnectionColor } as CSSProperties}
     >
       <header className="module-head">
         <span className="module-icon">
@@ -704,8 +822,8 @@ export default function DbModule() {
         )}
       </header>
 
-      <div className="db-body">
-        <aside className="db-side">
+      <div className="db-body" ref={bodyRef}>
+        <aside className="db-side" style={{ width: sideWidth }}>
           <Button block icon={<PlusOutlined />} onClick={openCreate}>
             {t("db.newConnection")}
           </Button>
@@ -734,14 +852,16 @@ export default function DbModule() {
             onQueryContextMenu={openQueryMenu}
             onTableContextMenu={openTableMenu}
             onDatabaseContextMenu={openDatabaseMenu}
-            onCreateTable={() => {
-              if (activeDatabase) openNewTable(activeDatabase);
-            }}
             onRefresh={refreshTree}
             onEdit={openEdit}
             onDelete={deleteConnection}
+            onDisconnect={(config) => {
+              if (active?.id === config.id) void disconnect();
+            }}
           />
         </aside>
+
+        <div className="db-side-resizer" onMouseDown={startSideResize} />
 
         <section className="db-main">
           {active ? (
@@ -921,6 +1041,16 @@ export default function DbModule() {
             <CopyOutlined />
             {t("db.copyTableName")}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTableMenu(null);
+              promptRenameTable(tableMenu);
+            }}
+          >
+            <EditOutlined />
+            {t("db.renameTable")}
+          </button>
           <button type="button" onClick={() => openNewTable(tableMenu.database)}>
             <PlusOutlined />
             {t("db.newTable")}
@@ -998,6 +1128,13 @@ export default function DbModule() {
             <FileTextOutlined />
             {t("db.newQuery")}
           </button>
+          <button
+            type="button"
+            onClick={() => closeDatabase(databaseMenu.database)}
+          >
+            <CloseOutlined />
+            {t("db.closeDatabase")}
+          </button>
         </div>
       )}
 
@@ -1028,7 +1165,7 @@ export default function DbModule() {
             }}
           >
             <DeleteOutlined />
-            {t("common.delete")}
+            {t("db.deleteQuery")}
           </button>
         </div>
       )}
@@ -1058,8 +1195,30 @@ export default function DbModule() {
         initial={editing}
         onClose={() => setFormOpen(false)}
         onSaved={(config) => {
+          // 新建连接保存后直接连接；修改连接只保存配置，不再自动重连，
+          // 否则数据库暂时不可达时会直接弹 Connection refused。
+          const wasEditing = editing !== null;
           setEditing(null);
-          void connect(config);
+          if (!wasEditing) {
+            void connect(config);
+            return;
+          }
+          const current = active;
+          if (!current || current.id !== config.id) return;
+          const targetChanged =
+            current.host !== config.host ||
+            current.port !== config.port ||
+            (current.username ?? "") !== (config.username ?? "") ||
+            (current.password ?? "") !== (config.password ?? "") ||
+            (current.database ?? "") !== (config.database ?? "");
+          if (!targetChanged) {
+            // 只改了名字/颜色等展示信息，连接可以继续用
+            setActive(config);
+            return;
+          }
+          void resetConnectionState(config.id).then(() => {
+            message.info(t("db.reconnectHint"));
+          });
         }}
       />
     </div>
