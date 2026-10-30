@@ -6460,3 +6460,11 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 
+
+.db-tree-query > .anticon {
+  color: var(--text-2);
+}
+
+.db-tree-query.active > .anticon {
+  color: var(--text);
+}
