@@ -528,3 +528,5 @@ SSH/SFTP 自身待补的能力：
 - [Tauri 2 文档](https://v2.tauri.app/)
 - [Ant Design 6](https://ant.design/)
 - [xterm.js](https://xtermjs.org/)
+
+- [Mac v0.1.0](https://qnres.yoosobyte.com/yooso-toolbox/%E6%82%A6%E7%9B%92.app.zip)
