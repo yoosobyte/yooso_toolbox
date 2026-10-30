@@ -6468,3 +6468,19 @@ body.sftp-resizing .sftp-resizer::after {
 .db-tree-query.active > .anticon {
   color: var(--text);
 }
+
+.db-tree-table .db-table-icon {
+  color: var(--text-mute);
+}
+
+.db-tree-table.active .db-table-icon {
+  color: var(--text);
+}
+
+.db-tree-query > .anticon {
+  color: var(--text-mute);
+}
+
+.db-tree-query.active > .anticon {
+  color: var(--text);
+}
