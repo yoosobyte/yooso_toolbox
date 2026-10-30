@@ -308,6 +308,29 @@ export default function DbStructureView({ connectionId, database, table, refresh
     }
   };
 
+  const canUsePrimaryKey = (column: ColumnDefinition): boolean => {
+    const type = column.type.toLowerCase();
+    return ![
+      "tinytext",
+      "text",
+      "mediumtext",
+      "longtext",
+      "tinyblob",
+      "blob",
+      "mediumblob",
+      "longblob",
+      "json",
+      "geometry",
+      "point",
+      "linestring",
+      "polygon",
+      "multipoint",
+      "multilinestring",
+      "multipolygon",
+      "geometrycollection",
+    ].includes(type);
+  };
+
   const togglePrimary = async (rowIndex: number) => {
     if (applying || draft) return;
     const current = rows[rowIndex];
@@ -316,11 +339,16 @@ export default function DbStructureView({ connectionId, database, table, refresh
     const otherPrimary = rows.some(
       (row, index) => index !== rowIndex && row.key.toUpperCase().includes("PRI"),
     );
+    if (!canUsePrimaryKey(current)) {
+      message.warning(t("db.keyUnsupported"));
+      return;
+    }
+    const target = quoteIdent(current.field);
     const statement = hasPrimary
       ? `ALTER TABLE ${qualifiedName} DROP PRIMARY KEY`
       : otherPrimary
-        ? `ALTER TABLE ${qualifiedName} DROP PRIMARY KEY, ADD PRIMARY KEY (${quoteIdent(current.field)})`
-        : `ALTER TABLE ${qualifiedName} ADD PRIMARY KEY (${quoteIdent(current.field)})`;
+        ? `ALTER TABLE ${qualifiedName} DROP PRIMARY KEY, ADD PRIMARY KEY (${target})`
+        : `ALTER TABLE ${qualifiedName} ADD PRIMARY KEY (${target})`;
     setApplying(true);
     try {
       await dbExecDdl(connectionId, statement);
