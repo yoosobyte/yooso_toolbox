@@ -430,7 +430,12 @@ export default function DbDataView({ connectionId, database, table, refreshToken
         <div className="db-filter-panel" onClick={(event) => event.stopPropagation()}>
           <div className="db-filter-head">
             <span className="db-filter-title">{t("db.filter")}</span>
-            <Button size="small" type="text" icon={<PlusOutlined />} onClick={addFilter}>
+            <Button
+              size="small"
+              type="default"
+              icon={<PlusOutlined />}
+              onClick={addFilter}
+            >
               {t("db.filterAdd")}
             </Button>
             <span style={{ flex: 1 }} />
