@@ -11,6 +11,7 @@ import {
   MinusOutlined,
   PlusOutlined,
   ReloadOutlined,
+  TableOutlined,
 } from "@ant-design/icons";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
@@ -675,6 +676,12 @@ export default function DbStructureView({ connectionId, database, table, refresh
         }
       }}
     >
+      <div className="db-view-toolbar">
+        <Button size="small" type="text" icon={<TableOutlined />}>
+          {t("db.tableStructure")}
+        </Button>
+      </div>
+
       <div className="db-structure-area">
         {error ? (
           <div className="db-error">{error}</div>
@@ -697,9 +704,6 @@ export default function DbStructureView({ connectionId, database, table, refresh
                 <col style={{ width: "33%" }} />
               </colgroup>
               <thead>
-                <tr className="db-structure-title-row">
-                  <th colSpan={9}>{t("db.tableStructure")}</th>
-                </tr>
                 <tr>
                   <th className="db-structure-gutter" />
                   <th>{t("db.colField")}</th>

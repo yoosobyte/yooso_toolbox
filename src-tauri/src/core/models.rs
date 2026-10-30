@@ -371,6 +371,15 @@ pub struct DbFilter {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DbTableOptions {
+    pub name: String,
+    pub comment: String,
+    pub engine: String,
+    pub auto_increment: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DbKey {
     pub column: String,
     pub value: Option<String>,

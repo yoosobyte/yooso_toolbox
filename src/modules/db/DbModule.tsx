@@ -36,7 +36,7 @@ interface TableTab {
   key: string;
   database: string;
   table: string;
-  view: "data" | "structure" | "ddl" | "index";
+  view: "data" | "structure" | "index" | "settings" | "ddl";
 }
 
 const SYSTEM_DATABASES = new Set(["information_schema", "mysql", "performance_schema", "sys"]);
@@ -280,13 +280,28 @@ export default function DbModule() {
     }
   };
 
-  const setTabView = (key: string, view: "data" | "structure" | "ddl" | "index") => {
+  const setTabView = (
+    key: string,
+    view: "data" | "structure" | "index" | "settings" | "ddl",
+  ) => {
     setTableTabs((prev) =>
       prev.map((tab) => (tab.key === key ? { ...tab, view } : tab)),
     );
   };
 
   const tableKey = (database: string, table: string) => `${database}.${table}`;
+
+  const renameTableTab = (database: string, oldTable: string, newTable: string) => {
+    const oldKey = tableKey(database, oldTable);
+    const newKey = tableKey(database, newTable);
+    setTableTabs((previous) =>
+      previous.map((tab) =>
+        tab.key === oldKey ? { ...tab, key: newKey, table: newTable } : tab,
+      ),
+    );
+    setActiveTabKey((current) => (current === oldKey ? newKey : current));
+    if (active) void loadTablesFor(active.id, database);
+  };
 
   const reloadAfterTableChange = (database: string) => {
     if (!active) return;
@@ -500,6 +515,9 @@ export default function DbModule() {
                       table={tab.table}
                       view={tab.view}
                       onViewChange={(view) => setTabView(tab.key, view)}
+                      onTableRenamed={(newName) =>
+                        renameTableTab(tab.database, tab.table, newName)
+                      }
                     />
                   </div>
                 ))}

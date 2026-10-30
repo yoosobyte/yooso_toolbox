@@ -118,6 +118,7 @@ pub fn run() {
             database::db_database_collation,
             database::db_table_ddl,
             database::db_table_indexes,
+            database::db_table_options,
             database::db_table_data,
             database::db_update_cell,
             database::db_delete_rows,
