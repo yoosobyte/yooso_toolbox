@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "icons:platform": "node scripts/make_platform_icons.cjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",

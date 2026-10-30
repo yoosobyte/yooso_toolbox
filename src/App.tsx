@@ -3,7 +3,6 @@ import { Tooltip, Typography } from "antd";
 import {
   ApiOutlined,
   CodeOutlined,
-  DatabaseOutlined,
   FileTextOutlined,
   QrcodeOutlined,
   SettingOutlined,
@@ -16,6 +15,9 @@ import ApiModule from "./modules/api/ApiModule";
 import QrModule from "./modules/qrcode/QrModule";
 import TranslateModule from "./modules/translate/TranslateModule";
 import TextModule from "./modules/text/TextModule";
+import RedisModule from "./modules/redis/RedisModule";
+import DbModule from "./modules/db/DbModule";
+import { DatabaseIcon } from "./modules/db/icons";
 import Placeholder from "./modules/Placeholder";
 import SettingsModal from "./modules/SettingsModal";
 import { useUiStore } from "./stores/uiStore";
@@ -26,7 +28,7 @@ type ModuleKey =
   | "ssh"
   | "text"
   | "qrcode"
-  | "mysql"
+  | "db"
   | "redis"
   | "api"
   | "translate";
@@ -70,13 +72,13 @@ const MODULES: ModuleDef[] = [
     featureKeys: [],
   },
   {
-    key: "mysql",
-    label: "MySQL",
-    titleKey: "MySQL",
-    descKey: "module.mysqlDesc",
-    icon: <DatabaseOutlined />,
-    ready: false,
-    featureKeys: ["module.mysql.f1", "module.mysql.f2", "module.mysql.f3", "module.mysql.f4"],
+    key: "db",
+    label: "DB",
+    titleKey: "DB",
+    descKey: "module.dbDesc",
+    icon: <DatabaseIcon />,
+    ready: true,
+    featureKeys: [],
   },
   {
     key: "redis",
@@ -84,8 +86,8 @@ const MODULES: ModuleDef[] = [
     titleKey: "Redis",
     descKey: "module.redisDesc",
     icon: <CodeOutlined />,
-    ready: false,
-    featureKeys: ["module.redis.f1", "module.redis.f2", "module.redis.f3", "module.redis.f4"],
+    ready: true,
+    featureKeys: [],
   },
   {
     key: "api",
@@ -108,12 +110,13 @@ const MODULES: ModuleDef[] = [
 ];
 
 export default function App() {
-  const [activeKey, setActiveKey] = useState<ModuleKey>("ssh");
+  const [activeKey, setActiveKey] = useState<ModuleKey>("db");
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 头部模块（SSH / API）常驻；其余模块首次打开后再保持挂载，避免一启动就请求外网/占用资源
   const [mounted, setMounted] = useState<Partial<Record<ModuleKey, boolean>>>({
     ssh: true,
     api: true,
+    db: true,
   });
   const lang = useUiStore((state) => state.lang);
   const showStatusBar = useUiStore((state) => state.showStatusBar);
@@ -144,7 +147,9 @@ export default function App() {
               key={item.key}
               title={
                 item.ready
-                  ? item.titleKey
+                  ? item.key === "db"
+                    ? t("module.db")
+                    : item.titleKey
                   : `${item.titleKey} · ${t("module.planned")}`
               }
               placement="right"
@@ -202,6 +207,22 @@ export default function App() {
             <TextModule />
           </div>
         )}
+        {mounted.redis && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "redis" ? "flex" : "none" }}
+          >
+            <RedisModule />
+          </div>
+        )}
+        {mounted.db && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "db" ? "flex" : "none" }}
+          >
+            <DbModule />
+          </div>
+        )}
         {mounted.qrcode && (
           <div
             className="module-slot"
@@ -218,7 +239,7 @@ export default function App() {
             <TranslateModule />
           </div>
         )}
-        {!["ssh", "api", "text", "qrcode", "translate"].includes(activeModule.key) && (
+        {!["ssh", "api", "text", "qrcode", "translate", "redis", "db"].includes(activeModule.key) && (
           <Placeholder
             title={activeModule.titleKey}
             desc={t(activeModule.descKey)}

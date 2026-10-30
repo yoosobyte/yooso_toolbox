@@ -11,8 +11,8 @@ use russh_sftp::client::SftpSession;
 use tauri::ipc::Channel;
 use tokio::sync::{mpsc, OnceCell};
 
-use crate::models::{ProbeResult, SessionConfig, SshEvent};
-use crate::store::Store;
+use crate::core::models::{ProbeResult, SessionConfig, SshEvent};
+use crate::core::store::Store;
 
 /// 终端写入侧的指令
 pub enum TermCmd {
@@ -112,10 +112,7 @@ pub async fn connect_and_auth(
         _ => authenticate_with_password(&mut session, config).await?,
     };
 
-    let fingerprint = fingerprint_slot
-        .lock()
-        .ok()
-        .and_then(|slot| slot.clone());
+    let fingerprint = fingerprint_slot.lock().ok().and_then(|slot| slot.clone());
 
     Ok((
         session,
@@ -157,7 +154,9 @@ async fn authenticate_with_password(
 
     loop {
         match response {
-            KeyboardInteractiveAuthResponse::Success => return Ok("keyboard-interactive".to_string()),
+            KeyboardInteractiveAuthResponse::Success => {
+                return Ok("keyboard-interactive".to_string())
+            }
             KeyboardInteractiveAuthResponse::Failure { .. } => {
                 bail!("认证失败：用户名或密码错误");
             }
@@ -220,15 +219,7 @@ pub async fn open_terminal(
         .context("打开 SSH 会话通道失败")?;
 
     channel
-        .request_pty(
-            false,
-            "xterm-256color",
-            cols.max(2),
-            rows.max(1),
-            0,
-            0,
-            &[],
-        )
+        .request_pty(false, "xterm-256color", cols.max(2), rows.max(1), 0, 0, &[])
         .await
         .context("申请伪终端失败")?;
 
@@ -314,7 +305,10 @@ pub async fn shutdown(handle: &Handle<ClientHandler>) {
 
 /// 在远端执行一条命令，返回 (退出码, 合并后的输出)。
 /// 用于「目录打包上传后解压」「复制文件」这类 SFTP 协议本身做不到的操作。
-pub async fn remote_exec(handle: &Arc<Handle<ClientHandler>>, command: &str) -> Result<(u32, String)> {
+pub async fn remote_exec(
+    handle: &Arc<Handle<ClientHandler>>,
+    command: &str,
+) -> Result<(u32, String)> {
     let mut channel = handle
         .channel_open_session()
         .await
@@ -381,7 +375,7 @@ pub async fn probe(config: &SessionConfig, store: Arc<Store>) -> Result<ProbeRes
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::TransferEvent;
+    use crate::core::models::TransferEvent;
     use std::sync::Mutex as StdMutex;
     use tauri::ipc::{Channel, InvokeResponseBody};
 
@@ -441,7 +435,9 @@ mod tests {
             "认证成功: method={} fingerprint={:?}",
             outcome.auth_method, outcome.fingerprint
         );
-        assert!(store.known_host(&format!("{}:{}", config.host, config.port)).is_some());
+        assert!(store
+            .known_host(&format!("{}:{}", config.host, config.port))
+            .is_some());
 
         // 1) 交互式 shell：发一条命令，检查回显（纯 SFTP 服务器会跳过）
         let sink = Arc::new(StdMutex::new(Vec::<u8>::new()));
@@ -452,8 +448,7 @@ mod tests {
             println!("SFTP_ONLY 模式：跳过终端");
             dummy_tx
         } else {
-            match open_terminal(handle.clone(), 100, 30, collect_channel(sink.clone())).await
-            {
+            match open_terminal(handle.clone(), 100, 30, collect_channel(sink.clone())).await {
                 Ok(writer) => {
                     tokio::time::sleep(Duration::from_millis(1500)).await;
                     writer
@@ -504,18 +499,14 @@ mod tests {
             sftp: OnceCell::new(),
         });
         let sftp = ensure_sftp(&session).await?;
-        let home = crate::sftp::home_dir(&sftp).await?;
-        let entries = crate::sftp::list_dir(&sftp, &home).await?;
+        let home = crate::ssh::sftp::home_dir(&sftp).await?;
+        let entries = crate::ssh::sftp::list_dir(&sftp, &home).await?;
         println!(
             "SFTP 主目录: {home}（{} 项）: {:?}",
             entries.len(),
             entries
                 .iter()
-                .map(|entry| format!(
-                    "{}{}",
-                    entry.name,
-                    if entry.is_dir { "/" } else { "" }
-                ))
+                .map(|entry| format!("{}{}", entry.name, if entry.is_dir { "/" } else { "" }))
                 .collect::<Vec<_>>()
         );
 
@@ -524,8 +515,7 @@ mod tests {
         let source = dir.join(&file_name);
         let payload = b"yooso toolbox sftp smoke test\n".to_vec();
         std::fs::write(&source, &payload)?;
-        let remote_dir =
-            std::env::var("TEST_SSH_REMOTE_DIR").unwrap_or_else(|_| home.clone());
+        let remote_dir = std::env::var("TEST_SSH_REMOTE_DIR").unwrap_or_else(|_| home.clone());
         let remote_path = format!("{}/{}", remote_dir.trim_end_matches('/'), file_name);
         let transfer_sink = Arc::new(StdMutex::new(0u64));
         let counter = transfer_sink.clone();
@@ -534,14 +524,14 @@ mod tests {
             Ok(())
         });
 
-        match crate::sftp::upload_path(&sftp, &handle, &source, &remote_dir, &transfer_channel)
+        match crate::ssh::sftp::upload_path(&sftp, &handle, &source, &remote_dir, &transfer_channel)
             .await
         {
             Ok(()) => {
                 println!("上传成功（{} 字节 -> {remote_path}）", payload.len());
                 if std::env::var("TEST_SSH_SKIP_ROUNDTRIP").is_err() {
                     let target = dir.join("smoke-download.txt");
-                    crate::sftp::download_file(
+                    crate::ssh::sftp::download_file(
                         &sftp,
                         &remote_path,
                         &target,
@@ -552,7 +542,7 @@ mod tests {
                     assert_eq!(downloaded, payload, "下载内容与上传内容不一致");
                     println!("上传/下载回环通过（{} 字节）", payload.len());
                 }
-                let _ = crate::sftp::remove_path(&sftp, &remote_path, false).await;
+                let _ = crate::ssh::sftp::remove_path(&sftp, &remote_path, false).await;
             }
             Err(error) => {
                 // 演示账号可能只读，这里不判失败，但打印出来
@@ -562,10 +552,11 @@ mod tests {
 
         // 4) 独立下载校验：从指定目录挑一个已有文件下载并比对大小
         if let Ok(download_dir) = std::env::var("TEST_SSH_DOWNLOAD_DIR") {
-            let items = crate::sftp::list_dir(&sftp, &download_dir).await?;
+            let items = crate::ssh::sftp::list_dir(&sftp, &download_dir).await?;
             if let Some(file) = items.into_iter().find(|item| !item.is_dir) {
                 let target = dir.join("smoke-download-demo.bin");
-                crate::sftp::download_file(&sftp, &file.path, &target, &transfer_channel).await?;
+                crate::ssh::sftp::download_file(&sftp, &file.path, &target, &transfer_channel)
+                    .await?;
                 let size = std::fs::metadata(&target)?.len();
                 println!("下载成功: {}（{size} 字节）", file.name);
                 assert_eq!(size, file.size, "下载大小与远端元数据不一致");
@@ -581,36 +572,39 @@ mod tests {
         std::fs::write(folder.join("a.txt"), b"alpha")?;
         std::fs::write(folder.join("sub/b.txt"), b"beta")?;
 
-        match crate::sftp::upload_path(&sftp, &handle, &folder, &remote_dir, &transfer_channel)
+        match crate::ssh::sftp::upload_path(&sftp, &handle, &folder, &remote_dir, &transfer_channel)
             .await
         {
             Ok(()) => {
-                let remote_folder =
-                    format!("{}/{}", remote_dir.trim_end_matches('/'), folder_name);
-                let entries = crate::sftp::list_dir(&sftp, &remote_folder).await?;
+                let remote_folder = format!("{}/{}", remote_dir.trim_end_matches('/'), folder_name);
+                let entries = crate::ssh::sftp::list_dir(&sftp, &remote_folder).await?;
                 let names: Vec<String> = entries.iter().map(|item| item.name.clone()).collect();
                 println!("目录上传成功: {remote_folder} -> {names:?}");
                 assert!(names.iter().any(|name| name == "a.txt"), "缺少 a.txt");
                 assert!(names.iter().any(|name| name == "sub"), "缺少 sub 目录");
-                let sub = crate::sftp::list_dir(&sftp, &format!("{remote_folder}/sub")).await?;
+                let sub =
+                    crate::ssh::sftp::list_dir(&sftp, &format!("{remote_folder}/sub")).await?;
                 assert!(
                     sub.iter().any(|item| item.name == "b.txt"),
                     "子目录缺少 b.txt"
                 );
 
                 // 复制到同一目录 → 自动生成「- 副本」
-                crate::sftp::copy_path(&sftp, &handle, &remote_folder, &remote_dir).await?;
+                crate::ssh::sftp::copy_path(&sftp, &handle, &remote_folder, &remote_dir).await?;
                 let copy_path = format!(
                     "{}/{} - 副本",
                     remote_dir.trim_end_matches('/'),
                     folder_name
                 );
-                let copied = crate::sftp::list_dir(&sftp, &copy_path).await?;
+                let copied = crate::ssh::sftp::list_dir(&sftp, &copy_path).await?;
                 println!("复制成功: {copy_path}（{} 项）", copied.len());
-                assert!(copied.iter().any(|item| item.name == "a.txt"), "副本内容不完整");
+                assert!(
+                    copied.iter().any(|item| item.name == "a.txt"),
+                    "副本内容不完整"
+                );
 
-                let _ = crate::sftp::remove_path(&sftp, &remote_folder, true).await;
-                let _ = crate::sftp::remove_path(&sftp, &copy_path, true).await;
+                let _ = crate::ssh::sftp::remove_path(&sftp, &remote_folder, true).await;
+                let _ = crate::ssh::sftp::remove_path(&sftp, &copy_path, true).await;
             }
             Err(error) => println!("跳过目录上传测试（远端不可写？）: {error:#}"),
         }

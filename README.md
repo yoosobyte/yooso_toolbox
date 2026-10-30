@@ -1,8 +1,8 @@
 # Yooso Toolbox
 
-一个基于 **Tauri 2 + React + Ant Design** 的桌面工具箱，计划陆续集成 JSON 处理、二维码、MySQL、Redis、API 调试、SSH/SFTP 等模块。
+一个基于 **Tauri 2 + React + Ant Design** 的桌面工具箱，计划陆续集成 JSON 处理、二维码、数据库（MySQL）、Redis、API 调试、SSH/SFTP 等模块。
 
-**目前可用：SSH 终端 + SFTP 文件管理（FinalShell 风格）、API 调试、文本工具（JSON / 对比）、二维码生成/识别、翻译（必应直连 + 变量命名）。**
+**目前可用：SSH 终端 + SFTP 文件管理（FinalShell 风格）、API 调试、文本工具（JSON / 对比）、二维码生成/识别、翻译（必应直连 + 变量命名）、DB 客户端（MySQL：连接 / 库表 / 数据 / SQL）、Redis 客户端（键浏览 / 命令行）。**
 
 ![UI 预览](docs/ui-preview.png)
 
@@ -21,6 +21,8 @@
 | SSH | russh（纯 Rust，ring 后端） | 0.65.0 |
 | SFTP | russh-sftp | 3.0.1 |
 | 二维码 | qrcode（生成）+ jsQR（识别） | 1.5.4 / 1.4.0 |
+| DB | mysql_async（tokio 异步） | 0.37.1 |
+| Redis | redis-rs（tokio 异步） | 0.27.6 |
 
 > SSH 没有用 `ssh2`/libssh2，也没有用 `openssh` 子进程：`russh` 是纯 Rust 实现，
 > 配合 `ring` 加密后端，Windows 上只需要 MSVC 即可编译（无需 cmake / nasm / OpenSSL）。
@@ -58,7 +60,7 @@
 
 ![设置面板](docs/ui-preview-settings.png)
 
-**i18n 覆盖范围**：`src/i18n.ts` 一套中英字典（463 个 key，两边 key 完全对齐），
+**i18n 覆盖范围**：`src/i18n.ts` 一套中英字典（694 个 key，两边 key 完全对齐），
 界面所有文案都走 `t("key")`——左侧导航、模块页、会话列表与表单、终端工具栏与右键菜单、
 状态栏指标、SFTP 面板（含全部提示与对话框）、进程管理器、API / 二维码 / 翻译模块、设置面板。
 后端返回的错误信息目前仍是中文（会出现在错误提示里），后续可以把错误码也纳入 i18n。
@@ -152,6 +154,14 @@ npm run tauri dev
 # 3. 生产构建（生成 NSIS 安装包）
 npm run tauri build
 ```
+
+### 应用图标
+
+- `app-icon.png` 是 1024×1024 母图（内容满画布）。
+- `npm run icons:platform` 会生成平台适配图标：
+  - macOS：内容缩到 **824/1024（约 80.5%）** 并居中留透明边，写入 `icon.icns`，避免 Dock 里比其他 App 显大。
+  - Windows：内容保持 **942/1024（约 92%）**，生成多尺寸 `icon.ico` 和 PNG/Square 资源。
+- 图标更新后需要重新构建并完全重启应用；macOS 若 Dock 仍缓存旧图标，可执行 `killall Dock`。
 
 构建产物：
 
@@ -250,6 +260,8 @@ yooso_toolbox/
 │  ├─ types.ts / utils.ts
 │  ├─ stores/
 │  │  ├─ sessionStore.ts        # 会话列表
+│  │  ├─ dbStore.ts             # DB 连接列表
+│  │  ├─ redisStore.ts          # Redis 连接列表
 │  │  └─ workspaceStore.ts      # 终端标签页
 │  └─ modules/
 │     ├─ Placeholder.tsx        # 规划中模块的占位页
@@ -267,6 +279,28 @@ yooso_toolbox/
 │     │  ├─ JsonTree.tsx        # JSON 树渲染
 │     │  ├─ TextDiff.tsx        # 实时双栏对比（差异高亮）
 │     │  └─ diff.ts             # LCS 行级 diff
+│     ├─ db/
+│     │  ├─ DbModule.tsx        # 连接 + 库表树 / 数据 / SQL
+│     │  ├─ DbForm.tsx          # 连接表单（类型仅 MySQL）
+│     │  ├─ DbTree.tsx          # 连接 / 数据库 / 表 / 视图树
+│     │  ├─ DbTableTab.tsx      # 表 tab：数据 / 结构 / 索引 / DDL
+│     │  ├─ DbDataView.tsx      # 表数据分页
+│     │  ├─ DbStructureView.tsx # 表结构编辑（内联修改 / DDL）
+│     │  ├─ DbDdlView.tsx       # 表 DDL 编辑
+│     │  ├─ DbIndexView.tsx     # 表索引
+│     │  ├─ DbNewTableModal.tsx # 新建表
+│     │  ├─ DbCloneTableModal.tsx # 复制表结构/数据
+│     │  ├─ ddl.ts              # ALTER TABLE 语句构建
+│     │  ├─ DbSqlView.tsx       # SQL 编辑器 + 结果
+│     │  ├─ DbResultGrid.tsx
+│     │  └─ api.ts
+│     ├─ redis/
+│     │  ├─ RedisModule.tsx     # 连接 + 键浏览 / 命令行
+│     │  ├─ RedisForm.tsx       # 连接表单
+│     │  ├─ RedisConnectionList.tsx
+│     │  ├─ RedisBrowser.tsx    # SCAN 键列表 + 值查看/编辑
+│     │  ├─ RedisConsole.tsx    # 任意命令
+│     │  └─ api.ts
 │     ├─ translate/
 │     │  ├─ TranslateModule.tsx # 快速 / 网页版容器
 │     │  ├─ QuickTranslate.tsx  # 直连接口翻译 + 变量命名
@@ -280,15 +314,34 @@ yooso_toolbox/
 │        ├─ TerminalView.tsx    # xterm 实例与连接生命周期
 │        ├─ SftpPanel.tsx       # 文件浏览器与传输
 │        └─ status.ts           # 连接状态文案/配色
-└─ src-tauri/                   # 后端
+└─ src-tauri/                   # 后端（按功能分目录）
    ├─ src/
    │  ├─ lib.rs                 # Builder、AppState、命令注册
-   │  ├─ commands.rs            # 全部 #[tauri::command]
-   │  ├─ translate.rs           # 必应翻译接口直连（token 缓存 + 重试）
-   │  ├─ ssh.rs                 # russh 连接、认证、终端读写 actor
-   │  ├─ sftp.rs                # 目录/增删改/传输实现
-   │  ├─ store.rs               # sessions.json / known_hosts.json
-   │  └─ models.rs              # 前后端共享数据结构
+   │  ├─ main.rs                # 桌面入口
+   │  ├─ api/
+   │  │  ├─ mod.rs              # HTTP 请求命令
+   │  │  └─ http.rs             # API 调试请求执行
+   │  ├─ core/
+   │  │  ├─ mod.rs
+   │  │  ├─ models.rs           # 前后端共享数据结构
+   │  │  └─ store.rs            # sessions / redis / db / known_hosts 配置
+   │  ├─ database/
+   │  │  ├─ mod.rs
+   │  │  └─ client.rs           # MySQL 连接 / 库表 / 表数据 / SQL / DDL
+   │  ├─ redis/
+   │  │  ├─ mod.rs
+   │  │  └─ client.rs           # Redis 连接 / SCAN / 值 / 编辑 / 命令
+   │  ├─ ssh/
+   │  │  ├─ mod.rs
+   │  │  ├─ client.rs           # russh 连接、认证、终端读写 actor
+   │  │  ├─ commands.rs         # 会话 / SSH / SFTP 命令
+   │  │  └─ sftp.rs             # 目录/增删改/传输实现
+   │  ├─ translate/
+   │  │  └─ mod.rs              # 必应翻译接口直连 + 命令
+   │  ├─ files/
+   │  │  └─ mod.rs              # 本地文件保存命令
+   │  └─ update/
+   │     └─ mod.rs              # 版本检查与命令
    ├─ capabilities/default.json # 权限：core / dialog / opener / clipboard-manager
    └─ tauri.conf.json
 ```
@@ -310,12 +363,14 @@ yooso_toolbox/
 ```
 %APPDATA%\com.yooso.toolbox\
 ├─ sessions.json      # 会话配置
+├─ db.json            # DB（MySQL）连接配置
+├─ redis.json         # Redis 连接配置
 └─ known_hosts.json   # 已信任主机指纹
 ```
 
 > 代码里可以通过启动日志里的 `[yooso-toolbox] 配置目录: ...` 确认实际路径。
 
-**关于凭据**：勾选「保存凭据」时，密码/私钥口令会以**明文**写入 `sessions.json`。
+**关于凭据**：勾选「保存凭据」时，SSH 密码/私钥口令以**明文**写入 `sessions.json`，DB 密码以**明文**写入 `db.json`，Redis 密码以**明文**写入 `redis.json`。
 这一点在界面上也有明确提示。做真正的加密需要接入系统凭据库（Windows Credential Manager /
 macOS Keychain / libsecret），属于后续版本的工作，当前版本不做「假加密」误导用户。
 
@@ -398,6 +453,43 @@ Ant Design Tabs 的内部容器高度），窗口缩放时会重新 `fit()` 并�
 
 ---
 
+## DB（MySQL）
+
+- **连接管理**：新建 / 编辑 / 删除；类型下拉当前只有 MySQL；主机、端口、用户名、密码、默认库；支持测试连接和版本提示；密码是否落盘可选
+- **对象树**：左侧按「连接 → 数据库 → 表 / 视图」展开；连接和数据库节点都可以独立展开 / 折叠，表列表按库缓存；支持表名搜索和刷新；连接后自动展开默认库（否则第一个非系统库）
+- **连接切换**：点击另一个连接会自动连接并关闭上一个连接（同一时间只保持一个活动连接）
+- **表 Tab**：右侧每个表一个可关闭 tab，标题为 `库名.表名`；重复点击同一张表只激活已有 tab，不会重复打开；SQL 查询作为固定 tab 常驻
+- **表页签**：每个表 tab 下用「数据 / 结构 / 索引 / DDL」切换，多个表 tab 各自保留分页、筛选、排序状态
+- **表数据**：分页浏览（50 / 100 / 200 / 500），分页器统一放在右下角，行数统计也在分页区；表格带固定表头，`NULL` 弱化显示，长内容悬停查看；点击任意列头按升序 / 降序 / 取消排序，翻页保持排序；支持拖动列头右边缘调整列宽（当前表内保持）、多行选择（Shift 连选 / Ctrl 多选）、拖动框选单元格、单击单元格内联编辑、右键删除选中行（需要主键）；刷新 / 减号删除 / 加号新增空行固定在左下角，新增行所有列为可编辑输入框，回车或「保存」写入
+- **筛选**：表数据上方支持多条件筛选，列 + 操作符（等于 / 不等于 / 包含 / 开头 / 结尾 / 大于 / 大于等于 / 小于 / 小于等于 / 为 NULL / 不为 NULL），条件之间可选 AND / OR
+- **表结构**：`SHOW FULL COLUMNS` 展示字段、类型、长度、Null、Key、默认值、自动递增、注释；类型和长度分列，Null 为复选框，Key 显示可点击的小钥匙（无主键时点击空处添加，已有主键点击移除），自动递增也是复选框；字段、类型、长度、默认值、注释可单击内联修改并生成 `MODIFY/CHANGE COLUMN`；新列 Collation 默认取数据库编码但不单独显示列，Privileges 使用默认值不显示；底部工具栏支持添加/删除/复制/在选中列前插入列、执行 DDL、取消和刷新
+- **索引**：`SHOW INDEX` 展示当前表的索引列表
+- **DDL**：编辑并执行当前表的 `SHOW CREATE TABLE` DDL，支持 `⌘/Ctrl + Enter`
+- **新建/右键表**：树头部加号新建表（默认 id 自增主键）；右键表支持清空表、删除表、复制结构、复制结构和数据
+- **SQL 查询**：编辑器支持 Ctrl / Cmd + Enter 执行，可切换当前数据库；结果表格、耗时、影响行数、错误信息
+- 后端用 `mysql_async`（tokio 异步），每个连接串行化一条连接；连接 20 秒 / 查询 45 秒超时；配置存 `db.json`
+- 第一版未做：TLS / SSL、SSH 隧道、多语句执行、查询历史、导出 CSV/JSON、表设计器、结果单元格编辑、执行计划
+- 目前只实现了 MySQL 类型，后续接 PostgreSQL 等时沿用同一套表单和树
+
+---
+
+## Redis
+
+- **连接管理**：新建 / 编辑 / 删除；主机、端口、ACL 用户名、密码、默认 DB（0–15）；支持「测试连接」并显示服务端版本；密码是否落盘可选（不勾选只在本次运行保留）
+- 连接后顶部显示连接名 + Redis 版本，可切换 DB、断开
+- **键浏览**：SCAN 游标分页（搜索支持通配符，未写 `*` 时自动按包含匹配），行内显示类型与 TTL；支持刷新、加载更多、新建键
+- **键文件夹**：默认把带 `:` 的键按冒号分层成文件夹（`user:1:name` → `user / 1 / name`），文件夹可展开折叠、显示子键数量，也可一键切回平铺列表
+- **TTL 短格式**：`∞` / `1s` / `1m` / `1h` / `1d` / `1M` / `1y`，最多组合两个单位（如 `1m 30s`、`3d 4h`、`1y 2M`）；悬停可看精确秒数
+- **值查看**：string（可编辑保存，保留原 TTL）、hash、list、set、zset、stream；显示类型长度，超过 500 项提示截断
+- **新建键**：支持 TTL 预设（永不过期 / 1 小时 / 1 天 / 7 天 / 自定义秒数），默认「永不过期」
+- **结构化值**：字符串如果是 JSON 对象/数组，自动显示和 JSON 工具同款的折叠树；Fastjson 这类带 `148L` / `1.5D` 数字后缀的输出也能识别（字符串里的 `"148L"` 不会被误改），可随时切回原文查看/编辑
+- **键操作**：复制键名、重命名、设置 / 清除 TTL、删除（带确认）
+- **命令行**：任意 Redis 命令，支持引号参数与转义、↑/↓ 翻历史，返回值按类型格式化输出
+- 后端用 `redis-rs`（tokio）；每个连接串行化一条 MultiplexedConnection，切换 DB 不会和并发命令串台；单次操作 15 秒超时；连接配置存 `redis.json`
+- 第一版未做：TLS / 集群 / 哨兵 / SSH 隧道、Pub/Sub、慢日志、内存分析、键树分组（后续补）
+
+---
+
 ## 后续规划
 
 | 模块 | 状态 |
@@ -407,8 +499,8 @@ Ant Design Tabs 的内部容器高度），窗口缩放时会重新 `fit()` 并�
 | 二维码 | ✅ MVP（生成、Logo、PNG/SVG 导出、本地图片识别；批量导出待做） |
 | 翻译 | ✅ 快速翻译（必应接口直连 + 变量命名）、网页版兜底 |
 | 文本工具 | ✅ JSON 格式化 / 压缩（树形展开折叠）、实时双栏文本对比（相同绿 / 差异红、原生共享滚动） |
-| MySQL 客户端 | 规划中（连接管理、库表浏览、SQL 编辑器） |
-| Redis 客户端 | 规划中（键空间、命令行） |
+| DB 客户端（MySQL） | ✅ MVP（连接 / 库表树 / 表数据分页 / 表结构内联编辑 / 新建/复制/清空/删除表 / DDL / 索引 / SQL 查询） |
+| Redis 客户端 | ✅ MVP（连接 / DB、SCAN 键浏览 + 冒号文件夹、JSON/Fastjson 结构化查看、string/hash/list/set/zset/stream、编辑 / TTL / 重命名 / 删除、命令行） |
 
 SSH/SFTP 自身待补的能力：
 
