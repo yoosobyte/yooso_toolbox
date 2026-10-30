@@ -77,7 +77,10 @@ pub async fn execute(spec: HttpRequestSpec) -> Result<HttpResponseData, String> 
         "json" => {
             if let Some(body) = &spec.body {
                 request = request
-                    .header(reqwest::header::CONTENT_TYPE, "application/json; charset=utf-8")
+                    .header(
+                        reqwest::header::CONTENT_TYPE,
+                        "application/json; charset=utf-8",
+                    )
                     .body(body.clone());
             }
         }
@@ -122,7 +125,11 @@ pub async fn execute(spec: HttpRequestSpec) -> Result<HttpResponseData, String> 
         .map_err(|error| format!("读取响应失败：{error}"))?;
     let size = bytes.len() as u64;
     let truncated = bytes.len() > MAX_BODY;
-    let slice = if truncated { &bytes[..MAX_BODY] } else { &bytes[..] };
+    let slice = if truncated {
+        &bytes[..MAX_BODY]
+    } else {
+        &bytes[..]
+    };
     let body = String::from_utf8_lossy(slice).to_string();
 
     Ok(HttpResponseData {
@@ -157,7 +164,10 @@ mod tests {
         let result = execute(spec("GET", "https://jsonplaceholder.typicode.com/posts/1"))
             .await
             .expect("请求失败");
-        println!("status={} len={} time={}ms", result.status, result.size, result.time_ms);
+        println!(
+            "status={} len={} time={}ms",
+            result.status, result.size, result.time_ms
+        );
         assert_eq!(result.status, 200);
         assert!(result.body.contains("\"userId\""));
     }

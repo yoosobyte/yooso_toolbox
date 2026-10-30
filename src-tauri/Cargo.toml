@@ -26,6 +26,10 @@ anyhow = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 base64 = "0.23"
+# Redis 客户端（纯 Rust，tokio 异步）
+redis = { version = "0.27", features = ["tokio-comp"] }
+# MySQL 客户端（tokio 异步）；先不启用 TLS，后续需要时再加 rustls
+mysql_async = { version = "0.37", default-features = false, features = ["minimal-rust"] }
 # 关闭默认特性：默认的 aws-lc-rs 需要 cmake/nasm；改用纯 Rust 的 ring 后端
 russh = { version = "0.65", default-features = false, features = ["ring", "flate2", "rsa"] }
 russh-sftp = "3.0"

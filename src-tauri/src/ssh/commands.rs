@@ -8,11 +8,11 @@ use tauri::State;
 use tokio::sync::OnceCell;
 use uuid::Uuid;
 
-use crate::models::{
-    ConnectResult, MetricsSample, ProcessInfo, ProbeResult, SessionConfig, SftpEntry, SshEvent,
+use crate::core::models::{
+    ConnectResult, MetricsSample, ProbeResult, ProcessInfo, SessionConfig, SftpEntry, SshEvent,
     TransferEvent,
 };
-use crate::sftp;
+use crate::ssh::sftp;
 use crate::ssh::{self, SshSession, TermCmd};
 use crate::AppState;
 
@@ -72,9 +72,7 @@ pub async fn ssh_probe(
     state: State<'_, AppState>,
     config: SessionConfig,
 ) -> Result<ProbeResult, String> {
-    ssh::probe(&config, state.store.clone())
-        .await
-        .map_err(err)
+    ssh::probe(&config, state.store.clone()).await.map_err(err)
 }
 
 #[tauri::command]
@@ -148,10 +146,7 @@ pub async fn ssh_resize(
 }
 
 #[tauri::command]
-pub async fn ssh_disconnect(
-    state: State<'_, AppState>,
-    session_id: String,
-) -> Result<(), String> {
+pub async fn ssh_disconnect(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
     let session = state.sessions.lock().await.remove(&session_id);
     if let Some(session) = session {
         let _ = session.writer.send(TermCmd::Close);
@@ -434,8 +429,14 @@ pub(crate) fn parse_processes(output: &str, now: i64) -> Vec<ProcessInfo> {
         let Some(pid) = parts.next().and_then(|v| v.parse::<u32>().ok()) else {
             continue;
         };
-        let cpu = parts.next().and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0);
-        let rss_kb = parts.next().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
+        let cpu = parts
+            .next()
+            .and_then(|v| v.parse::<f32>().ok())
+            .unwrap_or(0.0);
+        let rss_kb = parts
+            .next()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0);
         let elapsed = parts.next().map(parse_elapsed).unwrap_or(0);
         let comm = parts.next().unwrap_or("-").to_string();
         let command_line = parts.collect::<Vec<_>>().join(" ");
@@ -598,57 +599,13 @@ pub async fn sftp_download(
 }
 
 /* ------------------------------------------------------------------ */
-/* 本地文件保存（二维码导出等前端生成的内容）                           */
-/* ------------------------------------------------------------------ */
-
-/// 保存 base64 二进制内容（例如前端 canvas 导出的 PNG）
-#[tauri::command]
-pub async fn save_binary_file(path: String, data_base64: String) -> Result<(), String> {
-    let bytes = STANDARD
-        .decode(data_base64)
-        .map_err(|error| format!("base64 解码失败: {error}"))?;
-    tokio::fs::write(&path, bytes)
-        .await
-        .map_err(|error| format!("写入失败: {error}"))
-}
-
-/// 保存纯文本内容（例如前端生成的 SVG）
-#[tauri::command]
-pub async fn save_text_file(path: String, text: String) -> Result<(), String> {
-    tokio::fs::write(&path, text)
-        .await
-        .map_err(|error| format!("写入失败: {error}"))
-}
-
-/* ------------------------------------------------------------------ */
-/* 翻译（必应翻译接口直连）                                             */
-/* ------------------------------------------------------------------ */
-
-#[tauri::command]
-pub async fn translate_text(
-    state: State<'_, AppState>,
-    text: String,
-    from: String,
-    to: String,
-    line: Option<String>,
-) -> Result<crate::translate::TranslateResult, String> {
-    state
-        .translator
-        .translate(&text, &from, &to, line.as_deref().unwrap_or("cn"))
-        .await
-}
-
-/* ------------------------------------------------------------------ */
-/* 测试：解析器单元测试 + 真实服务器集成测试                            */
-/* ------------------------------------------------------------------ */
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{SessionConfig, SshEvent};
-    use crate::sftp;
+    use crate::core::models::{SessionConfig, SshEvent};
+    use crate::core::store::Store;
+    use crate::ssh::sftp;
     use crate::ssh::{self, SshSession, TermCmd};
-    use crate::store::Store;
     use std::sync::{Arc, Mutex as StdMutex};
     use tauri::ipc::{Channel, InvokeResponseBody};
     use tokio::sync::{mpsc, OnceCell};
@@ -660,7 +617,10 @@ mod tests {
     fn display_name_rules() {
         // 绝对路径且 basename 更长 → 用 basename（补回内核截断的部分）
         assert_eq!(
-            display_name("AliYunDunMonito", "/usr/local/aegis/aegis_client/AliYunDunMonitor --flag"),
+            display_name(
+                "AliYunDunMonito",
+                "/usr/local/aegis/aegis_client/AliYunDunMonitor --flag"
+            ),
             "AliYunDunMonitor"
         );
         // 守护进程改写 argv（PM2 的 argv0 是版本号）→ 回落到 comm
@@ -720,7 +680,11 @@ mod tests {
         assert_eq!(sample.net_tx, 456);
 
         // 总 delta: (200+200+1400) - (100+100+800) = 800；空闲 delta: 600 → 25%
-        assert!((sample.cpu_total - 25.0).abs() < 0.01, "cpu_total={}", sample.cpu_total);
+        assert!(
+            (sample.cpu_total - 25.0).abs() < 0.01,
+            "cpu_total={}",
+            sample.cpu_total
+        );
         assert_eq!(sample.cpu_cores.len(), 2);
         assert!((sample.cpu_cores[0] - 25.0).abs() < 0.01);
     }
@@ -801,14 +765,26 @@ mod tests {
         let config = test_config();
 
         let (handle, outcome) = ssh::connect_and_auth(&config, store.clone()).await?;
-        println!("[1] 认证成功 method={} fingerprint={:?}", outcome.auth_method, outcome.fingerprint);
-        assert!(store.known_host(&format!("{}:{}", config.host, config.port)).is_some());
+        println!(
+            "[1] 认证成功 method={} fingerprint={:?}",
+            outcome.auth_method, outcome.fingerprint
+        );
+        assert!(store
+            .known_host(&format!("{}:{}", config.host, config.port))
+            .is_some());
         let handle = Arc::new(handle);
 
         // 2) 交互式 shell 回显
         let sink = Arc::new(StdMutex::new(Vec::<u8>::new()));
         let (dummy_tx, _dummy_rx) = mpsc::unbounded_channel::<TermCmd>();
-        let writer = match ssh::open_terminal(handle.clone(), 100, 30, collect_channel(sink.clone())).await {
+        let writer = match ssh::open_terminal(
+            handle.clone(),
+            100,
+            30,
+            collect_channel(sink.clone()),
+        )
+        .await
+        {
             Ok(writer) => {
                 sleep(Duration::from_millis(1500)).await;
                 writer.send(TermCmd::Data(b"echo YOOSO_CMD_OK\n".to_vec()))?;
@@ -820,7 +796,10 @@ mod tests {
                         break;
                     }
                 }
-                assert!(transcript.contains("YOOSO_CMD_OK"), "终端未回显: {transcript:?}");
+                assert!(
+                    transcript.contains("YOOSO_CMD_OK"),
+                    "终端未回显: {transcript:?}"
+                );
                 println!("[2] 交互式 shell 回显正常");
                 writer
             }
@@ -841,7 +820,11 @@ mod tests {
         let (_, output) = ssh::remote_exec(&handle, CMD_SHELL_CWD).await?;
         let cwd = parse_shell_cwd(&output);
         println!("[3] cd /tmp 之后 CMD_SHELL_CWD -> {cwd:?}");
-        assert_eq!(cwd.as_deref(), Some("/tmp"), "跟随目录没有匹配到本连接的 shell");
+        assert_eq!(
+            cwd.as_deref(),
+            Some("/tmp"),
+            "跟随目录没有匹配到本连接的 shell"
+        );
 
         // 4) 监控采样两次（第二次网卡字节数应增长）
         let (_, output) = ssh::remote_exec(&handle, CMD_METRICS).await?;
@@ -874,23 +857,40 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs() as i64;
         let procs = parse_processes(&output, now);
-        println!("[5] 进程数={} 前三个={:?}", procs.len(), procs.iter().take(3).map(|p| format!("{}({})", p.name, p.pid)).collect::<Vec<_>>());
+        println!(
+            "[5] 进程数={} 前三个={:?}",
+            procs.len(),
+            procs
+                .iter()
+                .take(3)
+                .map(|p| format!("{}({})", p.name, p.pid))
+                .collect::<Vec<_>>()
+        );
         assert!(!procs.is_empty(), "进程列表为空");
-        assert!(procs.windows(2).all(|w| w[0].rss >= w[1].rss), "没有按内存倒序");
-        assert!(procs.iter().all(|p| !p.command.contains("@@cpu1")), "自身进程未被过滤");
+        assert!(
+            procs.windows(2).all(|w| w[0].rss >= w[1].rss),
+            "没有按内存倒序"
+        );
+        assert!(
+            procs.iter().all(|p| !p.command.contains("@@cpu1")),
+            "自身进程未被过滤"
+        );
 
         // 6) 结束进程：起一个 sleep，按 pid 干掉
-        let (_, output) = ssh::remote_exec(&handle, "setsid sleep 300 >/dev/null 2>&1 & echo $!").await?;
+        let (_, output) =
+            ssh::remote_exec(&handle, "setsid sleep 300 >/dev/null 2>&1 & echo $!").await?;
         let pid: u32 = output
             .lines()
             .find_map(|line| line.trim().parse::<u32>().ok())
             .ok_or_else(|| anyhow::anyhow!("没有拿到 sleep 的 pid: {output:?}"))?;
         sleep(Duration::from_millis(300)).await;
-        let (alive_code, _) = ssh::remote_exec(&handle, &format!("kill -0 {pid} 2>/dev/null")).await?;
+        let (alive_code, _) =
+            ssh::remote_exec(&handle, &format!("kill -0 {pid} 2>/dev/null")).await?;
         assert_eq!(alive_code, 0, "sleep 进程没有起来");
         let (code, msg) = ssh::remote_exec(&handle, &format!("kill -TERM {pid} 2>&1")).await?;
         sleep(Duration::from_millis(500)).await;
-        let (after_code, _) = ssh::remote_exec(&handle, &format!("kill -0 {pid} 2>/dev/null")).await?;
+        let (after_code, _) =
+            ssh::remote_exec(&handle, &format!("kill -0 {pid} 2>/dev/null")).await?;
         println!("[6] kill -TERM {pid}: code={code} msg={msg:?} 存活检查={after_code}");
         assert_eq!(code, 0);
         assert_ne!(after_code, 0, "进程仍然存活");
@@ -911,13 +911,15 @@ mod tests {
         let remote_dir = format!("{}/yooso-test-{stamp}", home.trim_end_matches('/'));
         sftp::create_dir(&sftp, &remote_dir).await?;
         let listed = sftp::list_dir(&sftp, &home).await?;
-        assert!(listed.iter().any(|item| item.name == format!("yooso-test-{stamp}") && item.is_dir));
+        assert!(listed
+            .iter()
+            .any(|item| item.name == format!("yooso-test-{stamp}") && item.is_dir));
         println!("[7] mkdir 成功: {remote_dir}");
 
         let local_file = dir.join("upload.txt");
         let payload = b"yooso ssh/sftp integration test\n".to_vec();
         std::fs::write(&local_file, &payload)?;
-        let channel = Channel::<crate::models::TransferEvent>::new(|_body| Ok(()));
+        let channel = Channel::<crate::core::models::TransferEvent>::new(|_body| Ok(()));
         sftp::upload_path(&sftp, &handle, &local_file, &remote_dir, &channel).await?;
         let remote_file = format!("{remote_dir}/upload.txt");
         let after_upload = sftp::list_dir(&sftp, &remote_dir).await?;
@@ -935,18 +937,37 @@ mod tests {
 
         let renamed = format!("{remote_dir}/renamed.txt");
         sftp::rename(&sftp, &remote_file, &renamed).await?;
-        let names: Vec<String> = sftp::list_dir(&sftp, &remote_dir).await?.into_iter().map(|i| i.name).collect();
-        assert!(names.contains(&"renamed.txt".to_string()), "重命名失败: {names:?}");
+        let names: Vec<String> = sftp::list_dir(&sftp, &remote_dir)
+            .await?
+            .into_iter()
+            .map(|i| i.name)
+            .collect();
+        assert!(
+            names.contains(&"renamed.txt".to_string()),
+            "重命名失败: {names:?}"
+        );
         println!("[7] 重命名成功");
 
         sftp::copy_path(&sftp, &handle, &renamed, &remote_dir).await?;
-        let names: Vec<String> = sftp::list_dir(&sftp, &remote_dir).await?.into_iter().map(|i| i.name).collect();
-        assert!(names.iter().any(|n| n.contains("副本")), "同目录复制没有生成副本: {names:?}");
+        let names: Vec<String> = sftp::list_dir(&sftp, &remote_dir)
+            .await?
+            .into_iter()
+            .map(|i| i.name)
+            .collect();
+        assert!(
+            names.iter().any(|n| n.contains("副本")),
+            "同目录复制没有生成副本: {names:?}"
+        );
         println!("[7] 复制生成副本成功: {names:?}");
 
         sftp::remove_path(&sftp, &remote_dir, true).await?;
         let listed = sftp::list_dir(&sftp, &home).await?;
-        assert!(!listed.iter().any(|item| item.name == format!("yooso-test-{stamp}")), "目录没有删掉");
+        assert!(
+            !listed
+                .iter()
+                .any(|item| item.name == format!("yooso-test-{stamp}")),
+            "目录没有删掉"
+        );
         println!("[7] 递归删除成功");
 
         ssh::shutdown(&handle).await;
@@ -954,81 +975,4 @@ mod tests {
         println!("\n全部通过 ✔");
         Ok(())
     }
-}
-
-/* ---------------- 升级检查 ---------------- */
-
-/// 远端版本描述文件：第一行最新版本号，第二行安装包直链
-pub(crate) const UPDATE_URL: &str = "https://qnres.yoosobyte.com/yooso-toolbox/version.txt";
-
-/// 按点分段比较版本号，返回 latest 是否比 current 新
-pub(crate) fn is_newer(latest: &str, current: &str) -> bool {
-    let parse = |value: &str| -> Vec<u64> {
-        value
-            .trim()
-            .trim_start_matches('v')
-            .split(|c: char| !c.is_ascii_digit())
-            .filter(|part| !part.is_empty())
-            .filter_map(|part| part.parse::<u64>().ok())
-            .collect()
-    };
-    let a = parse(latest);
-    let b = parse(current);
-    let len = a.len().max(b.len());
-    for index in 0..len {
-        let left = a.get(index).copied().unwrap_or(0);
-        let right = b.get(index).copied().unwrap_or(0);
-        if left != right {
-            return left > right;
-        }
-    }
-    false
-}
-
-/// 解析版本 txt：忽略空行，第一行版本号、第二行下载地址
-pub(crate) fn parse_update_file(text: &str, current: &str) -> crate::models::UpdateInfo {
-    let mut lines = text
-        .lines()
-        .map(|line| line.trim())
-        .filter(|line| !line.is_empty());
-    let latest = lines
-        .next()
-        .unwrap_or_default()
-        .trim_start_matches('v')
-        .to_string();
-    let url = lines.next().unwrap_or_default().to_string();
-    crate::models::UpdateInfo {
-        has_update: !latest.is_empty() && is_newer(&latest, current),
-        latest,
-        url,
-        current: current.to_string(),
-    }
-}
-
-#[tauri::command]
-pub async fn check_update() -> Result<crate::models::UpdateInfo, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|error| error.to_string())?;
-    let response = client
-        .get(UPDATE_URL)
-        .send()
-        .await
-        .map_err(|error| format!("请求失败：{error}"))?
-        .error_for_status()
-        .map_err(|error| format!("HTTP 错误：{error}"))?;
-    let text = response
-        .text()
-        .await
-        .map_err(|error| format!("读取响应失败：{error}"))?;
-    Ok(parse_update_file(&text, env!("CARGO_PKG_VERSION")))
-}
-/* ---------------- HTTP 请求（API 调试） ---------------- */
-
-#[tauri::command]
-pub async fn http_request(
-    spec: crate::http::HttpRequestSpec,
-) -> Result<crate::http::HttpResponseData, String> {
-    crate::http::execute(spec).await
 }

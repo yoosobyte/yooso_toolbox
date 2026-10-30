@@ -9,7 +9,7 @@ use russh_sftp::client::SftpSession;
 use tauri::ipc::Channel;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::models::{SftpEntry, TransferEvent};
+use crate::core::models::{SftpEntry, TransferEvent};
 use crate::ssh::{self, ClientHandler};
 
 const CHUNK_SIZE: usize = 64 * 1024;
@@ -294,10 +294,7 @@ async fn upload_dir_recursive(
             } else {
                 let bytes = upload_file_inner(sftp, &entry.path(), &remote_child, None).await?;
                 transferred += bytes;
-                let _ = events.send(TransferEvent::Progress {
-                    transferred,
-                    total,
-                });
+                let _ = events.send(TransferEvent::Progress { transferred, total });
             }
         }
     }
@@ -348,10 +345,7 @@ async fn upload_file_inner(
             .map_err(|error| anyhow!("写入远端文件失败：{error}"))?;
         transferred += read as u64;
         if let Some(events) = events {
-            let _ = events.send(TransferEvent::Progress {
-                transferred,
-                total,
-            });
+            let _ = events.send(TransferEvent::Progress { transferred, total });
         }
     }
 
@@ -519,10 +513,7 @@ async fn download_inner(
             .await
             .context("写入本地文件失败")?;
         transferred += read as u64;
-        let _ = events.send(TransferEvent::Progress {
-            transferred,
-            total,
-        });
+        let _ = events.send(TransferEvent::Progress { transferred, total });
     }
 
     local.flush().await.context("刷新本地文件失败")?;
