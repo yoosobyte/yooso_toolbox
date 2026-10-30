@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { App as AntdApp, Button, Typography } from "antd";
+import { App as AntdApp, Button, Input, Typography } from "antd";
 import {
   ClearOutlined,
   CloseOutlined,
@@ -8,6 +8,7 @@ import {
   DeleteOutlined,
   DisconnectOutlined,
   DownloadOutlined,
+  EditOutlined,
   FileTextOutlined,
   PlusOutlined,
   TableOutlined,
@@ -101,6 +102,11 @@ export default function DbModule() {
     y: number;
     database: string;
   } | null>(null);
+  const [queryMenu, setQueryMenu] = useState<{
+    x: number;
+    y: number;
+    query: DbQueryDef;
+  } | null>(null);
 
   const dbRequest = useRef(0);
   const activeIdRef = useRef<string | null>(null);
@@ -121,14 +127,15 @@ export default function DbModule() {
   }, [load]);
 
   useEffect(() => {
-    if (!tableMenu && !databaseMenu) return;
+    if (!tableMenu && !databaseMenu && !queryMenu) return;
     const close = () => {
       setTableMenu(null);
       setDatabaseMenu(null);
+      setQueryMenu(null);
     };
     window.addEventListener("mousedown", close);
     return () => window.removeEventListener("mousedown", close);
-  }, [tableMenu, databaseMenu]);
+  }, [tableMenu, databaseMenu, queryMenu]);
 
   const clearTabs = () => {
     setTableTabs([]);
@@ -428,6 +435,59 @@ export default function DbModule() {
     );
   };
 
+  const renameQuery = (query: DbQueryDef, name: string) => {
+    const next = queryDefs.map((item) =>
+      item.id === query.id ? { ...item, name } : item,
+    );
+    setQueryDefs(next);
+    saveQueries(next);
+    message.success(t("db.queryRenamed"));
+  };
+
+  const promptRenameQuery = (query: DbQueryDef) => {
+    let nextName = query.name;
+    modal.confirm({
+      title: t("db.renameQuery"),
+      content: (
+        <Input
+          autoFocus
+          defaultValue={query.name}
+          placeholder={t("db.queryNamePlaceholder")}
+          onChange={(event) => {
+            nextName = event.target.value;
+          }}
+        />
+      ),
+      okText: t("common.save"),
+      cancelText: t("common.cancel"),
+      onOk: () => {
+        const value = nextName.trim();
+        if (!value) {
+          message.warning(t("db.queryNameRequired"));
+          return;
+        }
+        renameQuery(query, value);
+      },
+    });
+  };
+
+  const deleteQuery = (query: DbQueryDef) => {
+    modal.confirm({
+      title: t("db.deleteQuery"),
+      content: t("db.deleteQueryConfirm", { name: query.name }),
+      okText: t("common.delete"),
+      cancelText: t("common.cancel"),
+      okButtonProps: { danger: true },
+      onOk: () => {
+        if (openQueryIds.includes(query.id)) closeTab(`q:${query.id}`);
+        const next = queryDefs.filter((item) => item.id !== query.id);
+        setQueryDefs(next);
+        saveQueries(next);
+        message.success(t("db.queryDeleted"));
+      },
+    });
+  };
+
   const tableKey = (database: string, table: string) => `${database}.${table}`;
 
   const renameTableTab = (database: string, oldTable: string, newTable: string) => {
@@ -518,7 +578,15 @@ export default function DbModule() {
   const openDatabaseMenu = (event: React.MouseEvent, database: string) => {
     event.preventDefault();
     setTableMenu(null);
+    setQueryMenu(null);
     setDatabaseMenu({ x: event.clientX, y: event.clientY, database });
+  };
+
+  const openQueryMenu = (event: React.MouseEvent, query: DbQueryDef) => {
+    event.preventDefault();
+    setTableMenu(null);
+    setDatabaseMenu(null);
+    setQueryMenu({ x: event.clientX, y: event.clientY, query });
   };
 
   const handleTableCreated = (database: string, table: string) => {
@@ -663,6 +731,7 @@ export default function DbModule() {
             onFilterChange={setTableFilter}
             onSelectTable={openTable}
             onSelectQuery={openQuery}
+            onQueryContextMenu={openQueryMenu}
             onTableContextMenu={openTableMenu}
             onDatabaseContextMenu={openDatabaseMenu}
             onCreateTable={() => {
@@ -928,6 +997,38 @@ export default function DbModule() {
           >
             <FileTextOutlined />
             {t("db.newQuery")}
+          </button>
+        </div>
+      )}
+
+      {queryMenu && (
+        <div
+          className="db-context-menu"
+          style={{ left: queryMenu.x, top: queryMenu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              const query = queryMenu.query;
+              setQueryMenu(null);
+              promptRenameQuery(query);
+            }}
+          >
+            <EditOutlined />
+            {t("db.renameQuery")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const query = queryMenu.query;
+              setQueryMenu(null);
+              deleteQuery(query);
+            }}
+          >
+            <DeleteOutlined />
+            {t("common.delete")}
           </button>
         </div>
       )}
