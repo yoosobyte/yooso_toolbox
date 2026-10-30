@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { App as AntdApp, Button, Input, Pagination, Select, Tooltip } from "antd";
+import { App as AntdApp, Button, Checkbox, Input, Pagination, Select, Tooltip } from "antd";
 import {
   CheckOutlined,
+  ClearOutlined,
   CloseOutlined,
   DeleteOutlined,
   FilterOutlined,
@@ -34,6 +35,8 @@ interface Props {
 
 interface DraftFilter extends DbFilter {
   id: string;
+  enabled: boolean;
+  conjunction: "and" | "or";
 }
 
 const PAGE_SIZES = [50, 100, 200, 500];
@@ -41,6 +44,7 @@ const OPERATORS = [
   "eq",
   "neq",
   "contains",
+  "notContains",
   "startsWith",
   "endsWith",
   "gt",
@@ -49,6 +53,8 @@ const OPERATORS = [
   "lte",
   "isNull",
   "isNotNull",
+  "in",
+  "notIn",
 ];
 
 function isUnary(operator: string): boolean {
@@ -67,8 +73,6 @@ export default function DbDataView({ connectionId, database, table, refreshToken
   const [reload, setReload] = useState(0);
 
   const [filters, setFilters] = useState<DbFilter[]>([]);
-  const [conjunction, setConjunction] = useState<"and" | "or">("and");
-  const [draftConjunction, setDraftConjunction] = useState<"and" | "or">("and");
   const [filterOpen, setFilterOpen] = useState(false);
   const [draft, setDraft] = useState<DraftFilter[]>([]);
 
@@ -97,7 +101,7 @@ export default function DbDataView({ connectionId, database, table, refreshToken
       sort?.column ?? null,
       sort?.dir ?? null,
       filters,
-      conjunction,
+      "and",
     )
       .then((next) => {
         if (current !== request.current) return;
@@ -119,7 +123,6 @@ export default function DbDataView({ connectionId, database, table, refreshToken
     sort?.column,
     sort?.dir,
     filters,
-    conjunction,
     refreshToken,
     reload,
   ]);
@@ -153,7 +156,7 @@ export default function DbDataView({ connectionId, database, table, refreshToken
 
   useEffect(() => {
     setNewRow(null);
-  }, [page, pageSize, sort?.column, sort?.dir, filters, conjunction, refreshToken]);
+  }, [page, pageSize, sort?.column, sort?.dir, filters, refreshToken]);
 
   useEffect(() => {
     if (!menu) return;
@@ -299,8 +302,14 @@ export default function DbDataView({ connectionId, database, table, refreshToken
       const source: DbFilter[] = filters.length
         ? filters
         : [{ column: result?.columns[0]?.name ?? "", operator: "eq", value: "" }];
-      setDraft(source.map((filter) => ({ ...filter, id: crypto.randomUUID() })));
-      setDraftConjunction(conjunction);
+      setDraft(
+        source.map((filter) => ({
+          ...filter,
+          id: crypto.randomUUID(),
+          enabled: true,
+          conjunction: filter.conjunction ?? "and",
+        })),
+      );
     }
     setFilterOpen((value) => !value);
   };
@@ -313,6 +322,8 @@ export default function DbDataView({ connectionId, database, table, refreshToken
         column: result?.columns[0]?.name ?? "",
         operator: "eq",
         value: "",
+        enabled: true,
+        conjunction: "and",
       },
     ]);
   };
@@ -325,6 +336,7 @@ export default function DbDataView({ connectionId, database, table, refreshToken
     const next = draft
       .filter(
         (filter) =>
+          filter.enabled &&
           filter.column &&
           filter.operator &&
           (isUnary(filter.operator) || (filter.value ?? "").trim() !== ""),
@@ -333,9 +345,9 @@ export default function DbDataView({ connectionId, database, table, refreshToken
         column: filter.column,
         operator: filter.operator,
         value: filter.value ?? "",
+        conjunction: filter.conjunction,
       }));
     setFilters(next);
-    setConjunction(draftConjunction);
     setPage(0);
     setFilterOpen(false);
   };
@@ -343,8 +355,6 @@ export default function DbDataView({ connectionId, database, table, refreshToken
   const resetFilters = () => {
     setDraft([]);
     setFilters([]);
-    setConjunction("and");
-    setDraftConjunction("and");
     setPage(0);
     setFilterOpen(false);
   };
@@ -414,16 +424,6 @@ export default function DbDataView({ connectionId, database, table, refreshToken
         <div className="db-filter-panel" onClick={(event) => event.stopPropagation()}>
           <div className="db-filter-head">
             <span className="db-filter-title">{t("db.filter")}</span>
-            <Select
-              size="small"
-              value={draftConjunction}
-              options={[
-                { value: "and", label: t("db.filterAnd") },
-                { value: "or", label: t("db.filterOr") },
-              ]}
-              onChange={(value) => setDraftConjunction(value as "and" | "or")}
-              style={{ width: 76 }}
-            />
             <span style={{ flex: 1 }} />
             <Button size="small" icon={<PlusOutlined />} onClick={addFilter}>
               {t("db.filterAdd")}
@@ -431,16 +431,28 @@ export default function DbDataView({ connectionId, database, table, refreshToken
             <Button size="small" type="primary" onClick={applyFilters}>
               {t("db.filterApply")}
             </Button>
-            <Button size="small" onClick={resetFilters}>
+            <Button size="small" icon={<ClearOutlined />} onClick={resetFilters}>
               {t("db.filterReset")}
             </Button>
           </div>
 
           {draft.map((filter) => (
-            <div className="db-filter-row" key={filter.id}>
+            <div
+              className={`db-filter-row${filter.enabled ? "" : " db-filter-row-disabled"}`}
+              key={filter.id}
+            >
+              <Tooltip title={t("db.filterEnabled")}>
+                <Checkbox
+                  checked={filter.enabled}
+                  onChange={(event) =>
+                    patchFilter(filter.id, { enabled: event.target.checked })
+                  }
+                />
+              </Tooltip>
               <Select
                 size="small"
                 value={filter.column}
+                disabled={!filter.enabled}
                 options={(result?.columns ?? []).map((column) => ({
                   value: column.name,
                   label: column.name,
@@ -451,6 +463,7 @@ export default function DbDataView({ connectionId, database, table, refreshToken
               <Select
                 size="small"
                 value={filter.operator}
+                disabled={!filter.enabled}
                 options={OPERATORS.map((operator) => ({
                   value: operator,
                   label: t(`db.op.${operator}`),
@@ -466,11 +479,30 @@ export default function DbDataView({ connectionId, database, table, refreshToken
               <Input
                 size="small"
                 value={filter.value ?? ""}
-                disabled={isUnary(filter.operator)}
+                disabled={
+                  !filter.enabled || isUnary(filter.operator)
+                }
                 placeholder={
-                  isUnary(filter.operator) ? "—" : t("db.filterValuePlaceholder")
+                  isUnary(filter.operator)
+                    ? "—"
+                    : filter.operator === "in" || filter.operator === "notIn"
+                      ? t("db.filterInPlaceholder")
+                      : t("db.filterValuePlaceholder")
                 }
                 onChange={(event) => patchFilter(filter.id, { value: event.target.value })}
+              />
+              <Select
+                size="small"
+                value={filter.conjunction}
+                disabled={!filter.enabled}
+                options={[
+                  { value: "and", label: t("db.filterAnd") },
+                  { value: "or", label: t("db.filterOr") },
+                ]}
+                onChange={(value) =>
+                  patchFilter(filter.id, { conjunction: value as "and" | "or" })
+                }
+                style={{ width: 76 }}
               />
               <Button
                 size="small"
@@ -500,7 +532,7 @@ export default function DbDataView({ connectionId, database, table, refreshToken
             onRowSelect={selectRow}
             onRowContextMenu={openRowMenu}
             editable={canMutate}
-            resetKey={`${page}|${pageSize}|${sort?.column ?? ""}|${sort?.dir ?? ""}|${conjunction}|${JSON.stringify(filters)}|${reload}|${refreshToken}`}
+            resetKey={`${page}|${pageSize}|${sort?.column ?? ""}|${sort?.dir ?? ""}|${JSON.stringify(filters)}|${reload}|${refreshToken}`}
             onCellCommit={(rowIndex, columnIndex, value) => {
               void commitCell(rowIndex, columnIndex, value);
             }}

@@ -77,7 +77,7 @@ fn escape_like(value: &str) -> String {
 }
 
 fn filter_clause(filters: &[DbFilter], conjunction: Option<&str>) -> (String, Vec<Value>) {
-    let mut parts = Vec::new();
+    let mut sql = String::new();
     let mut params = Vec::new();
     for filter in filters {
         let column = filter.column.trim();
@@ -86,67 +86,99 @@ fn filter_clause(filters: &[DbFilter], conjunction: Option<&str>) -> (String, Ve
         }
         let quoted = quote_ident(column);
         let value = filter.value.clone().unwrap_or_default();
-        let text = || Value::Bytes(value.clone().into_bytes());
-        match filter.operator.as_str() {
-            "eq" => {
-                parts.push(format!("{quoted} = ?"));
-                params.push(text());
-            }
-            "neq" => {
-                parts.push(format!("{quoted} <> ?"));
-                params.push(text());
-            }
-            "contains" => {
-                parts.push(format!("{quoted} LIKE ? ESCAPE '\\\\'"));
-                params.push(Value::Bytes(
+        let (part, values): (String, Vec<Value>) = match filter.operator.as_str() {
+            "eq" => (
+                format!("{quoted} = ?"),
+                vec![Value::Bytes(value.into_bytes())],
+            ),
+            "neq" => (
+                format!("{quoted} <> ?"),
+                vec![Value::Bytes(value.into_bytes())],
+            ),
+            "contains" => (
+                format!("{quoted} LIKE ? ESCAPE '\\\\'"),
+                vec![Value::Bytes(
                     format!("%{}%", escape_like(&value)).into_bytes(),
-                ));
-            }
-            "startsWith" => {
-                parts.push(format!("{quoted} LIKE ? ESCAPE '\\\\'"));
-                params.push(Value::Bytes(
+                )],
+            ),
+            "notContains" => (
+                format!("{quoted} NOT LIKE ? ESCAPE '\\\\'"),
+                vec![Value::Bytes(
+                    format!("%{}%", escape_like(&value)).into_bytes(),
+                )],
+            ),
+            "startsWith" => (
+                format!("{quoted} LIKE ? ESCAPE '\\\\'"),
+                vec![Value::Bytes(
                     format!("{}%", escape_like(&value)).into_bytes(),
-                ));
-            }
-            "endsWith" => {
-                parts.push(format!("{quoted} LIKE ? ESCAPE '\\\\'"));
-                params.push(Value::Bytes(
+                )],
+            ),
+            "endsWith" => (
+                format!("{quoted} LIKE ? ESCAPE '\\\\'"),
+                vec![Value::Bytes(
                     format!("%{}", escape_like(&value)).into_bytes(),
-                ));
+                )],
+            ),
+            "gt" => (
+                format!("{quoted} > ?"),
+                vec![Value::Bytes(value.into_bytes())],
+            ),
+            "gte" => (
+                format!("{quoted} >= ?"),
+                vec![Value::Bytes(value.into_bytes())],
+            ),
+            "lt" => (
+                format!("{quoted} < ?"),
+                vec![Value::Bytes(value.into_bytes())],
+            ),
+            "lte" => (
+                format!("{quoted} <= ?"),
+                vec![Value::Bytes(value.into_bytes())],
+            ),
+            "isNull" => (format!("{quoted} IS NULL"), Vec::new()),
+            "isNotNull" => (format!("{quoted} IS NOT NULL"), Vec::new()),
+            "in" | "notIn" => {
+                let items: Vec<Value> = value
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|item| !item.is_empty())
+                    .map(|item| Value::Bytes(item.as_bytes().to_vec()))
+                    .collect();
+                if items.is_empty() {
+                    continue;
+                }
+                let placeholders = vec!["?"; items.len()].join(", ");
+                let operator = if filter.operator == "in" {
+                    "IN"
+                } else {
+                    "NOT IN"
+                };
+                (format!("{quoted} {operator} ({placeholders})"), items)
             }
-            "gt" => {
-                parts.push(format!("{quoted} > ?"));
-                params.push(text());
-            }
-            "gte" => {
-                parts.push(format!("{quoted} >= ?"));
-                params.push(text());
-            }
-            "lt" => {
-                parts.push(format!("{quoted} < ?"));
-                params.push(text());
-            }
-            "lte" => {
-                parts.push(format!("{quoted} <= ?"));
-                params.push(text());
-            }
-            "isNull" => parts.push(format!("{quoted} IS NULL")),
-            "isNotNull" => parts.push(format!("{quoted} IS NOT NULL")),
-            _ => {}
+            _ => continue,
+        };
+        if sql.is_empty() {
+            sql = part;
+        } else {
+            let joiner = filter
+                .conjunction
+                .as_deref()
+                .or(conjunction)
+                .unwrap_or("and");
+            let joiner = if joiner.eq_ignore_ascii_case("or") {
+                " OR "
+            } else {
+                " AND "
+            };
+            sql = format!("({sql}){joiner}{part}");
         }
+        params.extend(values);
     }
-    if parts.is_empty() {
-        return (String::new(), params);
-    }
-    let joiner = if conjunction
-        .map(|value| value.eq_ignore_ascii_case("or"))
-        .unwrap_or(false)
-    {
-        " OR "
+    if sql.is_empty() {
+        (String::new(), params)
     } else {
-        " AND "
-    };
-    (format!(" WHERE {}", parts.join(joiner)), params)
+        (format!(" WHERE {sql}"), params)
+    }
 }
 
 fn where_for_keys(keys: &[DbKey]) -> (String, Vec<Value>) {
@@ -922,24 +954,57 @@ mod tests {
                 column: "status".into(),
                 operator: "eq".into(),
                 value: Some("0".into()),
+                conjunction: None,
             },
             DbFilter {
                 column: "name".into(),
                 operator: "contains".into(),
                 value: Some("a%b".into()),
+                conjunction: None,
             },
             DbFilter {
                 column: "deleted_at".into(),
                 operator: "isNull".into(),
                 value: None,
+                conjunction: None,
             },
         ];
         let (sql, params) = filter_clause(&filters, Some("or"));
         assert_eq!(
             sql,
-            " WHERE `status` = ? OR `name` LIKE ? ESCAPE '\\\\' OR `deleted_at` IS NULL"
+            " WHERE ((`status` = ?) OR `name` LIKE ? ESCAPE '\\\\') OR `deleted_at` IS NULL"
         );
         assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn builds_mixed_filters_and_in() {
+        let filters = vec![
+            DbFilter {
+                column: "status".into(),
+                operator: "eq".into(),
+                value: Some("1".into()),
+                conjunction: None,
+            },
+            DbFilter {
+                column: "role".into(),
+                operator: "in".into(),
+                value: Some("admin, manager".into()),
+                conjunction: Some("or".into()),
+            },
+            DbFilter {
+                column: "name".into(),
+                operator: "notContains".into(),
+                value: Some("test".into()),
+                conjunction: Some("and".into()),
+            },
+        ];
+        let (sql, params) = filter_clause(&filters, Some("and"));
+        assert_eq!(
+            sql,
+            " WHERE ((`status` = ?) OR `role` IN (?, ?)) AND `name` NOT LIKE ? ESCAPE '\\\\'"
+        );
+        assert_eq!(params.len(), 4);
     }
 
     #[test]
