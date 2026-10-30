@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { Button, Input, Spin, Tooltip } from "antd";
+import { Button, Dropdown, Input, Spin, Tooltip } from "antd";
 import {
   CodeOutlined,
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
   EyeOutlined,
+  MoreOutlined,
   PlusOutlined,
   ReloadOutlined,
   RightOutlined,
@@ -189,30 +190,39 @@ export default function DbTree({
                 {connecting && <Spin size="small" />}
                 {active && <span className="db-tree-live" />}
                 <span className="db-tree-conn-actions">
-                  <Tooltip title={t("db.editConnection")}>
+                  <Dropdown
+                    trigger={["click"]}
+                    placement="bottomRight"
+                    menu={{
+                      items: [
+                        {
+                          key: "edit",
+                          label: t("db.edit"),
+                          icon: <EditOutlined />,
+                        },
+                        { type: "divider" },
+                        {
+                          key: "delete",
+                          label: t("common.delete"),
+                          icon: <DeleteOutlined />,
+                          danger: true,
+                        },
+                      ],
+                      onClick: ({ key }) => {
+                        if (key === "edit") onEdit(config);
+                        else if (key === "delete") onDelete(config);
+                      },
+                    }}
+                  >
                     <button
                       type="button"
                       className="db-tree-icon-btn"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onEdit(config);
-                      }}
+                      title={t("db.more")}
+                      onClick={(event) => event.stopPropagation()}
                     >
-                      <EditOutlined />
+                      <MoreOutlined />
                     </button>
-                  </Tooltip>
-                  <Tooltip title={t("db.deleteConnection")}>
-                    <button
-                      type="button"
-                      className="db-tree-icon-btn danger"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDelete(config);
-                      }}
-                    >
-                      <DeleteOutlined />
-                    </button>
-                  </Tooltip>
+                  </Dropdown>
                 </span>
               </div>
 
