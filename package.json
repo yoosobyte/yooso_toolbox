@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build && node scripts/rename-bundles.cjs",
+    "tauri:build:win": "tauri build && node scripts/rename-bundles.cjs",
     "tauri:build:mac": "tauri build --bundles app,dmg && node scripts/rename-bundles.cjs",
     "rename:bundles": "node scripts/rename-bundles.cjs",
     "icons": "node scripts/make_icons.cjs"

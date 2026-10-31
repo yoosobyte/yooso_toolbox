@@ -5,7 +5,7 @@
  *   Windows: 悦盒_0.1.1_x64-setup.exe  ->  yooso_box_0.1.1_x64-setup.exe
  *   macOS  : 悦盒_0.1.1_aarch64.dmg    ->  yooso_box_0.1.1.dmg
  *
- * 用法：npm run tauri:build（打包后自动执行）
+ * 用法：npm run tauri:build:win / npm run tauri:build:mac（打包后自动执行）
  *       或打完包后单独执行 npm run rename:bundles
  */
 const fs = require("fs");
