@@ -437,7 +437,18 @@ fn rank(entry: &IndexedFile, needle: &str) -> (u8, u8, usize) {
 
 /// 在内存索引里搜索（文件名或完整路径包含匹配，输入即出结果）
 #[tauri::command]
-pub fn fs_search(
+pub async fn fs_search(
+    query: String,
+    scope: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<FileEntry>, String> {
+    // 放到阻塞线程池，避免几十万条扫描阻塞 IPC / 界面
+    tokio::task::spawn_blocking(move || search_index(query, scope, limit))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn search_index(
     query: String,
     scope: Option<String>,
     limit: Option<usize>,
@@ -449,7 +460,8 @@ pub fn fs_search(
     let guard = lock_index();
     let limit = limit.unwrap_or(MAX_SEARCH_RESULTS).min(MAX_SEARCH_RESULTS);
 
-    let mut matched: Vec<&IndexedFile> = guard
+    // 先只算排名键，避免对几十万条命中做全量排序（输入单个字符时会非常卡）
+    let mut matched: Vec<(u8, u8, usize, &IndexedFile)> = guard
         .entries
         .iter()
         .filter(|entry| {
@@ -458,21 +470,27 @@ pub fn fs_search(
                     return false;
                 }
             }
-            entry.lower.contains(&needle) || entry.lower_path.contains(&needle)
+            // 路径一定包含文件名，只扫路径即可同时覆盖“文件名/路径”两种搜索
+            entry.lower_path.contains(&needle)
+        })
+        .map(|entry| {
+            let (bucket, dir_rank, position) = rank(entry, &needle);
+            (bucket, dir_rank, position, entry)
         })
         .collect();
 
-    matched.sort_by(|left, right| {
-        rank(left, &needle)
-            .cmp(&rank(right, &needle))
-            .then_with(|| left.name.len().cmp(&right.name.len()))
-            .then_with(|| left.path.cmp(&right.path))
-    });
-    matched.truncate(limit);
+    if matched.len() > limit {
+        // 只取出前 limit 个，再对这 limit 个排序；O(n) 而不是 O(n log n)
+        matched.select_nth_unstable_by(limit, |left, right| {
+            (left.0, left.1, left.2).cmp(&(right.0, right.1, right.2))
+        });
+        matched.truncate(limit);
+    }
+    matched.sort_by(|left, right| (left.0, left.1, left.2).cmp(&(right.0, right.1, right.2)));
 
     Ok(matched
         .into_iter()
-        .map(|entry| FileEntry {
+        .map(|(_, _, _, entry)| FileEntry {
             name: entry.name.clone(),
             path: entry.path.clone(),
             is_dir: entry.is_dir,
