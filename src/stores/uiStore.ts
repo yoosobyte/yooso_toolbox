@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Lang, LangSetting } from "../i18n";
-import type { ModuleKey } from "../modules/keys";
+import { MODULE_ORDER, type ModuleKey } from "../modules/keys";
 import { resolveLang } from "../i18n";
 
 export type ThemeSetting = "system" | "light" | "dark";
@@ -15,6 +15,10 @@ interface Persisted {
   defaultModule: ModuleKey;
   /** 数据库 / Redis 共用的左侧栏宽度 */
   sideWidth: number;
+  /** rail 的模块顺序 */
+  moduleOrder: ModuleKey[];
+  /** 被隐藏的模块 */
+  hiddenModules: ModuleKey[];
 }
 
 function read(): Persisted {
@@ -22,15 +26,26 @@ function read(): Persisted {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Persisted>;
+      const moduleOrder = Array.isArray(parsed.moduleOrder)
+        ? (parsed.moduleOrder as ModuleKey[])
+        : [...MODULE_ORDER];
+      const stored = parsed.defaultModule as ModuleKey | undefined;
+      // 旧版本的默认值（db / note）视为未设置：默认跟随排序第一个
+      const legacy = stored === "db" || stored === "note";
       return {
         language: parsed.language ?? "system",
         theme: parsed.theme ?? "system",
         showStatusBar: parsed.showStatusBar ?? true,
-        defaultModule: (parsed.defaultModule as ModuleKey) ?? "note",
+        defaultModule:
+          stored && !legacy ? stored : (moduleOrder[0] ?? "files"),
         sideWidth:
           typeof parsed.sideWidth === "number" && parsed.sideWidth !== 272
             ? parsed.sideWidth
             : 310,
+        moduleOrder,
+        hiddenModules: Array.isArray(parsed.hiddenModules)
+          ? (parsed.hiddenModules as ModuleKey[])
+          : [],
       };
     }
   } catch {
@@ -40,8 +55,10 @@ function read(): Persisted {
     language: "system",
     theme: "system",
     showStatusBar: true,
-    defaultModule: "note",
+    defaultModule: MODULE_ORDER[0] ?? "files",
     sideWidth: 310,
+    moduleOrder: [...MODULE_ORDER],
+    hiddenModules: [],
   };
 }
 
@@ -66,6 +83,10 @@ interface UiState {
   defaultModule: ModuleKey;
   /** 数据库 / Redis 共用的左侧栏宽度 */
   sideWidth: number;
+  /** rail 的模块顺序 */
+  moduleOrder: ModuleKey[];
+  /** 被隐藏的模块 */
+  hiddenModules: ModuleKey[];
   /** 实际生效的语言 / 主题（跟随系统时会随系统变化） */
   lang: Lang;
   activeTheme: Theme;
@@ -74,6 +95,9 @@ interface UiState {
   setShowStatusBar: (value: boolean) => void;
   setDefaultModule: (value: ModuleKey) => void;
   setSideWidth: (value: number) => void;
+  setModuleOrder: (order: ModuleKey[]) => void;
+  setModuleVisible: (key: ModuleKey, visible: boolean) => void;
+  resetModules: () => void;
   /** 监听系统主题变化 */
   syncSystem: () => void;
 }
@@ -88,6 +112,10 @@ function persist(state: {
   defaultModule: ModuleKey;
   /** 数据库 / Redis 共用的左侧栏宽度 */
   sideWidth: number;
+  /** rail 的模块顺序 */
+  moduleOrder: ModuleKey[];
+  /** 被隐藏的模块 */
+  hiddenModules: ModuleKey[];
 }) {
   localStorage.setItem(KEY, JSON.stringify(state satisfies Persisted));
 }
@@ -98,6 +126,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   showStatusBar: initial.showStatusBar,
   defaultModule: initial.defaultModule,
   sideWidth: initial.sideWidth,
+  moduleOrder: initial.moduleOrder,
+  hiddenModules: initial.hiddenModules,
   lang: resolveLang(initial.language),
   activeTheme: resolveTheme(initial.theme),
 
@@ -108,6 +138,8 @@ export const useUiStore = create<UiState>((set, get) => ({
       showStatusBar: get().showStatusBar,
       defaultModule: get().defaultModule,
       sideWidth: get().sideWidth,
+      moduleOrder: get().moduleOrder,
+      hiddenModules: get().hiddenModules,
     });
     set({ language: value, lang: resolveLang(value) });
   },
@@ -119,6 +151,8 @@ export const useUiStore = create<UiState>((set, get) => ({
       showStatusBar: get().showStatusBar,
       defaultModule: get().defaultModule,
       sideWidth: get().sideWidth,
+      moduleOrder: get().moduleOrder,
+      hiddenModules: get().hiddenModules,
     });
     const active = resolveTheme(value);
     applyTheme(active);
@@ -132,6 +166,8 @@ export const useUiStore = create<UiState>((set, get) => ({
       showStatusBar: value,
       defaultModule: get().defaultModule,
       sideWidth: get().sideWidth,
+      moduleOrder: get().moduleOrder,
+      hiddenModules: get().hiddenModules,
     });
     set({ showStatusBar: value });
   },
@@ -143,6 +179,8 @@ export const useUiStore = create<UiState>((set, get) => ({
       showStatusBar: get().showStatusBar,
       defaultModule: value,
       sideWidth: get().sideWidth,
+      moduleOrder: get().moduleOrder,
+      hiddenModules: get().hiddenModules,
     });
     set({ defaultModule: value });
   },
@@ -154,8 +192,54 @@ export const useUiStore = create<UiState>((set, get) => ({
       showStatusBar: get().showStatusBar,
       defaultModule: get().defaultModule,
       sideWidth: value,
+      moduleOrder: get().moduleOrder,
+      hiddenModules: get().hiddenModules,
     });
     set({ sideWidth: value });
+  },
+
+  setModuleOrder: (order) => {
+    persist({
+      language: get().language,
+      theme: get().theme,
+      showStatusBar: get().showStatusBar,
+      defaultModule: get().defaultModule,
+      sideWidth: get().sideWidth,
+      moduleOrder: order,
+      hiddenModules: get().hiddenModules,
+    });
+    set({ moduleOrder: order });
+  },
+
+  resetModules: () => {
+    const order = [...MODULE_ORDER];
+    const defaultModule = order[0] ?? "files";
+    persist({
+      language: get().language,
+      theme: get().theme,
+      showStatusBar: get().showStatusBar,
+      defaultModule,
+      sideWidth: get().sideWidth,
+      moduleOrder: order,
+      hiddenModules: [],
+    });
+    set({ moduleOrder: order, hiddenModules: [], defaultModule });
+  },
+
+  setModuleVisible: (key, visible) => {
+    const hidden = visible
+      ? get().hiddenModules.filter((item) => item !== key)
+      : [...get().hiddenModules.filter((item) => item !== key), key];
+    persist({
+      language: get().language,
+      theme: get().theme,
+      showStatusBar: get().showStatusBar,
+      defaultModule: get().defaultModule,
+      sideWidth: get().sideWidth,
+      moduleOrder: get().moduleOrder,
+      hiddenModules: hidden,
+    });
+    set({ hiddenModules: hidden });
   },
 
   syncSystem: () => {

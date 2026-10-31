@@ -20,3 +20,19 @@ export function loadNoteFont(): NoteFont {
 export function saveNoteFont(font: NoteFont): void {
   localStorage.setItem(KEY, font);
 }
+
+const SIZE_KEY = "yooso.note.fontSize";
+
+export const NOTE_FONT_SIZES = [
+  12, 13, 14, 15, 16, 18, 20, 25, 30, 40, 50, 100,
+] as const;
+
+export function loadNoteFontSize(): number {
+  const raw = localStorage.getItem(SIZE_KEY);
+  const value = raw === null ? Number.NaN : Number(raw);
+  return Number.isFinite(value) && value >= 10 && value <= 200 ? value : 13;
+}
+
+export function saveNoteFontSize(size: number): void {
+  localStorage.setItem(SIZE_KEY, String(size));
+}

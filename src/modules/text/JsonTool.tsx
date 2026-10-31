@@ -14,6 +14,7 @@ import { useT } from "../../i18n";
 import { copyText } from "../../clipboard";
 import { errText, formatBytes } from "../../utils";
 import JsonTree, { collectContainerPaths, type JsonValue } from "./JsonTree";
+import { highlightJsonText } from "./jsonHighlight";
 
 const SAMPLE = JSON.stringify(
   {
@@ -218,15 +219,28 @@ export default function JsonTool() {
                   )}
                 </div>
               )}
-              <textarea
-                ref={inputRef}
-                className="txt-textarea"
-                value={input}
-                spellCheck={false}
-                placeholder={t("text.jsonPlaceholder")}
-                onChange={(event) => setInput(event.target.value)}
-                onPaste={onPaste}
-              />
+              <div className="txt-json-editor">
+                <pre className="txt-json-highlight" aria-hidden="true">
+                  {highlightJsonText(input)}
+                  {"\n"}
+                </pre>
+                <textarea
+                  ref={inputRef}
+                  className="txt-textarea txt-json-input"
+                  value={input}
+                  spellCheck={false}
+                  placeholder={t("text.jsonPlaceholder")}
+                  onChange={(event) => setInput(event.target.value)}
+                  onPaste={onPaste}
+                  onScroll={(event) => {
+                    const pre = event.currentTarget.previousElementSibling;
+                    if (pre instanceof HTMLElement) {
+                      pre.scrollTop = event.currentTarget.scrollTop;
+                      pre.scrollLeft = event.currentTarget.scrollLeft;
+                    }
+                  }}
+                />
+              </div>
             </>
           ) : value !== undefined ? (
             <div className="txt-json-tree-wrap">
