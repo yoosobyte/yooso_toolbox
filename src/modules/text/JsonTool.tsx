@@ -74,8 +74,8 @@ export default function JsonTool() {
     setCollapsed(new Set());
   };
 
-  /** 在当前编辑框里直接格式化 / 压缩 */
-  const transform = (source: string, kind: "format" | "minify") => {
+  /** 在当前编辑框里直接格式化 / 压缩；只有粘贴时才自动切到树形预览 */
+  const transform = (source: string, kind: "format" | "minify", preview = false) => {
     const text = source.trim();
     if (!text) return;
     try {
@@ -86,8 +86,8 @@ export default function JsonTool() {
           : JSON.stringify(parsed, null, indent === "tab" ? "\t" : Number(indent));
       setInput(next);
       applyParsed(parsed);
-      // 解析成功直接进树形；压缩保持文本，方便复制单行结果
-      setView(kind === "minify" ? "text" : "tree");
+      // 手动格式化 / 压缩保持文本视图；只有粘贴才自动进树形预览
+      setView(preview ? "tree" : "text");
     } catch (err) {
       setInput(source);
       setValue(undefined);
@@ -125,7 +125,8 @@ export default function JsonTool() {
       if (!element) return;
       const text = element.value;
       if (!text.trim()) return;
-      transform(text, "format");
+      // 粘贴是唯一会自动跳转到树形预览的入口
+      transform(text, "format", true);
     }, 0);
   };
 

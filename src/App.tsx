@@ -13,6 +13,7 @@ import {
   SshNavIcon,
   TextNavIcon,
   TranslateNavIcon,
+  FilesNavIcon,
 } from "./components/NavIcons";
 import type { ReactNode } from "react";
 import SshModule from "./modules/ssh/SshModule";
@@ -21,6 +22,7 @@ import QrModule from "./modules/qrcode/QrModule";
 import TranslateModule from "./modules/translate/TranslateModule";
 import TextModule from "./modules/text/TextModule";
 import NoteModule from "./modules/note/NoteModule";
+import FilesModule from "./modules/files/FilesModule";
 import BrowserModule from "./modules/browser/BrowserModule";
 import AiModule from "./modules/ai/AiModule";
 import ToolsModule from "./modules/tools/ToolsModule";
@@ -73,6 +75,15 @@ const MODULES: ModuleDef[] = [
     titleKey: "Note",
     descKey: "module.noteDesc",
     icon: <NoteNavIcon />,
+    ready: true,
+    featureKeys: [],
+  },
+  {
+    key: "files",
+    label: "Files",
+    titleKey: "Files",
+    descKey: "module.filesDesc",
+    icon: <FilesNavIcon />,
     ready: true,
     featureKeys: [],
   },
@@ -278,6 +289,14 @@ export default function App() {
             <NoteModule />
           </div>
         )}
+        {mounted.files && (
+          <div
+            className="module-slot"
+            style={{ display: activeModule.key === "files" ? "flex" : "none" }}
+          >
+            <FilesModule />
+          </div>
+        )}
         {mounted.redis && (
           <div
             className="module-slot"
@@ -334,7 +353,7 @@ export default function App() {
             <ToolsModule />
           </div>
         )}
-        {!["ssh", "api", "text", "note", "qrcode", "translate", "browser", "ai", "tools", "redis", "db"].includes(activeModule.key) && (
+        {!["ssh", "api", "text", "note", "files", "qrcode", "translate", "browser", "ai", "tools", "redis", "db"].includes(activeModule.key) && (
           <Placeholder
             title={activeModule.titleKey}
             desc={t(activeModule.descKey)}

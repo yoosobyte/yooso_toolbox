@@ -39,6 +39,8 @@ russh = { version = "0.65", default-features = false, features = ["ring", "flate
 russh-sftp = "3.0"
 tar = "0.4"
 flate2 = "1"
+# 删除文件时移到系统回收站（Windows 回收站 / macOS 废纸篓）
+trash = "5"
 
 # 关闭 WebView2 的浏览器快捷键（否则 Ctrl+Shift+C 会打开开发者工具）
 [target.'cfg(target_os = "macos")'.dependencies]

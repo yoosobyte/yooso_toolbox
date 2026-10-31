@@ -2,6 +2,8 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
   ApiResponse,
   BodyType,
+  FileEntry,
+  FileRoot,
   HttpMethod,
   MetricsSample,
   ProcessInfo,
@@ -165,3 +167,19 @@ export interface HttpRequestSpec {
 /** 在 Rust 侧发请求，绕开 WebView 的 CORS 限制 */
 export const httpRequest = (spec: HttpRequestSpec) =>
   invoke<ApiResponse>("http_request", { spec });
+
+/* ------------------------------------------------------------------ */
+/* 文件浏览器                                                          */
+/* ------------------------------------------------------------------ */
+
+export const fsRoots = () => invoke<FileRoot[]>("fs_roots");
+
+export const fsList = (dir: string) => invoke<FileEntry[]>("fs_list", { dir });
+
+export const fsSearch = (query: string, limit?: number) =>
+  invoke<FileEntry[]>("fs_search", { query, limit });
+
+export const fsDelete = (paths: string[]) => invoke<void>("fs_delete", { paths });
+
+export const fsRename = (path: string, newName: string) =>
+  invoke<string>("fs_rename", { path, newName });

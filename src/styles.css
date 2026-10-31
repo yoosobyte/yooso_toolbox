@@ -2459,6 +2459,39 @@ body.sftp-resizing .sftp-resizer::after {
   word-break: break-word;
 }
 
+.api-code .tok-key {
+  color: var(--accent);
+}
+
+.api-code .tok-str {
+  color: var(--success);
+}
+
+.api-code .tok-num {
+  color: var(--warn);
+}
+
+.api-code .tok-lit {
+  color: var(--danger);
+}
+
+.api-code .tok-punc {
+  color: var(--text-mute);
+}
+
+.api-code .tok-tag {
+  color: var(--accent);
+}
+
+.api-code .tok-attr {
+  color: var(--warn);
+}
+
+.api-code .tok-comment {
+  color: var(--text-mute);
+  font-style: italic;
+}
+
 .api-empty {
   padding: 26px 0;
   text-align: center;
@@ -6930,7 +6963,7 @@ body.note-resizing {
   outline: none;
   resize: none;
   background: transparent;
-  color: var(--text);
+  color: var(--text-2);
   font-family: "Cascadia Mono", "Consolas", monospace;
   font-size: 13px;
   line-height: 1.65;
@@ -6941,9 +6974,13 @@ body.note-resizing {
   min-height: 0;
   overflow: auto;
   padding: 16px 20px;
-  color: var(--text);
+  color: var(--text-2);
   font-size: 13.5px;
   line-height: 1.7;
+}
+
+.note-font-select {
+  width: 104px;
 }
 
 .note-status {
@@ -7981,4 +8018,206 @@ body.side-resizing {
   font-weight: 600;
   letter-spacing: 0.6px;
   text-transform: uppercase;
+}
+
+/* ---------------- 文件浏览器 ---------------- */
+
+.files-module {
+  user-select: none;
+}
+
+.files-search {
+  width: 250px;
+}
+
+.files-search input {
+  user-select: text;
+}
+
+.files-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.files-roots {
+  width: 190px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--border);
+  overflow: auto;
+}
+
+.files-root {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.files-root:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.files-root.active {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.files-root-icon {
+  width: 18px;
+  display: inline-flex;
+  justify-content: center;
+  font-size: 15px;
+}
+
+.files-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.files-path {
+  max-width: 68%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-mute);
+  font-size: 11.5px;
+}
+
+.files-count {
+  color: var(--text-mute);
+  font-size: 11.5px;
+}
+
+.files-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 8px 16px;
+}
+
+.files-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: var(--text-2);
+}
+
+.files-row:hover {
+  background: var(--surface-2);
+}
+
+.files-row.selected {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.files-icon {
+  width: 20px;
+  flex: none;
+  display: inline-flex;
+  justify-content: center;
+  font-size: 15px;
+  color: var(--text-mute);
+}
+
+.files-icon.is-dir {
+  color: var(--accent);
+}
+
+.files-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+}
+
+.files-meta {
+  max-width: 36%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-mute);
+  font-size: 11px;
+}
+
+.files-time {
+  width: 92px;
+  flex: none;
+  text-align: right;
+  color: var(--text-mute);
+  font-size: 11px;
+}
+
+.files-empty,
+.files-error {
+  padding: 34px 12px;
+  text-align: center;
+  color: var(--text-mute);
+  font-size: 12.5px;
+}
+
+.files-error {
+  color: var(--danger);
+}
+
+.files-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 190px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.files-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.files-menu button:hover {
+  background: var(--surface-2);
+}
+
+.files-menu button.danger {
+  color: var(--danger);
 }

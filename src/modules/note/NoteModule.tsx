@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { App as AntdApp, Button, Input, Segmented, Typography } from "antd";
+import { App as AntdApp, Button, Input, Segmented, Select, Typography } from "antd";
 import {
   DeleteOutlined,
   DownloadOutlined,
@@ -12,6 +12,12 @@ import { errText } from "../../utils";
 import { saveText } from "../../save";
 import { NoteNavIcon } from "../../components/NavIcons";
 import { renderMarkdown } from "./markdown";
+import {
+  NOTE_FONT_STACKS,
+  loadNoteFont,
+  saveNoteFont,
+  type NoteFont,
+} from "./fonts";
 import {
   createNote,
   loadNotes,
@@ -39,6 +45,7 @@ export default function NoteModule() {
     () => loadNotes()[0]?.id ?? null,
   );
   const [preview, setPreview] = useState(false);
+  const [font, setFont] = useState<NoteFont>(loadNoteFont);
   const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
   const [menu, setMenu] = useState<{ x: number; y: number; noteId: string } | null>(
     null,
@@ -269,16 +276,38 @@ export default function NoteModule() {
                     ]}
                   />
                 )}
+                <Select
+                  size="small"
+                  className="note-font-select"
+                  value={font}
+                  title={t("note.font")}
+                  onChange={(value) => {
+                    const next = value as NoteFont;
+                    setFont(next);
+                    saveNoteFont(next);
+                  }}
+                  options={[
+                    { value: "system", label: t("note.fontSystem") },
+                    { value: "sans", label: t("note.fontSans") },
+                    { value: "serif", label: t("note.fontSerif") },
+                    { value: "mono", label: t("note.fontMono") },
+                    { value: "kai", label: t("note.fontKai") },
+                  ]}
+                />
                 <span style={{ flex: 1 }} />
               </div>
 
               {active.format === "md" && preview ? (
-                <div className="note-preview note-md">
+                <div
+                  className="note-preview note-md"
+                  style={{ fontFamily: NOTE_FONT_STACKS[font] }}
+                >
                   {renderMarkdown(active.content)}
                 </div>
               ) : (
                 <textarea
                   className="note-editor"
+                  style={{ fontFamily: NOTE_FONT_STACKS[font] }}
                   value={active.content}
                   placeholder={t("note.contentPlaceholder")}
                   spellCheck={false}

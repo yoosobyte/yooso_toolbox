@@ -191,11 +191,12 @@ npm run rename:bundles
 
 前端 `src/`：
 
-- `modules/<domain>/`：`db`、`ssh`、`redis`、`api`、`browser`、`note`、`text`、`qrcode`、`translate`、`tools`、`ai`
+- `modules/<domain>/`：`db`、`ssh`、`redis`、`api`、`browser`、`files`、`note`、`text`、`qrcode`、`translate`、`tools`、`ai`
   - `db/`：`DbModule`（组合根）+ `DbTabsBar` / `DbTabContent` / `DbContextMenus` + `useDbSession` / `useDbCatalog` / `useDbTabs` / `useDbTableActions` 等 hook + `DbStructure*` / `DbData*` 视图
   - `ssh/`：`TerminalView` + `useXterm` / `terminalThemes` / `TerminalToolbar` / `TerminalContextMenu`，`sftp/` 子目录放 SFTP 面板的组件与 hook
-  - `api/`：`ApiModule` + `RequestEditor` / `ResponsePanel` / `RequestSidebar` / `SaveRequestModal` + `helpers.ts`
+  - `api/`：`ApiModule` + `RequestEditor` / `ResponsePanel` / `ResponseCode` / `RequestSidebar` / `SaveRequestModal` + `helpers.ts`
   - `browser/`：`BrowserModule` + `BrowserTabs` / `BrowserToolbar` / `BrowserContent` / `BrowserHome` + `useNativeWebviews`
+  - `files/`：`FilesModule` + `FilesContextMenu` / `fileIcons.tsx`（本地文件浏览与搜索）
   - `redis/`：`RedisBrowser` + `RedisKeyPanel` / `RedisValueDetail` / `RedisKeyDialogs` + `useRedisKeyList` / `useRedisKeyDetail`
 - `i18n/`：`zh.ts`、`en.ts`、`index.ts`（字典与运行时分离）
 - 共享层：`api.ts`、`types.ts`、`stores/`、`components/`、`utils.ts`、`theme.ts`、`save.ts` 等
@@ -210,6 +211,20 @@ npm run rename:bundles
 
 > ⚠️ 拆后端命令模块时，`#[tauri::command]` 会同时生成 `__cmd__*` / `__tauri_command_name_*` 隐藏宏，`generate_handler!` 依赖它们。
 > 所以子模块必须用 **glob** 重导出（`pub use query::*;`），不要改成逐个 `pub use query::db_query;`，否则会报 `could not find __cmd__...`。
+
+### 文件（Everything 风格）
+
+- 新增「文件」tab：左侧为个人目录（个人文件夹 / 下载 / 桌面 / 文档 / 图片 / 音乐 / 视频），右侧列表，支持搜索框按文件名递归搜索（最多 500 条）
+- 只访问个人目录：拒绝越权路径；隐藏 macOS `Library`、Windows 的 `AppData` / junction / 隐藏/系统属性目录；搜索跳过 `node_modules`、`target`、`.git`
+- 双击：目录进入，文件用系统默认程序打开；右键菜单：打开、在资源管理器 / 访达中显示、打开文件所在位置、复制路径、重命名、删除（移到系统回收站）
+- 列表禁用 HTML 文本选中与浏览器默认拖拽；输入框仍可正常选中输入
+- WebView2 限制：无法从网页里发起「拖文件到资源管理器」的原生拖拽，需要拖到外部时用「在资源管理器中显示」后从资源管理器拖
+
+### 体验细节
+
+- JSON 工具：**只有粘贴**会自动切到树形预览；手动输入后点「格式化 / 压缩」保持文本视图
+- API 响应：JSON / HTML / XML 正文按 token 上色（key / string / number / literal / tag / attr）
+- 笔记：工具栏新增正文字体下拉（系统默认 / 无衬线 / 衬线 / 等宽 / 楷体），深色模式下正文颜色降为 `--text-2`，不再刺眼
 
 ### 应用图标
 
