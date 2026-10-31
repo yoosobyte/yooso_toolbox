@@ -133,16 +133,29 @@ export function DbDatabaseMenu({
 
 interface QueryMenuProps {
   menu: QueryMenuState;
+  onNewQuery: (database: string) => void;
   onRename: (query: DbQueryDef) => void;
   onDelete: (query: DbQueryDef) => void;
 }
 
 /** 查询节点的右键菜单 */
-export function DbQueryMenu({ menu, onRename, onDelete }: QueryMenuProps) {
+export function DbQueryMenu({
+  menu,
+  onNewQuery,
+  onRename,
+  onDelete,
+}: QueryMenuProps) {
   const t = useT(useUiStore((state) => state.lang));
 
   return (
     <MenuShell x={menu.x} y={menu.y}>
+      <button
+        type="button"
+        onClick={() => onNewQuery(menu.query.database)}
+      >
+        <FileTextOutlined />
+        {t("db.newQuery")}
+      </button>
       <button type="button" onClick={() => onRename(menu.query)}>
         <EditOutlined />
         {t("db.renameQuery")}
@@ -158,6 +171,7 @@ export function DbQueryMenu({ menu, onRename, onDelete }: QueryMenuProps) {
 interface TabMenuProps {
   menu: TabMenuState;
   tabOrder: string[];
+  onNewQuery: (database: string) => void;
   onCloseTab: (key: string) => void;
   onCloseOtherTabs: (key: string) => void;
   onCloseTabsLeft: (key: string) => void;
@@ -168,6 +182,7 @@ interface TabMenuProps {
 export function DbTabMenu({
   menu,
   tabOrder,
+  onNewQuery,
   onCloseTab,
   onCloseOtherTabs,
   onCloseTabsLeft,
@@ -177,6 +192,14 @@ export function DbTabMenu({
 
   return (
     <MenuShell x={menu.x} y={menu.y}>
+      <button
+        type="button"
+        disabled={!menu.database}
+        onClick={() => onNewQuery(menu.database)}
+      >
+        <FileTextOutlined />
+        {t("db.newQuery")}
+      </button>
       <button type="button" onClick={() => onCloseTab(menu.key)}>
         <CloseOutlined />
         {t("db.closeTab")}

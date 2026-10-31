@@ -3,7 +3,7 @@ import type { HttpMethod } from "../../types";
 export const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
 /** 请求栏右侧图标按钮：和下拉 / 输入框严格等高 */
-export const BAR_BTN = { height: 40, width: 40, minWidth: 40 } as const;
+export const BAR_BTN = { height: 32, width: 32, minWidth: 32 } as const;
 
 export const METHOD_COLOR: Record<string, string> = {
   GET: "#22c55e",

@@ -1,8 +1,9 @@
-import { Button, Tooltip } from "antd";
+import { Button, Popover, Select, Tooltip } from "antd";
 import {
   ClearOutlined,
   FolderOpenOutlined,
   FolderOutlined,
+  SettingOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
 import { useT } from "../../i18n";
@@ -10,6 +11,7 @@ import { useUiStore } from "../../stores/uiStore";
 import type { MetricsSample, TermTab } from "../../types";
 import TerminalMetrics from "./TerminalMetrics";
 import TerminalStatus from "./TerminalStatus";
+import { TERMINAL_FONTS, TERMINAL_SIZES, useTerminalPrefs } from "./terminalPrefs";
 
 interface Props {
   tab: TermTab;
@@ -52,6 +54,10 @@ export default function TerminalToolbar({
   onReconnect,
 }: Props) {
   const t = useT(useUiStore((state) => state.lang));
+  const font = useTerminalPrefs((state) => state.font);
+  const size = useTerminalPrefs((state) => state.size);
+  const setFont = useTerminalPrefs((state) => state.setFont);
+  const setSize = useTerminalPrefs((state) => state.setSize);
 
   return (
     <div className="term-toolbar">
@@ -86,6 +92,44 @@ export default function TerminalToolbar({
       <Tooltip title={t("term.reconnect")} placement="topRight">
         <Button size="small" type="text" icon={<ThunderboltOutlined />} onClick={onReconnect} />
       </Tooltip>
+      <Popover
+        trigger="click"
+        placement="topRight"
+        content={
+          <div className="term-prefs">
+            <div className="term-prefs-row">
+              <span className="term-prefs-label">{t("term.font")}</span>
+              <Select
+                size="small"
+                value={font}
+                style={{ width: 150 }}
+                onChange={setFont}
+                options={Object.keys(TERMINAL_FONTS).map((name) => ({
+                  value: name,
+                  label: name,
+                }))}
+              />
+            </div>
+            <div className="term-prefs-row">
+              <span className="term-prefs-label">{t("term.fontSize")}</span>
+              <Select
+                size="small"
+                value={size}
+                style={{ width: 150 }}
+                onChange={setSize}
+                options={TERMINAL_SIZES.map((value) => ({
+                  value,
+                  label: `${value}px`,
+                }))}
+              />
+            </div>
+          </div>
+        }
+      >
+        <Tooltip title={t("term.display")} placement="topRight">
+          <Button size="small" type="text" icon={<SettingOutlined />} />
+        </Tooltip>
+      </Popover>
     </div>
   );
 }

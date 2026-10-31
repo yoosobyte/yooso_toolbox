@@ -4,7 +4,6 @@ import {
   CodeOutlined,
   DisconnectOutlined,
   KeyOutlined,
-  PlusOutlined,
 } from "@ant-design/icons";
 import { useRedisStore } from "../../stores/redisStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -235,19 +234,16 @@ export default function RedisModule() {
                 className="redis-slot"
                 style={{ display: tab === "console" ? "flex" : "none" }}
               >
-                <RedisConsole key={active.id} connectionId={active.id} db={db} />
+                <RedisConsole key={active.id} connectionId={active.id} />
               </div>
             </>
           ) : (
             <div className="redis-welcome">
-              <span className="redis-welcome-icon">
+              <span className="app-empty-glyph">
                 <RedisIcon />
               </span>
-              <div className="redis-welcome-title">{t("redis.selectConnection")}</div>
-              <div className="redis-hint">{t("redis.emptyConnections")}</div>
-              <Button type="default" icon={<PlusOutlined />} onClick={openCreate}>
-                {t("redis.newConnection")}
-              </Button>
+              <div className="app-empty-title">{t("redis.selectConnection")}</div>
+              <div className="app-empty-hint">{t("redis.emptyConnections")}</div>
             </div>
           )}
         </section>

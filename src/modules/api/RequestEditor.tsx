@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Input } from "antd";
 import {
   CodeOutlined,
@@ -10,6 +10,12 @@ import type { ApiRequest, BodyType, KeyValue } from "../../types";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { useCopy } from "./useCopy";
+import {
+  formatJsonInput,
+  highlightJsonText,
+  isWhitespaceOnlyChange,
+  mapCaret,
+} from "../text/jsonHighlight";
 import KeyValueEditor from "./KeyValueEditor";
 import type { ReqTab } from "./constants";
 
@@ -25,6 +31,44 @@ interface Props {
 export default function RequestEditor({ request, finalUrl, onPatch }: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const copy = useCopy();
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+  const caretRef = useRef<{ start: number; end: number } | null>(null);
+
+  /* JSON 自动格式化后恢复光标 */
+  useEffect(() => {
+    const caret = caretRef.current;
+    if (!caret) return;
+    caretRef.current = null;
+    const el = bodyRef.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(caret.start, caret.end);
+  }, [request.body]);
+
+  const handleBodyChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const raw = event.target.value;
+    if (request.bodyType !== "json") {
+      onPatch({ body: raw });
+      return;
+    }
+    // 只是敲了回车 / 空格 / Tab：原样保留，绝不格式化
+    if (isWhitespaceOnlyChange(request.body, raw)) {
+      onPatch({ body: raw });
+      return;
+    }
+    // 非空白编辑：解析成功就格式化（回车/空格/Tab 已在上面放行）
+    const formatted = formatJsonInput(raw);
+    if (formatted !== null && formatted !== raw) {
+      const el = event.currentTarget;
+      caretRef.current = {
+        start: mapCaret(raw, el.selectionStart, formatted),
+        end: mapCaret(raw, el.selectionEnd, formatted),
+      };
+      onPatch({ body: formatted });
+      return;
+    }
+    onPatch({ body: raw });
+  };
   const [reqTab, setReqTab] = useState<ReqTab>("params");
 
   const paramCount = request.params.filter((item) => item.enabled && item.key.trim()).length;
@@ -158,22 +202,57 @@ export default function RequestEditor({ request, finalUrl, onPatch }: Props) {
                 ))}
               </div>
             </div>
-            <Input.TextArea
-              className="api-body-area"
-              value={request.bodyType === "none" ? "" : request.body}
-              disabled={request.bodyType === "none"}
-              onChange={(event) => onPatch({ body: event.target.value })}
-              placeholder={
-                request.bodyType === "none"
-                  ? t("api.bodyNoneHint")
-                  : request.bodyType === "json"
-                    ? '{ "hello": "world" }'
+            {request.bodyType === "json" ? (
+              <div className="api-json-editor">
+                <pre className="api-json-highlight" aria-hidden="true">
+                  {highlightJsonText(request.body)}
+                  {"\n"}
+                </pre>
+                <textarea
+                  ref={bodyRef}
+                  className="api-json-input"
+                  value={request.body}
+                  spellCheck={false}
+                  onChange={handleBodyChange}
+                  onPaste={() => {
+                    window.setTimeout(() => {
+                      const el = bodyRef.current;
+                      if (!el) return;
+                      const formatted = formatJsonInput(el.value);
+                      if (formatted !== null && formatted !== el.value) {
+                        caretRef.current = {
+                          start: mapCaret(el.value, el.selectionStart, formatted),
+                          end: mapCaret(el.value, el.selectionEnd, formatted),
+                        };
+                        onPatch({ body: formatted });
+                      }
+                    }, 0);
+                  }}
+                  onScroll={(event) => {
+                    const pre = event.currentTarget.previousElementSibling;
+                    if (pre instanceof HTMLElement) {
+                      pre.scrollTop = event.currentTarget.scrollTop;
+                      pre.scrollLeft = event.currentTarget.scrollLeft;
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <Input.TextArea
+                className="api-body-area"
+                value={request.bodyType === "none" ? "" : request.body}
+                disabled={request.bodyType === "none"}
+                onChange={handleBodyChange}
+                placeholder={
+                  request.bodyType === "none"
+                    ? t("api.bodyNoneHint")
                     : request.bodyType === "form"
                       ? "a=1&b=2"
                       : ""
-              }
-              autoSize={{ minRows: 4, maxRows: 12 }}
-            />
+                }
+                style={{ height: "100%", resize: "none" }}
+              />
+            )}
           </div>
         )}
       </div>

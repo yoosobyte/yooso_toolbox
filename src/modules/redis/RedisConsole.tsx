@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Input } from "antd";
-import { ClearOutlined } from "@ant-design/icons";
+import { ClearOutlined, CodeOutlined } from "@ant-design/icons";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
@@ -8,7 +8,6 @@ import { redisCommand } from "./api";
 
 interface Props {
   connectionId: string;
-  db: number;
 }
 
 interface ConsoleLine {
@@ -17,7 +16,7 @@ interface ConsoleLine {
   text: string;
 }
 
-export default function RedisConsole({ connectionId, db }: Props) {
+export default function RedisConsole({ connectionId }: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const [input, setInput] = useState("");
   const [lines, setLines] = useState<ConsoleLine[]>([]);
@@ -67,10 +66,7 @@ export default function RedisConsole({ connectionId, db }: Props) {
   return (
     <div className="redis-console">
       <div className="redis-console-head">
-        <span className="redis-console-title">
-          {t("redis.tabConsole")}
-          <span className="redis-console-db">DB {db}</span>
-        </span>
+        <span className="redis-console-title">{t("redis.tabConsole")}</span>
         <span style={{ flex: 1 }} />
         <Button
           size="small"
@@ -84,7 +80,13 @@ export default function RedisConsole({ connectionId, db }: Props) {
 
       <div className="redis-console-output" ref={outputRef}>
         {lines.length === 0 && (
-          <div className="redis-console-empty">{t("redis.consoleEmpty")}</div>
+          <div className="redis-console-empty">
+            <span className="app-empty-glyph">
+              <CodeOutlined />
+            </span>
+            <div className="app-empty-title">{t("redis.consoleEmpty")}</div>
+            <div className="app-empty-hint">{t("redis.consoleEmptyHint")}</div>
+          </div>
         )}
         {lines.map((line) => (
           <pre

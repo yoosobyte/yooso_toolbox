@@ -13,6 +13,7 @@ import { connectionColor } from "./colors";
 import { DatabaseIcon } from "./icons";
 import DbNewTableModal from "./DbNewTableModal";
 import DbNewQueryModal from "./DbNewQueryModal";
+import DbNewDatabaseModal from "./DbNewDatabaseModal";
 import { createQueryDef, type DbQueryDef } from "./queries";
 import type { DbConfig } from "./api";
 import {
@@ -48,6 +49,7 @@ export default function DbModule() {
   const [editing, setEditing] = useState<DbConfig | null>(null);
   const [newTableDatabase, setNewTableDatabase] = useState<string | null>(null);
   const [newQueryDatabase, setNewQueryDatabase] = useState<string | null>(null);
+  const [newDatabaseConn, setNewDatabaseConn] = useState<DbConfig | null>(null);
   const [tableMenu, setTableMenu] = useState<TableMenuState | null>(null);
   const [databaseMenu, setDatabaseMenu] = useState<DatabaseMenuState | null>(null);
   const [queryMenu, setQueryMenu] = useState<QueryMenuState | null>(null);
@@ -298,7 +300,14 @@ export default function DbModule() {
     setTableMenu(null);
     setDatabaseMenu(null);
     setQueryMenu(null);
-    setTabMenu({ x, y, key });
+    const tableTab = tabs.tableTabs.find((tab) => tab.key === key);
+    const queryTab = tabs.openQueries.find((query) => `q:${query.id}` === key);
+    setTabMenu({
+      x,
+      y,
+      key,
+      database: tableTab?.database ?? queryTab?.database ?? "",
+    });
   };
 
   const handleTableCreated = (database: string, table: string) => {
@@ -381,6 +390,19 @@ export default function DbModule() {
             onDisconnect={(config) => {
               if (active?.id === config.id) void session.disconnect();
             }}
+            onNewTable={(database) => setNewTableDatabase(database)}
+            onNewDatabase={(config) => {
+              // 未连接时先自动连接，再打开新建数据库
+              if (session.active?.id === config.id) {
+                setNewDatabaseConn(config);
+                return;
+              }
+              void session.connect(config).then(() => {
+                if (activeIdRef.current === config.id) {
+                  setNewDatabaseConn(config);
+                }
+              });
+            }}
           />
         </aside>
 
@@ -422,14 +444,11 @@ export default function DbModule() {
             )
           ) : (
             <div className="db-welcome db-welcome-main">
-              <span className="db-welcome-icon">
+              <span className="app-empty-glyph">
                 <DatabaseIcon />
               </span>
-              <div className="db-welcome-title">{t("db.selectConnection")}</div>
-              <div className="db-hint">{t("db.emptyConnections")}</div>
-              <Button icon={<PlusOutlined />} onClick={openCreate}>
-                {t("db.newConnection")}
-              </Button>
+              <div className="app-empty-title">{t("db.selectConnection")}</div>
+              <div className="app-empty-hint">{t("db.emptyConnections")}</div>
             </div>
           )}
         </section>
@@ -461,6 +480,10 @@ export default function DbModule() {
       {queryMenu && (
         <DbQueryMenu
           menu={queryMenu}
+          onNewQuery={(database) => {
+            setQueryMenu(null);
+            setNewQueryDatabase(database);
+          }}
           onRename={renameQueryFromMenu}
           onDelete={deleteQueryFromMenu}
         />
@@ -470,6 +493,10 @@ export default function DbModule() {
         <DbTabMenu
           menu={tabMenu}
           tabOrder={tabs.tabOrder}
+          onNewQuery={(database) => {
+            setTabMenu(null);
+            setNewQueryDatabase(database);
+          }}
           onCloseTab={closeTabFromMenu}
           onCloseOtherTabs={closeOtherTabs}
           onCloseTabsLeft={closeTabsLeft}
@@ -483,6 +510,17 @@ export default function DbModule() {
         onClose={() => setNewQueryDatabase(null)}
         onCreate={(name) => {
           if (newQueryDatabase) createQuery(newQueryDatabase, name);
+        }}
+      />
+
+      <DbNewDatabaseModal
+        open={newDatabaseConn !== null}
+        connectionId={newDatabaseConn?.id ?? ""}
+        onClose={() => setNewDatabaseConn(null)}
+        onCreated={(database) => {
+          if (newDatabaseConn) {
+            void catalog.loadDatabases(newDatabaseConn.id, database);
+          }
         }}
       />
 

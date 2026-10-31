@@ -47,7 +47,9 @@ export default function DbNewQueryModal({ open, database, onClose, onCreate }: P
           onChange={(event) => setName(event.target.value)}
           onPressEnter={create}
         />
-        <span className="db-hint">{database}</span>
+        <span className="db-hint">
+          {t("db.currentDatabase", { name: database })}
+        </span>
       </div>
     </Modal>
   );

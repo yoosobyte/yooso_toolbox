@@ -6,17 +6,8 @@ export type RedisKeyView = "tree" | "list";
 /** 字符串值的展示方式 */
 export type RedisStringMode = "tree" | "text";
 
-/** 键列表展示方式的本地存储 key */
+/** 键列表展示方式的旧版本地存储 key（仅用于一次性迁移） */
 export const KEY_VIEW_STORAGE = "yooso.redis.keyView";
-
-/** 读取上次的键列表展示方式；localStorage 不可用时回退到树形 */
-export function readStoredKeyView(): RedisKeyView {
-  try {
-    return localStorage.getItem(KEY_VIEW_STORAGE) === "list" ? "list" : "tree";
-  } catch {
-    return "tree";
-  }
-}
 
 /** 空模式按 * 处理；没有通配符时按包含匹配 */
 export function normalizePattern(value: string): string {

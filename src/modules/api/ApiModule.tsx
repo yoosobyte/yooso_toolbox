@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { App as AntdApp, Tooltip, Typography } from "antd";
 import { ApiOutlined } from "@ant-design/icons";
 import { httpRequest } from "../../api";
@@ -10,6 +10,7 @@ import type {
   SavedRequest,
 } from "../../types";
 import { useApiStore } from "../../stores/apiStore";
+import { loadStored, saveStored } from "../../storage";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
@@ -24,6 +25,49 @@ import SaveRequestModal from "./SaveRequestModal";
 
 export default function ApiModule() {
   const t = useT(useUiStore((state) => state.lang));
+  const [editorHeight, setEditorHeight] = useState<number | null>(null);
+  const editorSlotRef = useRef<HTMLDivElement | null>(null);
+  const heightRef = useRef<number | null>(null);
+  heightRef.current = editorHeight;
+
+  /* 上下分栏高度存在后端凭据库 */
+  useEffect(() => {
+    let alive = true;
+    void loadStored("api.split").then((raw) => {
+      const value = raw ? Number(raw) : Number.NaN;
+      if (alive && Number.isFinite(value) && value >= 180) {
+        setEditorHeight(value);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const startSplit = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startY = event.clientY;
+    const startHeight = editorSlotRef.current?.offsetHeight ?? 300;
+    const container = event.currentTarget.parentElement;
+    const max = Math.max(220, (container?.clientHeight ?? 800) - 200);
+    const onMove = (moveEvent: MouseEvent) => {
+      const next = Math.min(
+        max,
+        Math.max(180, startHeight + (moveEvent.clientY - startY)),
+      );
+      setEditorHeight(next);
+    };
+    const onUp = () => {
+      document.body.classList.remove("row-resizing");
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      const value = heightRef.current;
+      if (value) void saveStored("api.split", String(Math.round(value)));
+    };
+    document.body.classList.add("row-resizing");
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
   const { message } = AntdApp.useApp();
 
   const saved = useApiStore((state) => state.saved);
@@ -210,7 +254,28 @@ export default function ApiModule() {
             onOpenSave={openSave}
           />
 
-          <RequestEditor request={request} finalUrl={finalUrl} onPatch={patch} />
+          <div
+            className="api-editor-slot"
+            ref={editorSlotRef}
+            style={
+              editorHeight !== null
+                ? { height: editorHeight, maxHeight: "none" }
+                : undefined
+            }
+          >
+            <RequestEditor
+              request={request}
+              finalUrl={finalUrl}
+              onPatch={patch}
+            />
+          </div>
+
+          <div
+            className="api-split"
+            onMouseDown={startSplit}
+            role="separator"
+            aria-orientation="horizontal"
+          />
 
           <ResponsePanel
             response={response}

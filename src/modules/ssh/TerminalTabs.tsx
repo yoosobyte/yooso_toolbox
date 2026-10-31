@@ -5,6 +5,7 @@ import TerminalView from "./TerminalView";
 import SftpPanel from "./SftpPanel";
 import { STATUS_COLOR } from "./status";
 import { useSessionStore } from "../../stores/sessionStore";
+import { loadStored, migrateStored, saveStored } from "../../storage";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
@@ -69,20 +70,37 @@ export default function TerminalTabs(_props: Props) {
   const loadSessions = useSessionStore((state) => state.load);
 
   const [sessionIds, setSessionIds] = useState<Record<string, string | null>>({});
-  const [sftpHeight, setSftpHeight] = useState(() => {
-    const raw = localStorage.getItem(SFTP_HEIGHT_KEY);
-    const value = raw ? Number(raw) : Number.NaN;
-    return Number.isFinite(value) && value >= MIN_SFTP_HEIGHT ? value : 280;
-  });
+  const [sftpHeight, setSftpHeight] = useState(280);
+  const [sftpHeightLoaded, setSftpHeightLoaded] = useState(false);
   const panesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!sessionsLoaded) void loadSessions();
   }, [sessionsLoaded, loadSessions]);
 
+  /* SFTP 高度存在后端凭据库（旧版 localStorage 数据自动迁移） */
   useEffect(() => {
-    localStorage.setItem(SFTP_HEIGHT_KEY, String(Math.round(sftpHeight)));
-  }, [sftpHeight]);
+    let alive = true;
+    void (async () => {
+      await migrateStored(SFTP_HEIGHT_KEY, "sftp.height");
+      const raw = await loadStored("sftp.height");
+      const value = raw ? Number(raw) : Number.NaN;
+      if (alive) {
+        if (Number.isFinite(value) && value >= MIN_SFTP_HEIGHT) {
+          setSftpHeight(value);
+        }
+        setSftpHeightLoaded(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sftpHeightLoaded) return;
+    void saveStored("sftp.height", String(Math.round(sftpHeight)));
+  }, [sftpHeight, sftpHeightLoaded]);
 
   const handleSession = (tabId: string, sessionId: string | null) => {
     setSessionIds((prev) => {

@@ -391,7 +391,8 @@ fn walk_index(dir: &Path, out: &mut Vec<IndexedFile>, depth: usize) {
                 walk_index(&path, out, depth + 1);
             }
         }
-        if out.len() % 2000 == 0 {
+        // 用质数步长上报，数字每次跳 97，个位、十位、百位都在变
+        if out.len() % 97 == 0 {
             if let Ok(mut guard) = index().lock() {
                 guard.scanned = out.len();
             }

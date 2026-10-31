@@ -1,7 +1,11 @@
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { App as AntdApp, Button, Input, Modal, Tooltip, Typography } from "antd";
-import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  FileSearchOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
   fsCopyToClipboard,
@@ -68,9 +72,9 @@ function IndexingArt() {
     <svg
       className="files-art files-art-spin"
       viewBox="0 0 64 64"
-      width={64}
-      height={64}
-      style={{ width: 64, height: 64, flex: "none" }}
+      width={40}
+      height={40}
+      style={{ width: 40, height: 40, flex: "none" }}
       aria-hidden="true"
     >
       <circle cx="32" cy="32" r="24" fill="none" stroke="var(--border-strong)" strokeWidth="4" />
@@ -84,24 +88,6 @@ function IndexingArt() {
         strokeLinecap="round"
         strokeDasharray="34 116"
       />
-    </svg>
-  );
-}
-
-function EmptyArt() {
-  return (
-    <svg
-      className="files-art"
-      viewBox="0 0 64 64"
-      width={64}
-      height={64}
-      style={{ width: 64, height: 64, flex: "none" }}
-      aria-hidden="true"
-    >
-      <rect x="12" y="14" width="28" height="36" rx="4" fill="none" stroke="var(--border-strong)" strokeWidth="2.5" />
-      <path d="M19 24h14M19 31h14M19 38h9" stroke="var(--text-mute)" strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx="45" cy="42" r="9" fill="none" stroke="var(--text-mute)" strokeWidth="2.5" />
-      <path d="M51.5 48.5L57 54" stroke="var(--text-mute)" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   );
 }
@@ -161,7 +147,7 @@ export default function FilesModule() {
       fsIndexStatus()
         .then(setStatus)
         .catch(() => {});
-    }, 600);
+    }, 150);
     return () => window.clearInterval(timer);
   }, [status.ready, status.building]);
 
@@ -344,6 +330,8 @@ export default function FilesModule() {
       return [collapsed, collapsed.replace(/\//g, "\\")];
     });
   const indexing = !status.ready;
+  // 没有可展示的列表时（索引中 / 未搜索 / 无结果）让占位内容整体居中
+  const placeholder = indexing || !needle || (results.length === 0 && !searching);
 
   return (
     <div
@@ -437,24 +425,35 @@ export default function FilesModule() {
         ))}
       </div>
 
-      <div className="files-results" ref={listRef}>
+      <div
+        className={`files-results${placeholder ? " is-placeholder" : ""}`}
+        ref={listRef}
+      >
         {indexing ? (
-          <div className="files-indexing">
-            <IndexingArt />
-            <div className="files-indexing-title">{t("files.indexingTitle")}</div>
-            <div className="files-indexing-hint">
+          <div className="files-indexing files-empty">
+            <span className="files-empty-glyph is-spinning">
+              <IndexingArt />
+            </span>
+            <div className="files-empty-title">{t("files.indexingTitle")}</div>
+            <div className="files-empty-hint">
               {t("files.indexingHint", { count: status.scanned })}
             </div>
           </div>
         ) : !needle ? (
           <div className="files-empty">
-            <EmptyArt />
-            <span>{t("files.prompt")}</span>
+            <span className="files-empty-glyph">
+              <FileSearchOutlined />
+            </span>
+            <div className="files-empty-title">{t("files.emptyTitle")}</div>
+            <div className="files-empty-hint">{t("files.prompt")}</div>
           </div>
         ) : results.length === 0 && !searching ? (
           <div className="files-empty">
-            <EmptyArt />
-            <span>{t("files.noResults")}</span>
+            <span className="files-empty-glyph">
+              <FileSearchOutlined />
+            </span>
+            <div className="files-empty-title">{t("files.noResults")}</div>
+            <div className="files-empty-hint">{t("files.prompt")}</div>
           </div>
         ) : (
           <>

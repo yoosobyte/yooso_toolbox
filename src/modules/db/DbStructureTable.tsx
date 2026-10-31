@@ -11,10 +11,16 @@ interface Props {
   rows: ColumnDefinition[];
   editor: DbStructureEditor;
   t: TFunction;
+  onRowContextMenu?: (event: React.MouseEvent, rowIndex: number) => void;
 }
 
 /** 列定义表格：表头、可编辑的数据行、新增列草稿行与空结果提示 */
-export default function DbStructureTable({ rows, editor, t }: Props) {
+export default function DbStructureTable({
+  rows,
+  editor,
+  t,
+  onRowContextMenu,
+}: Props) {
   return (
     <div className="db-structure-scroll">
       <table className="db-structure-table">
@@ -47,6 +53,14 @@ export default function DbStructureTable({ rows, editor, t }: Props) {
             <tr
               key={`${row.field}-${rowIndex}`}
               className={editor.selectedRows.has(rowIndex) ? "db-row-selected" : undefined}
+              onContextMenu={
+                onRowContextMenu
+                  ? (event) => {
+                      event.preventDefault();
+                      onRowContextMenu(event, rowIndex);
+                    }
+                  : undefined
+              }
             >
               <td
                 className="db-structure-gutter db-row-select"

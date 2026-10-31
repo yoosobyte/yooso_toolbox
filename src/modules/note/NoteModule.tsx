@@ -16,7 +16,12 @@ import { errText } from "../../utils";
 import { saveText } from "../../save";
 import { NoteNavIcon } from "../../components/NavIcons";
 import { renderMarkdown } from "./markdown";
-import { highlightJsonText } from "../text/jsonHighlight";
+import {
+  formatJsonInput,
+  highlightJsonText,
+  isWhitespaceOnlyChange,
+  mapCaret,
+} from "../text/jsonHighlight";
 import {
   NOTE_FONT_STACKS,
   NOTE_FONT_SIZES,
@@ -44,13 +49,28 @@ const MAX_SIDE_WIDTH = 560;
 export default function NoteModule() {
   const t = useT(useUiStore((state) => state.lang));
   const { message, modal } = AntdApp.useApp();
-  const [notes, setNotes] = useState<Note[]>(loadNotes);
-  const [activeId, setActiveId] = useState<string | null>(
-    () => loadNotes()[0]?.id ?? null,
-  );
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [notesLoaded, setNotesLoaded] = useState(false);
+
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
+  const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const caretRef = useRef<{ start: number; end: number } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void loadNotes().then((list) => {
+      if (!alive) return;
+      setNotes(list);
+      setActiveId(list[0]?.id ?? null);
+      setNotesLoaded(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [menu, setMenu] = useState<{ x: number; y: number; noteId: string } | null>(
     null,
   );
@@ -66,15 +86,17 @@ export default function NoteModule() {
   );
   const active = notes.find((note) => note.id === activeId) ?? null;
 
-  // JSON 笔记预览时自动格式化；解析失败显示原文，不报错
-  const jsonPreview = useMemo(() => {
-    if (!active || active.format !== "json") return null;
-    try {
-      return JSON.stringify(JSON.parse(active.content), null, 2);
-    } catch {
-      return null;
-    }
-  }, [active?.content, active?.format]);
+  /* 自动格式化后恢复光标，避免跳到末尾 */
+  useEffect(() => {
+    const caret = caretRef.current;
+    if (!caret) return;
+    caretRef.current = null;
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    editor.setSelectionRange(caret.start, caret.end);
+  }, [active?.content]);
+
   const menuNote = menu
     ? notes.find((note) => note.id === menu.noteId) ?? null
     : null;
@@ -123,11 +145,12 @@ export default function NoteModule() {
   }, [menu]);
 
   useEffect(() => {
+    if (!notesLoaded) return;
     const startedAt = Date.now();
     setSaveState("saving");
     let finish: number | undefined;
     const timer = window.setTimeout(() => {
-      saveNotes(notes);
+      void saveNotes(notes);
       // loading 至少播放 100ms，避免保存太快时闪一下
       const wait = Math.max(0, 100 - (Date.now() - startedAt));
       finish = window.setTimeout(() => setSaveState("saved"), wait);
@@ -202,6 +225,40 @@ export default function NoteModule() {
     } catch (error) {
       message.error(errText(error));
     }
+  };
+
+  const editorStyle = {
+    fontFamily: NOTE_FONT_STACKS[active?.font ?? "mono"],
+    fontSize:
+      active?.format === "txt" ? `${active.fontSize ?? 13}px` : undefined,
+  };
+
+  const handleEditorChange = (
+    event: React.ChangeEvent<HTMLTextAreaElement>,
+  ) => {
+    if (!active) return;
+    const raw = event.target.value;
+    if (active.format !== "json") {
+      patch(active.id, { content: raw });
+      return;
+    }
+    // 只是敲了回车 / 空格 / Tab：原样保留，绝不格式化
+    if (isWhitespaceOnlyChange(active.content, raw)) {
+      patch(active.id, { content: raw });
+      return;
+    }
+    // 解析成功就自动缩进；解析失败保持原样（不提示）
+    const formatted = formatJsonInput(raw);
+    if (formatted !== null && formatted !== raw) {
+      const editor = event.currentTarget;
+      caretRef.current = {
+        start: mapCaret(raw, editor.selectionStart, formatted),
+        end: mapCaret(raw, editor.selectionEnd, formatted),
+      };
+      patch(active.id, { content: formatted });
+      return;
+    }
+    patch(active.id, { content: raw });
   };
 
   return (
@@ -308,7 +365,7 @@ export default function NoteModule() {
                     { value: "json", label: "JSON" },
                   ]}
                 />
-                {active.format !== "txt" && (
+                {active.format === "md" && (
                   <Segmented
                     size="small"
                     value={preview ? "preview" : "edit"}
@@ -319,6 +376,7 @@ export default function NoteModule() {
                     ]}
                   />
                 )}
+                {active.format !== "json" && (
                 <Select
                   size="small"
                   className="note-font-select"
@@ -335,6 +393,7 @@ export default function NoteModule() {
                     { value: "kai", label: t("note.fontKai") },
                   ]}
                 />
+                )}
                 {active.format === "txt" && (
                   <Select
                     size="small"
@@ -371,35 +430,64 @@ export default function NoteModule() {
                 </Tooltip>
               </div>
 
-              {active.format !== "txt" && preview ? (
+              {active.format === "md" && preview ? (
                 <div
                   className="note-preview note-md"
                   style={{ fontFamily: NOTE_FONT_STACKS[active.font ?? "mono"] }}
                 >
-                  {active.format === "json" ? (
-                    <pre className="note-json-preview">
-                      {highlightJsonText(jsonPreview ?? active.content)}
+                  {renderMarkdown(active.content)}
+                </div>
+              ) : active.format === "json" ? (
+                <div className="note-json-editor">
+                    <pre
+                      className="note-json-highlight"
+                      aria-hidden="true"
+                      style={editorStyle}
+                    >
+                      {highlightJsonText(active.content)}
+                      {"\n"}
                     </pre>
-                  ) : (
-                    renderMarkdown(active.content)
-                  )}
+                    <textarea
+                      ref={editorRef}
+                      className="note-editor note-json-input"
+                      style={editorStyle}
+                      value={active.content}
+                      placeholder={t("note.contentPlaceholder")}
+                      spellCheck={false}
+                      onChange={handleEditorChange}
+                      onPaste={() => {
+                        // 粘贴时无条件格式化一次（多行也整理）
+                        window.setTimeout(() => {
+                          const editor = editorRef.current;
+                          if (!editor || !active) return;
+                          const formatted = formatJsonInput(editor.value);
+                          if (formatted !== null && formatted !== editor.value) {
+                            caretRef.current = {
+                              start: mapCaret(editor.value, editor.selectionStart, formatted),
+                              end: mapCaret(editor.value, editor.selectionEnd, formatted),
+                            };
+                            patch(active.id, { content: formatted });
+                          }
+                        }, 0);
+                      }}
+                      onScroll={(event) => {
+                        const pre = event.currentTarget.previousElementSibling;
+                        if (pre instanceof HTMLElement) {
+                          pre.scrollTop = event.currentTarget.scrollTop;
+                          pre.scrollLeft = event.currentTarget.scrollLeft;
+                        }
+                      }}
+                  />
                 </div>
               ) : (
                 <textarea
+                  ref={editorRef}
                   className="note-editor"
-                  style={{
-                    fontFamily: NOTE_FONT_STACKS[active.font ?? "mono"],
-                    fontSize:
-                      active.format === "txt"
-                        ? `${active.fontSize ?? 13}px`
-                        : undefined,
-                  }}
+                  style={editorStyle}
                   value={active.content}
                   placeholder={t("note.contentPlaceholder")}
                   spellCheck={false}
-                  onChange={(event) =>
-                    patch(active.id, { content: event.target.value })
-                  }
+                  onChange={handleEditorChange}
                 />
               )}
 
@@ -411,14 +499,11 @@ export default function NoteModule() {
             </>
           ) : (
             <div className="note-empty">
-              <span className="note-empty-icon">
+              <span className="app-empty-glyph">
                 <NoteNavIcon />
               </span>
-              <div className="note-empty-title">{t("note.noSelection")}</div>
-              <div className="note-hint">{t("note.noSelectionHint")}</div>
-              <Button type="primary" icon={<PlusOutlined />} onClick={addNote}>
-                {t("note.new")}
-              </Button>
+              <div className="app-empty-title">{t("note.noSelection")}</div>
+              <div className="app-empty-hint">{t("note.noSelectionHint")}</div>
             </div>
           )}
         </section>

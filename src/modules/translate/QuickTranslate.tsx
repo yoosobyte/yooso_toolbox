@@ -21,6 +21,7 @@ import {
   splitIdentifier,
   type NameVariants,
 } from "./identifier";
+import { loadStored, migrateStored, saveStored } from "../../storage";
 
 interface Props {
   line: TranslateLine;
@@ -44,33 +45,13 @@ const LANGUAGE_VALUES = [
   "ru",
 ] as const;
 
-function readDirection(): { from: string; to: string } {
-  try {
-    const raw = localStorage.getItem(DIR_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as { from?: string; to?: string };
-      if (
-        parsed.from &&
-        parsed.to &&
-        LANGUAGE_VALUES.includes(parsed.from as (typeof LANGUAGE_VALUES)[number]) &&
-        LANGUAGE_VALUES.includes(parsed.to as (typeof LANGUAGE_VALUES)[number]) &&
-        parsed.to !== "auto"
-      ) {
-        return { from: parsed.from, to: parsed.to };
-      }
-    }
-  } catch {
-    /* 忽略损坏的本地配置 */
-  }
-  return { from: "zh-Hans", to: "en" };
-}
-
 export default function QuickTranslate({ line, onLineChange, onOpenWeb }: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const { message } = AntdApp.useApp();
 
-  const [from, setFrom] = useState(() => readDirection().from);
-  const [to, setTo] = useState(() => readDirection().to);
+  const [from, setFrom] = useState("auto");
+  const [to, setTo] = useState("zh-Hans");
+  const [directionLoaded, setDirectionLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [result, setResult] = useState<TranslateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,13 +60,35 @@ export default function QuickTranslate({ line, onLineChange, onOpenWeb }: Props)
   const setPanelWidth = useUiStore((state) => state.setSideWidth);
   const cacheRef = useRef<Map<string, TranslateResult>>(new Map());
 
+  /* 翻译方向存在后端凭据库（旧 localStorage 自动迁移） */
   useEffect(() => {
-    try {
-      localStorage.setItem(DIR_KEY, JSON.stringify({ from, to }));
-    } catch {
-      /* 忽略存储失败 */
-    }
-  }, [from, to]);
+    let alive = true;
+    void (async () => {
+      await migrateStored(DIR_KEY, "translate.direction");
+      const raw = await loadStored("translate.direction");
+      if (!alive) return;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as { from?: string; to?: string };
+          if (parsed.from && parsed.to && parsed.to !== "auto") {
+            setFrom(parsed.from);
+            setTo(parsed.to);
+          }
+        } catch {
+          /* 忽略损坏的数据 */
+        }
+      }
+      setDirectionLoaded(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!directionLoaded) return;
+    void saveStored("translate.direction", JSON.stringify({ from, to }));
+  }, [from, to, directionLoaded]);
 
   const langLabels: Record<string, string> = useMemo(
     () => ({
@@ -269,8 +272,22 @@ export default function QuickTranslate({ line, onLineChange, onOpenWeb }: Props)
             value={input}
             maxLength={MAX_CHARS}
             onChange={(event) => {
-              setInput(event.target.value);
+              const value = event.target.value;
+              setInput(value);
               setError(null);
+              // 输入中文就切「中文 → 英文」，否则切「英文 → 中文」
+              const text = value.trim();
+              if (!text) return;
+              const hasChinese = /[\u4e00-\u9fff]/.test(text);
+              if (hasChinese) {
+                if (from !== "zh-Hans" || to !== "en") {
+                  setFrom("zh-Hans");
+                  setTo("en");
+                }
+              } else if (from !== "en" || to !== "zh-Hans") {
+                setFrom("en");
+                setTo("zh-Hans");
+              }
             }}
             onKeyDown={(event) => {
               if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -354,7 +371,8 @@ export default function QuickTranslate({ line, onLineChange, onOpenWeb }: Props)
               <span className="tr-empty-icon">
                 <TranslationOutlined />
               </span>
-              <div>{t("translate.resultEmpty")}</div>
+              <div className="app-empty-title">{t("translate.resultEmpty")}</div>
+              <div className="app-empty-hint">{t("translate.resultEmptyHint")}</div>
             </div>
           )}
 

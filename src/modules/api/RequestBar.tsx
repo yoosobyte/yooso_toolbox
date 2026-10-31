@@ -42,7 +42,6 @@ export default function RequestBar({
     <div className="api-bar">
       <Select
         className="api-method"
-        size="large"
         value={request.method}
         onChange={(value) => onPatch({ method: value as HttpMethod })}
         options={METHODS.map((method) => ({
@@ -51,7 +50,6 @@ export default function RequestBar({
         }))}
       />
       <Input
-        size="large"
         value={request.url}
         placeholder={t("api.urlPlaceholder")}
         onChange={(event) => onPatch({ url: event.target.value })}
@@ -76,7 +74,7 @@ export default function RequestBar({
           },
         }}
       >
-        <Tooltip title={t("api.urlHistory")} placement="bottomRight">
+        <Tooltip title={t("api.urlHistory")} placement="topRight">
           <Button style={BAR_BTN} icon={<HistoryOutlined />} />
         </Tooltip>
       </Dropdown>

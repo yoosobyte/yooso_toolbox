@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { App as AntdApp, Button, Dropdown, Empty, Input, Tag, Tooltip, Typography } from "antd";
+import { App as AntdApp, Button, Dropdown, Input, Tag, Tooltip, Typography } from "antd";
 import type { MenuProps } from "antd";
 import {
+  ApiOutlined,
+  LoadingOutlined,
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
   EllipsisOutlined,
-  PlusOutlined,
   PushpinOutlined,
   SearchOutlined,
   ThunderboltOutlined,
@@ -20,11 +21,10 @@ import { copyText } from "../../clipboard";
 import { errText } from "../../utils";
 
 interface Props {
-  onCreate: () => void;
   onEdit: (config: SessionConfig) => void;
 }
 
-export default function SessionList({ onCreate, onEdit }: Props) {
+export default function SessionList({ onEdit }: Props) {
   const { message, modal } = AntdApp.useApp();
   const lang = useUiStore((state) => state.lang);
   const t = useT(lang);
@@ -149,26 +149,26 @@ export default function SessionList({ onCreate, onEdit }: Props) {
 
       <div className="sessions-list">
         {filtered.length === 0 ? (
-          <div style={{ paddingTop: 28 }}>
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={
-                <span style={{ fontSize: 12, color: "var(--text-dim)" }}>
-                  {loading
-                    ? t("common.loading")
-                    : keyword
-                      ? t("session.noMatch")
-                      : t("session.empty")}
-                </span>
-              }
-            >
+          loading ? (
+            <div className="ssh-list-empty">
+              <span className="app-empty-glyph">
+                <LoadingOutlined spin />
+              </span>
+              <div className="app-empty-title">{t("common.loading")}</div>
+            </div>
+          ) : (
+            <div className="ssh-list-empty">
+              <span className="app-empty-glyph">
+                <ApiOutlined />
+              </span>
+              <div className="app-empty-title">
+                {keyword ? t("session.noMatch") : t("session.empty")}
+              </div>
               {!keyword && (
-                <Button size="small" type="primary" icon={<PlusOutlined />} onClick={onCreate}>
-                  {t("session.new")}
-                </Button>
+                <div className="app-empty-hint">{t("session.emptyHint")}</div>
               )}
-            </Empty>
-          </div>
+            </div>
+          )
         ) : (
           filtered.map((item) => {
             const opened = tabs.some((tab) => tab.configId === item.id);

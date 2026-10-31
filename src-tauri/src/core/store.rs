@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use tauri::{AppHandle, Manager};
 
 use crate::core::models::{DbConfig, RedisConfig, SessionConfig};
+use crate::core::vault;
 
 /// 本地持久化：sessions / redis / db / known_hosts 配置
 ///
@@ -18,6 +19,7 @@ pub struct Store {
     known_hosts_path: PathBuf,
     redis_path: PathBuf,
     db_path: PathBuf,
+    secrets_path: PathBuf,
     lock: Mutex<()>,
 }
 
@@ -37,12 +39,14 @@ impl Store {
         let known_hosts_path = dir.join("known_hosts.json");
         let redis_path = dir.join("redis.json");
         let db_path = dir.join("db.json");
+        let secrets_path = dir.join("secrets.json");
         Ok(Self {
             dir,
             sessions_path,
             known_hosts_path,
             redis_path,
             db_path,
+            secrets_path,
             lock: Mutex::new(()),
         })
     }
@@ -51,22 +55,58 @@ impl Store {
         &self.dir
     }
 
-    fn read_sessions(&self) -> Vec<SessionConfig> {
-        let Ok(raw) = fs::read_to_string(&self.sessions_path) else {
+    /// 读加密列表：锁定 / 损坏时返回空，避免把半截数据当成真实配置
+    fn read_sealed<T: serde::de::DeserializeOwned>(path: &Path) -> Vec<T> {
+        let Ok(raw) = fs::read_to_string(path) else {
             return Vec::new();
         };
-        serde_json::from_str::<Vec<SessionConfig>>(&raw).unwrap_or_else(|error| {
-            eprintln!("[store] sessions.json 解析失败，已忽略: {error}");
+        let Ok(json) = vault::decrypt_text(&raw) else {
+            return Vec::new();
+        };
+        serde_json::from_str::<Vec<T>>(&json).unwrap_or_else(|error| {
+            eprintln!("[store] {} 解析失败，已忽略: {error}", path.display());
             Vec::new()
         })
     }
 
-    fn write_sessions(&self, list: &[SessionConfig]) -> Result<()> {
+    /// 写加密列表：未解锁时直接报错，绝不写空数据覆盖原文件
+    fn write_sealed<T: serde::Serialize>(path: &Path, list: &[T]) -> Result<()> {
         let json = serde_json::to_string_pretty(list)?;
-        let temp = self.sessions_path.with_extension("json.tmp");
-        fs::write(&temp, json)?;
-        fs::rename(&temp, &self.sessions_path)?;
+        let envelope = vault::encrypt_text(&json)?;
+        let content = serde_json::to_string_pretty(&envelope)?;
+        vault::write_atomic(path, &content)
+    }
+
+    /// 把旧版明文配置就地加密（首次设置主密码后调用）
+    pub fn seal_legacy_files(&self) -> Result<()> {
+        for path in [
+            &self.sessions_path,
+            &self.redis_path,
+            &self.db_path,
+            &self.secrets_path,
+        ] {
+            let Ok(raw) = fs::read_to_string(path) else {
+                continue;
+            };
+            if raw.trim().starts_with('{') && raw.contains("\"n\"") && raw.contains("\"d\"") {
+                continue;
+            }
+            let json = match vault::decrypt_text(&raw) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            let envelope = vault::encrypt_text(&json)?;
+            vault::write_atomic(path, &serde_json::to_string_pretty(&envelope)?)?;
+        }
         Ok(())
+    }
+
+    fn read_sessions(&self) -> Vec<SessionConfig> {
+        Self::read_sealed(&self.sessions_path)
+    }
+
+    fn write_sessions(&self, list: &[SessionConfig]) -> Result<()> {
+        Self::write_sealed(&self.sessions_path, list)
     }
 
     pub fn list(&self) -> Vec<SessionConfig> {
@@ -115,21 +155,11 @@ impl Store {
     /* ------------------------------- Redis -------------------------------- */
 
     fn read_redis(&self) -> Vec<RedisConfig> {
-        let Ok(raw) = fs::read_to_string(&self.redis_path) else {
-            return Vec::new();
-        };
-        serde_json::from_str::<Vec<RedisConfig>>(&raw).unwrap_or_else(|error| {
-            eprintln!("[store] redis.json 解析失败，已忽略: {error}");
-            Vec::new()
-        })
+        Self::read_sealed(&self.redis_path)
     }
 
     fn write_redis(&self, list: &[RedisConfig]) -> Result<()> {
-        let json = serde_json::to_string_pretty(list)?;
-        let temp = self.redis_path.with_extension("json.tmp");
-        fs::write(&temp, json)?;
-        fs::rename(&temp, &self.redis_path)?;
-        Ok(())
+        Self::write_sealed(&self.redis_path, list)
     }
 
     pub fn redis_list(&self) -> Vec<RedisConfig> {
@@ -177,21 +207,11 @@ impl Store {
     /* -------------------------------- MySQL ------------------------------- */
 
     fn read_db(&self) -> Vec<DbConfig> {
-        let Ok(raw) = fs::read_to_string(&self.db_path) else {
-            return Vec::new();
-        };
-        serde_json::from_str::<Vec<DbConfig>>(&raw).unwrap_or_else(|error| {
-            eprintln!("[store] db.json 解析失败，已忽略: {error}");
-            Vec::new()
-        })
+        Self::read_sealed(&self.db_path)
     }
 
     fn write_db(&self, list: &[DbConfig]) -> Result<()> {
-        let json = serde_json::to_string_pretty(list)?;
-        let temp = self.db_path.with_extension("json.tmp");
-        fs::write(&temp, json)?;
-        fs::rename(&temp, &self.db_path)?;
-        Ok(())
+        Self::write_sealed(&self.db_path, list)
     }
 
     pub fn db_list(&self) -> Vec<DbConfig> {
@@ -239,6 +259,78 @@ impl Store {
         Ok(())
     }
 
+    /* ------------------------------ 备份 / 恢复 ------------------------------ */
+
+    pub fn replace_sessions(&self, list: Vec<SessionConfig>) -> Result<()> {
+        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        self.write_sessions(&list)
+    }
+
+    pub fn replace_redis(&self, list: Vec<RedisConfig>) -> Result<()> {
+        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        self.write_redis(&list)
+    }
+
+    pub fn replace_db(&self, list: Vec<DbConfig>) -> Result<()> {
+        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        self.write_db(&list)
+    }
+
+    pub fn secrets_snapshot(&self, keys: &[String]) -> HashMap<String, String> {
+        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        let all = self.read_secrets();
+        keys.iter()
+            .filter_map(|key| all.get(key).map(|value| (key.clone(), value.clone())))
+            .collect()
+    }
+
+    /// 只覆盖导出包里出现的键，其余保持不变
+    pub fn secrets_merge(&self, patch: HashMap<String, String>) -> Result<()> {
+        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        let mut all = self.read_secrets();
+        for (key, value) in patch {
+            all.insert(key, value);
+        }
+        self.write_secrets(&all)
+    }
+
+    /* ------------------------------ 加密键值 ------------------------------ */
+
+    fn read_secrets(&self) -> HashMap<String, String> {
+        let Ok(raw) = fs::read_to_string(&self.secrets_path) else {
+            return HashMap::new();
+        };
+        let Ok(json) = vault::decrypt_text(&raw) else {
+            return HashMap::new();
+        };
+        serde_json::from_str(&json).unwrap_or_default()
+    }
+
+    fn write_secrets(&self, map: &HashMap<String, String>) -> Result<()> {
+        let json = serde_json::to_string_pretty(map)?;
+        let envelope = vault::encrypt_text(&json)?;
+        vault::write_atomic(&self.secrets_path, &serde_json::to_string_pretty(&envelope)?)
+    }
+
+    pub fn secret_get(&self, key: &str) -> Option<String> {
+        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        self.read_secrets().get(key).cloned()
+    }
+
+    pub fn secret_set(&self, key: &str, value: &str) -> Result<()> {
+        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        let mut map = self.read_secrets();
+        map.insert(key.to_string(), value.to_string());
+        self.write_secrets(&map)
+    }
+
+    pub fn secret_delete(&self, key: &str) -> Result<()> {
+        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        let mut map = self.read_secrets();
+        map.remove(key);
+        self.write_secrets(&map)
+    }
+
     /* ----------------------------- known_hosts ----------------------------- */
 
     fn read_known_hosts(&self) -> HashMap<String, String> {
@@ -268,4 +360,31 @@ fn now_secs() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0)
+}
+
+/* --------------------------- 加密键值 Tauri 命令 --------------------------- */
+
+#[tauri::command]
+pub fn secret_get(state: tauri::State<'_, crate::AppState>, key: String) -> Option<String> {
+    state.store.secret_get(&key)
+}
+
+#[tauri::command]
+pub fn secret_set(
+    state: tauri::State<'_, crate::AppState>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    state
+        .store
+        .secret_set(&key, &value)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn secret_delete(state: tauri::State<'_, crate::AppState>, key: String) -> Result<(), String> {
+    state
+        .store
+        .secret_delete(&key)
+        .map_err(|error| error.to_string())
 }

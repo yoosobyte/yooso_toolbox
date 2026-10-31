@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Button, Input } from "antd";
 import {
+  HistoryOutlined,
   DeleteOutlined,
   FolderOpenOutlined,
-  HistoryOutlined,
   PlusOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
@@ -55,7 +55,7 @@ export default function RequestSidebar({
 
   return (
     <aside className="api-side" style={{ width }}>
-      <Button size="large" icon={<PlusOutlined />} block onClick={onNew}>
+      <Button icon={<PlusOutlined />} block onClick={onNew}>
         {t("api.newRequest")}
       </Button>
 
@@ -79,6 +79,7 @@ export default function RequestSidebar({
               <span>{t("api.requestSection")}</span>
               <span className="api-count">{saved.length}</span>
             </div>
+            <div className="api-group-body">
             {shownSaved.length === 0 && (
               <div className="api-side-empty">
                 {keywordTrim ? t("api.emptySearch") : t("api.emptySaved")}
@@ -104,6 +105,7 @@ export default function RequestSidebar({
                 </button>
               </div>
             ))}
+            </div>
           </div>
 
           <div className="api-group">
@@ -118,6 +120,7 @@ export default function RequestSidebar({
                 </button>
               )}
             </div>
+            <div className="api-group-body">
             {shownHistory.length === 0 && (
               <div className="api-side-empty">
                 {keywordTrim ? t("api.emptySearch") : t("api.emptyHistory")}
@@ -136,6 +139,7 @@ export default function RequestSidebar({
                 <span className="api-item-time">{dayjs(item.at).format("HH:mm")}</span>
               </div>
             ))}
+            </div>
           </div>
         </div>
       </div>

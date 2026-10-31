@@ -36,6 +36,11 @@ pub fn run() {
         .setup(|app| {
             let store = Arc::new(Store::new(app.handle())?);
             println!("[yooso-toolbox] 配置目录: {}", store.dir().display());
+            // 首次启动：生成本机绑定的凭据库，并把已有明文配置加密
+            if !crate::core::vault::exists(store.dir()) {
+                crate::core::vault::setup_auto(store.dir())?;
+                store.seal_legacy_files()?;
+            }
             app.manage(AppState {
                 store,
                 sessions: Mutex::new(HashMap::new()),
@@ -68,6 +73,14 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            core::vault::vault_status,
+            core::vault::vault_auto_unlock,
+            core::vault::vault_reset,
+            core::backup::config_export,
+            core::backup::config_import,
+            core::store::secret_get,
+            core::store::secret_set,
+            core::store::secret_delete,
             ssh::commands::session_list,
             ssh::commands::session_upsert,
             ssh::commands::session_delete,

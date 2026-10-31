@@ -16,6 +16,7 @@ import { copyText } from "../../clipboard";
 import { errText } from "../../utils";
 import QuickTranslate from "./QuickTranslate";
 import type { TranslateLine } from "./api";
+import { loadStored, migrateStored, saveStored } from "../../storage";
 
 type Tab = "quick" | "web";
 
@@ -27,23 +28,13 @@ const URLS: Record<TranslateLine, string> = {
 const STORE_KEY = "yooso.translate.line";
 const LOAD_TIMEOUT = 15000;
 
-function initialLine(): TranslateLine {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw === "intl" || raw === "cn") return raw;
-  } catch {
-    /* 忽略损坏的本地配置 */
-  }
-  return "intl";
-}
-
 export default function TranslateModule() {
   const t = useT(useUiStore((state) => state.lang));
   const { message } = AntdApp.useApp();
 
   const [tab, setTab] = useState<Tab>("quick");
   const [webMounted, setWebMounted] = useState(false);
-  const [line, setLine] = useState<TranslateLine>(initialLine);
+  const [line, setLine] = useState<TranslateLine>("intl");
   const [seq, setSeq] = useState(0);
   const [loading, setLoading] = useState(true);
   const [slow, setSlow] = useState(false);
@@ -59,16 +50,26 @@ export default function TranslateModule() {
     return () => window.clearTimeout(timer);
   }, [loading, seq, line]);
 
+  /* 上次使用的翻译线路：存在后端凭据库（旧 localStorage 自动迁移） */
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      await migrateStored(STORE_KEY, "translate.line");
+      const raw = await loadStored("translate.line");
+      if (!alive) return;
+      if (raw === "cn" || raw === "intl") setLine(raw);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const switchLine = (next: TranslateLine) => {
     if (next === line) return;
     setLine(next);
     setLoading(true);
     setSlow(false);
-    try {
-      localStorage.setItem(STORE_KEY, next);
-    } catch {
-      /* 忽略存储失败 */
-    }
+    void saveStored("translate.line", next);
   };
 
   const openWeb = () => {

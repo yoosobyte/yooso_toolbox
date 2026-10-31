@@ -31,7 +31,8 @@ export default function BrowserModule({
 }: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const [native] = useState(() => inTauri());
-  const [sites, setSites] = useState<BrowserSite[]>(loadSites);
+  const [sites, setSites] = useState<BrowserSite[]>([]);
+  const [sitesLoaded, setSitesLoaded] = useState(false);
   const [tabs, setTabs] = useState<BrowserTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [address, setAddress] = useState("");
@@ -63,10 +64,23 @@ export default function BrowserModule({
       dialogOpenRef,
     });
 
-  /* 站点配置持久化 */
+  /* 站点配置：从加密凭据库加载，加载完成前不写回 */
   useEffect(() => {
-    saveSites(sites);
-  }, [sites]);
+    let alive = true;
+    void loadSites().then((list) => {
+      if (!alive) return;
+      setSites(list);
+      setSitesLoaded(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sitesLoaded) return;
+    void saveSites(sites);
+  }, [sites, sitesLoaded]);
 
   /* 设置页等外部入口请求在内部浏览器打开链接 */
   const pendingUrlRef = useRef<string | null>(pendingUrl);
