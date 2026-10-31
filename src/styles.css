@@ -1718,6 +1718,25 @@ body.sftp-resizing .sftp-resizer::after {
   font-size: 12px;
 }
 
+.settings-update-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.1);
+}
+
+.settings-update-notes-title {
+  font-size: 11px;
+}
+
+.settings-update-notes-body {
+  white-space: pre-line;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 /* 关于卡片：品牌 + 链接 + 技术栈 */
 
 .about-card {

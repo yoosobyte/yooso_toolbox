@@ -90,9 +90,11 @@ export interface ProcessInfo {
 export interface UpdateInfo {
   current: string;
   latest: string;
-  /** 安装包直链（版本 txt 第二行） */
+  /** 当前平台安装包直链（update.json 的 mac / win 字段） */
   url: string;
   hasUpdate: boolean;
+  /** 更新说明（update.json 的 desc 字段，换行已归一化） */
+  notes: string;
 }
 /* ---------------- API 调试 ---------------- */
 

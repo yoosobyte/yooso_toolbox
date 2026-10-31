@@ -1,0 +1,11 @@
+{
+  "new_version": "v0.1.1",
+  "v0.1.0": {
+    "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.0_x64-setup.exe"
+  },
+  "v0.1.1": {
+    "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.1_x64-setup.exe",
+    "mac": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.1.dmg",
+    "desc": "1. 全新版本\n2. 修复了一些问题"
+  }
+}

@@ -1,6 +1,6 @@
 [package]
 name = "yooso-toolbox"
-version = "0.1.0"
+version = "0.1.1"
 description = "悦盒 - SSH / SFTP 工具箱"
 authors = ["yooso"]
 edition = "2021"
@@ -26,7 +26,7 @@ anyhow = "1"
 if-addrs = "0.13"
 # MD5 小工具
 md5 = "0.7"
-# 检查更新：读远端版本 txt（rustls，避免依赖系统 OpenSSL）
+# 检查更新：读取远端 update.json（rustls，避免依赖系统 OpenSSL）
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 base64 = "0.23"

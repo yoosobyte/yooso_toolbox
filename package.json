@@ -1,7 +1,7 @@
 {
   "name": "yooso-toolbox",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,8 +10,10 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "icons:platform": "node scripts/make_platform_icons.cjs"
+    "tauri:build": "tauri build && node scripts/rename-bundles.cjs",
+    "tauri:build:mac": "tauri build --bundles app,dmg && node scripts/rename-bundles.cjs",
+    "rename:bundles": "node scripts/rename-bundles.cjs",
+    "icons": "node scripts/make_icons.cjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",

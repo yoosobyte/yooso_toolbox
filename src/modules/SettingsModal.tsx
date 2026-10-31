@@ -188,6 +188,17 @@ export default function SettingsModal({ open, onClose }: Props) {
                       current: info.current,
                     })}
                   </Typography.Text>
+                  {info.notes ? (
+                    <div className="settings-update-notes">
+                      <Typography.Text
+                        type="secondary"
+                        className="settings-update-notes-title"
+                      >
+                        {t("settings.updateNotes")}
+                      </Typography.Text>
+                      <div className="settings-update-notes-body">{info.notes}</div>
+                    </div>
+                  ) : null}
                   <Space size={6}>
                     <Button
                       size="small"
