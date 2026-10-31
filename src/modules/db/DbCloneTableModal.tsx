@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { App as AntdApp, Input, Modal } from "antd";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
-import { errText } from "../../utils";
+import { errText, isImeEnter } from "../../utils";
 import { dbCloneTable } from "./api";
 
 interface Props {
@@ -69,7 +69,10 @@ export default function DbCloneTableModal({
           value={name}
           placeholder={t("db.tableNamePlaceholder")}
           onChange={(event) => setName(event.target.value)}
-          onPressEnter={() => void create()}
+          onPressEnter={(event) => {
+            if (isImeEnter(event)) return;
+            void create();
+          }}
         />
       </div>
     </Modal>

@@ -61,3 +61,40 @@ export const SESSION_COLORS = [
   "#ec4899",
   "#84cc16",
 ];
+
+/* ------------------------------------------------------------------ */
+/* 输入法回车保护                                                      */
+/* ------------------------------------------------------------------ */
+
+/** 全局的输入法组词状态：一次注册，所有输入框共用 */
+let imeComposing = false;
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "compositionstart",
+    () => {
+      imeComposing = true;
+    },
+    true,
+  );
+  document.addEventListener(
+    "compositionend",
+    () => {
+      imeComposing = false;
+    },
+    true,
+  );
+}
+
+/**
+ * 回车是否发生在输入法组词过程中。
+ * 组词时按回车只负责把候选词上屏，不应该触发提交 / 发送 / 跳转；
+ * 再按一次回车（组词已结束）才执行动作。
+ */
+export function isImeEnter(event?: { nativeEvent?: KeyboardEvent }): boolean {
+  const native = event?.nativeEvent;
+  return (
+    imeComposing ||
+    Boolean(native?.isComposing) ||
+    native?.keyCode === 229
+  );
+}

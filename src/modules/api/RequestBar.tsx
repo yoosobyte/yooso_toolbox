@@ -8,6 +8,7 @@ import {
   SendOutlined,
 } from "@ant-design/icons";
 import type { ApiRequest, HttpMethod } from "../../types";
+import { isImeEnter } from "../../utils";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { useCopy } from "./useCopy";
@@ -53,7 +54,10 @@ export default function RequestBar({
         value={request.url}
         placeholder={t("api.urlPlaceholder")}
         onChange={(event) => onPatch({ url: event.target.value })}
-        onPressEnter={() => void onSend()}
+        onPressEnter={(event) => {
+          if (isImeEnter(event)) return;
+          void onSend();
+        }}
         suffix={
           sending ? (
             <LoadingOutlined />

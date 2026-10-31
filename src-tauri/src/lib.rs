@@ -107,6 +107,7 @@ pub fn run() {
             ai::ai_read_file,
             ai::ai_write_file,
             api::browser::browser_eval,
+            api::browser::browser_create_webview,
             api::http_request,
             ssh::commands::sftp_list,
             ssh::commands::sftp_mkdir,

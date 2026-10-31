@@ -19,6 +19,7 @@ import {
 } from "./browserTypes";
 import { formatTtlShort } from "./ttl";
 import { loadStored, migrateStored, saveStored } from "../../storage";
+import { isImeEnter } from "../../utils";
 
 interface Props {
   pattern: string;
@@ -98,7 +99,10 @@ export default function RedisKeyPanel({
           prefix={<SearchOutlined style={{ color: "var(--text-mute)" }} />}
           placeholder={t("redis.patternPlaceholder")}
           onChange={(event) => onPatternChange(event.target.value)}
-          onPressEnter={onSearch}
+          onPressEnter={(event) => {
+            if (isImeEnter(event)) return;
+            onSearch();
+          }}
         />
         <Tooltip title={t("redis.search")}>
           <Button size="small" icon={<SearchOutlined />} onClick={onSearch} />

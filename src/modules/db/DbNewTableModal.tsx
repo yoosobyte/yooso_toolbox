@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { App as AntdApp, Input, Modal } from "antd";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
-import { errText } from "../../utils";
+import { errText, isImeEnter } from "../../utils";
 import { dbExecDdl } from "./api";
 import { qualified } from "./ddl";
 
@@ -76,7 +76,10 @@ export default function DbNewTableModal({
           value={name}
           placeholder={t("db.tableNamePlaceholder")}
           onChange={(event) => setName(event.target.value)}
-          onPressEnter={() => void create()}
+          onPressEnter={(event) => {
+            if (isImeEnter(event)) return;
+            void create();
+          }}
         />
       </div>
       <div className="db-field">
@@ -85,7 +88,10 @@ export default function DbNewTableModal({
           value={comment}
           placeholder={t("db.tableCommentPlaceholder")}
           onChange={(event) => setComment(event.target.value)}
-          onPressEnter={() => void create()}
+          onPressEnter={(event) => {
+            if (isImeEnter(event)) return;
+            void create();
+          }}
         />
       </div>
     </Modal>

@@ -46,6 +46,10 @@ export const darkThemeConfig: ThemeConfig = {
     Input: {
       activeBorderColor: "#3b82f6",
     },
+    Tooltip: {
+      colorBgSpotlight: "#1a2332",
+      colorTextLightSolid: "#e6ebf2",
+    },
   },
 };
 

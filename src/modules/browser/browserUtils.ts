@@ -30,6 +30,63 @@ export function normalizeUrl(raw: string): string {
   return `https://${value}`;
 }
 
+/** 地址栏的搜索引擎 */
+export type SearchEngine = "bing" | "baidu";
+
+export const SEARCH_ENGINES: SearchEngine[] = ["bing", "baidu"];
+
+export function searchUrlFor(query: string, engine: SearchEngine): string {
+  const value = encodeURIComponent(query.trim());
+  return engine === "baidu"
+    ? `https://www.baidu.com/s?wd=${value}`
+    : `https://www.bing.com/search?q=${value}`;
+}
+
+/**
+ * 地址栏输入：写了协议的直接当网址；不带点、或带空格（明显是一句话）
+ * 的当搜索词，交给选中的搜索引擎；其余按域名补 https://。
+ */
+export function toUrlOrSearch(raw: string, engine: SearchEngine): string {
+  const value = raw.trim();
+  if (!value) return "";
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return value;
+  if (/\s/.test(value) || !value.includes(".")) {
+    return searchUrlFor(value, engine);
+  }
+  return `https://${value}`;
+}
+
+/** 浏览器模块自己的偏好（搜索引擎 / 是否隐藏顶部栏），存在 localStorage */
+const PREFS_KEY = "yooso.browser.prefs";
+
+export interface BrowserPrefs {
+  searchEngine: SearchEngine;
+  headHidden: boolean;
+}
+
+export function readBrowserPrefs(): BrowserPrefs {
+  const fallback: BrowserPrefs = { searchEngine: "bing", headHidden: false };
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Partial<BrowserPrefs>;
+    return {
+      searchEngine: parsed.searchEngine === "baidu" ? "baidu" : "bing",
+      headHidden: parsed.headHidden === true,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeBrowserPrefs(prefs: BrowserPrefs) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function titleFor(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");

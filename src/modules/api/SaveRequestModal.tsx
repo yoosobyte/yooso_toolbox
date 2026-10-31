@@ -1,6 +1,7 @@
 import { Input, Modal, Segmented } from "antd";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
+import { isImeEnter } from "../../utils";
 
 interface Props {
   open: boolean;
@@ -57,7 +58,10 @@ export default function SaveRequestModal({
           value={name}
           onChange={(event) => onNameChange(event.target.value)}
           placeholder={t("api.requestName")}
-          onPressEnter={onConfirm}
+          onPressEnter={(event) => {
+            if (isImeEnter(event)) return;
+            onConfirm();
+          }}
         />
         <div className="api-save-hint">
           {mode === "update" && currentId

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Typography } from "antd";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { useUiStore } from "../../stores/uiStore";
@@ -8,7 +9,15 @@ import { inTauri } from "../../save";
 import { BrowserNavIcon } from "../../components/NavIcons";
 import { loadSites, saveSites, type BrowserSite } from "./sites";
 import { loadPageTitle } from "./pageInfo";
-import { NEW_SITE_COLORS, normalizeUrl, titleFor } from "./browserUtils";
+import {
+  NEW_SITE_COLORS,
+  normalizeUrl,
+  readBrowserPrefs,
+  titleFor,
+  toUrlOrSearch,
+  writeBrowserPrefs,
+  type BrowserPrefs,
+} from "./browserUtils";
 import type { BrowserTab } from "./types";
 import { BrowserTabs } from "./BrowserTabs";
 import { BrowserToolbar } from "./BrowserToolbar";
@@ -37,6 +46,13 @@ export default function BrowserModule({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [reloadSeq, setReloadSeq] = useState(0);
+  /** 搜索引擎 / 顶部栏显隐（存 localStorage，刷新后保持） */
+  const [prefs, setPrefs] = useState<BrowserPrefs>(readBrowserPrefs);
+  const updatePrefs = (next: Partial<BrowserPrefs>) => {
+    const merged = { ...prefs, ...next };
+    setPrefs(merged);
+    writeBrowserPrefs(merged);
+  };
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingSite, setEditingSite] = useState<BrowserSite | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -47,12 +63,25 @@ export default function BrowserModule({
   const autoOpenRef = useRef<() => void>(() => undefined);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const dialogOpenRef = useRef(false);
+  /** 工具栏菜单收起后延迟恢复原生 WebView，避开弹层动画 */
+  const menuTimerRef = useRef<number | undefined>(undefined);
+  /** 页面新窗口请求回调里用，始终指向最新的 openUrlInTab */
+  const openUrlInTabRef = useRef<(url: string) => void>(() => undefined);
 
   const active = tabs.find((tab) => tab.id === activeId) ?? null;
   const canBack = Boolean(active && active.historyIndex > 0);
   const canForward = Boolean(
     active && active.historyIndex < active.history.length - 1,
   );
+
+  /** 页面标题变了：只改对应标签的标题，地址栏/历史保持不动 */
+  const updateTabTitle = (id: string, title: string) => {
+    setTabs((prev) =>
+      prev.map((tab) =>
+        tab.id === id && tab.title !== title ? { ...tab, title } : tab,
+      ),
+    );
+  };
 
   const { rebuildWebview, hideAllWebviews, showActiveWebview } =
     useNativeWebviews({
@@ -62,6 +91,7 @@ export default function BrowserModule({
       obscured,
       frameRef,
       dialogOpenRef,
+      onTitle: updateTabTitle,
     });
 
   /* 站点配置：从加密凭据库加载，加载完成前不写回 */
@@ -115,11 +145,12 @@ export default function BrowserModule({
     setAddress(url);
     setReloadSeq(0);
     if (!title) {
+      // 兜底：页面还没发来标题变化事件时，用一次抓取结果填上；已经有实时标题就不覆盖
       void loadPageTitle(url).then((pageTitle) => {
         if (!pageTitle) return;
         setTabs((prev) =>
           prev.map((item) =>
-            item.id === id && item.url === url
+            item.id === id && item.url === url && item.title === titleFor(url)
               ? { ...item, title: pageTitle }
               : item,
           ),
@@ -127,6 +158,36 @@ export default function BrowserModule({
       });
     }
   };
+
+  openUrlInTabRef.current = openUrlInTab;
+
+  /* 页面里 target=_blank / window.open 的链接：Rust 侧拦下后转成应用内新标签页 */
+  useEffect(() => {
+    if (!native) return;
+    let unlisten: (() => void) | undefined;
+    let lastUrl = "";
+    let lastAt = 0;
+    const recent: number[] = [];
+    void listen<string>("browser:new-window", (event) => {
+      const url = String(event.payload ?? "").trim();
+      if (!/^https?:\/\//i.test(url)) return;
+      const now = Date.now();
+      // 同一次点击可能被 WebView 触发多次，短时间内同地址只开一个
+      if (url === lastUrl && now - lastAt < 800) return;
+      // 广告脚本会批量调 window.open，别让它瞬间刷出一堆标签页
+      while (recent.length > 0 && now - recent[0] > 2000) recent.shift();
+      if (recent.length >= 5) return;
+      recent.push(now);
+      lastUrl = url;
+      lastAt = now;
+      openUrlInTabRef.current(url);
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => undefined);
+    return () => unlisten?.();
+  }, [native]);
 
   /** 进入浏览器模块时，把「自动打开」的站点补成 tab */
   autoOpenRef.current = () => {
@@ -179,7 +240,8 @@ export default function BrowserModule({
   };
 
   const navigate = (raw: string) => {
-    const url = normalizeUrl(raw);
+    // 不带点 / 带空格的当搜索词，其余按网址打开
+    const url = toUrlOrSearch(raw, prefs.searchEngine);
     if (!url) return;
     if (!active) {
       openUrlInTab(url);
@@ -206,7 +268,7 @@ export default function BrowserModule({
       if (!pageTitle) return;
       setTabs((prev) =>
         prev.map((tab) =>
-          tab.id === active.id && tab.url === url
+          tab.id === active.id && tab.url === url && tab.title === titleFor(url)
             ? { ...tab, title: pageTitle }
             : tab,
         ),
@@ -310,18 +372,20 @@ export default function BrowserModule({
 
   return (
     <div className="module browser-module" ref={rootRef}>
-      <header className="module-head">
-        <span className="module-icon">
-          <BrowserNavIcon />
-        </span>
-        <div>
-          <Typography.Text strong style={{ fontSize: 14 }}>
-            {t("module.browser")}
-          </Typography.Text>
-          <div className="module-desc">{t("module.browserDesc")}</div>
-        </div>
-        <span style={{ flex: 1 }} />
-      </header>
+      {!prefs.headHidden && (
+        <header className="module-head">
+          <span className="module-icon">
+            <BrowserNavIcon />
+          </span>
+          <div>
+            <Typography.Text strong style={{ fontSize: 14 }}>
+              {t("module.browser")}
+            </Typography.Text>
+            <div className="module-desc">{t("module.browserDesc")}</div>
+          </div>
+          <span style={{ flex: 1 }} />
+        </header>
+      )}
 
       <BrowserTabs
         tabs={tabs}
@@ -339,12 +403,24 @@ export default function BrowserModule({
         canBack={canBack}
         canForward={canForward}
         hasActive={Boolean(active)}
+        headVisible={!prefs.headHidden}
+        searchEngine={prefs.searchEngine}
         onAddressChange={setAddress}
         onNavigate={() => navigate(address)}
         onTravel={travel}
         onReload={reload}
         onOpenExternal={() => {
           if (active) void openUrl(active.url);
+        }}
+        onToggleHead={() => updatePrefs({ headHidden: !prefs.headHidden })}
+        onSearchEngineChange={(engine) => updatePrefs({ searchEngine: engine })}
+        onMenuOpenChange={(open) => {
+          window.clearTimeout(menuTimerRef.current);
+          if (open) {
+            hideAllWebviews();
+          } else {
+            menuTimerRef.current = window.setTimeout(() => showActiveWebview(), 180);
+          }
         }}
       />
 

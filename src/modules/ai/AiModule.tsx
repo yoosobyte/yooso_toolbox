@@ -14,7 +14,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { AgentNavIcon } from "../../components/NavIcons";
 import { useT } from "../../i18n";
 import { inTauri } from "../../save";
-import { errText } from "../../utils";
+import { errText, isImeEnter } from "../../utils";
 import { loadStored, saveStored } from "../../storage";
 import { renderMarkdown } from "../note/markdown";
 import {
@@ -443,6 +443,7 @@ export default function AiModule() {
           placeholder={t("ai.placeholder")}
           autoSize={{ minRows: 2, maxRows: 6 }}
           onPressEnter={(event) => {
+            if (isImeEnter(event)) return;
             if (!event.shiftKey) {
               event.preventDefault();
               void send();

@@ -90,6 +90,8 @@ export default function ApiModule() {
   const [lastSent, setLastSent] = useState<{ method: HttpMethod; url: string } | null>(null);
   const sideWidth = useUiStore((state) => state.sideWidth);
   const setSideWidth = useUiStore((state) => state.setSideWidth);
+  /** 请求超时（秒），在设置页可改 */
+  const apiTimeoutSecs = useUiStore((state) => state.apiTimeoutSecs);
 
   const patch = (next: Partial<ApiRequest>) => setRequest((prev) => ({ ...prev, ...next }));
 
@@ -134,6 +136,7 @@ export default function ApiModule() {
         headers: enabledHeaders,
         body: hasBody ? request.body : undefined,
         bodyType: hasBody ? request.bodyType : "none",
+        timeoutSecs: apiTimeoutSecs,
       });
       setResponse(result);
       setRespTab("body");

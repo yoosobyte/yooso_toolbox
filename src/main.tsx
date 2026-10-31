@@ -10,6 +10,11 @@ import { darkThemeConfig, lightThemeConfig } from "./theme";
 import { useUiStore, watchSystem } from "./stores/uiStore";
 import "./styles.css";
 
+// 全局 message 提示配置：最多同时显示 3 条、2 秒后自动消失、距顶部 12px，避免连续复制时刷屏。
+// 注意：静态 message.config() 只作用于 antd 的静态方法，所有模块都通过 <App> 提供的
+// useApp() 实例弹提示，因此配置必须挂在 <AntdApp message={...}> 上才会真正生效。
+const MESSAGE_CONFIG = { top: 12, maxCount: 3, duration: 2 };
+
 const rootEl = document.getElementById("root");
 if (!rootEl) {
   throw new Error("root element not found");
@@ -37,7 +42,7 @@ function Root() {
       theme={activeTheme === "light" ? lightThemeConfig : darkThemeConfig}
       componentSize="middle"
     >
-      <AntdApp>
+      <AntdApp message={MESSAGE_CONFIG}>
         <App />
       </AntdApp>
     </ConfigProvider>
@@ -47,3 +52,4 @@ function Root() {
 // 说明：故意不使用 React.StrictMode。StrictMode 在开发模式下会重复执行 effect，
 // 对「挂载即建立 SSH 连接」的终端组件会造成一次多余的连接与资源泄漏。
 ReactDOM.createRoot(rootEl).render(<Root />);
+

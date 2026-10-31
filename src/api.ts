@@ -163,6 +163,8 @@ export interface HttpRequestSpec {
   headers: { key: string; value: string }[];
   body?: string;
   bodyType: BodyType;
+  /** 请求超时（秒）；不传时后端默认 10 秒 */
+  timeoutSecs?: number;
 }
 
 /** 在 Rust 侧发请求，绕开 WebView 的 CORS 限制 */
