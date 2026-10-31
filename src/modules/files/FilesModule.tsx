@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { App as AntdApp, Button, Input, Modal, Tooltip, Typography } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
@@ -52,8 +52,8 @@ export default function FilesModule() {
     scanned: 0,
   });
   const [query, setQuery] = useState("");
-  const [scope, setScope] = useState("");
-  const [results, setResults] = useState<FileEntry[]>([]);
+  const deferredQuery = useDeferredValue(query);
+  const [scope, setScope] = useState("");  const [results, setResults] = useState<FileEntry[]>([]);
   const [searching, setSearching] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export default function FilesModule() {
 
   /* 搜索：只查内存索引，输入即出结果 */
   useEffect(() => {
-    const needle = query.trim();
+    const needle = deferredQuery.trim();
     if (!needle || !status.ready) {
       setResults([]);
       setSearching(false);
@@ -111,12 +111,12 @@ export default function FilesModule() {
           message.error(errText(err));
         })
         .finally(() => alive && setSearching(false));
-    }, 80);
+    }, 160);
     return () => {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [query, scope, status.ready, reloadKey, message]);
+  }, [deferredQuery, scope, status.ready, reloadKey, message]);
 
   useEffect(() => {
     if (!menu) return;
@@ -213,7 +213,8 @@ export default function FilesModule() {
     });
   };
 
-  const needle = query.trim();
+  const needle = deferredQuery.trim();
+  const needleLower = needle.toLowerCase();
   const indexing = !status.ready;
 
   return (
@@ -329,10 +330,10 @@ export default function FilesModule() {
                   {fileIcon(entry)}
                 </span>
                 <span className="files-name">
-                  <Highlight text={entry.name} needle={needle.toLowerCase()} />
+                  <Highlight text={entry.name} needle={needleLower} />
                 </span>
                 <span className="files-path-cell" title={entry.path}>
-                  <Highlight text={parentOf(entry.path)} needle={needle.toLowerCase()} />
+                  <Highlight text={parentOf(entry.path)} needle={needleLower} />
                 </span>
                 <span className="files-meta">
                   {entry.isDir ? "" : formatBytes(entry.size)}
