@@ -1,5 +1,6 @@
 import { Input, Modal } from "antd";
 import type { TFunction } from "../../i18n";
+import { isImeEnter } from "../../utils";
 
 interface Props {
   open: boolean;
@@ -54,7 +55,10 @@ export function SiteEditorModal({
             value={draftUrl}
             placeholder={t("browser.siteUrlPlaceholder")}
             onChange={(event) => onUrlChange(event.target.value)}
-            onPressEnter={onSave}
+            onPressEnter={(event) => {
+              if (isImeEnter(event)) return;
+              onSave();
+            }}
           />
         </label>
       </div>

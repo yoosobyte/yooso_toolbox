@@ -1,6 +1,7 @@
 import { Input, InputNumber, Modal, Select } from "antd";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
+import { isImeEnter } from "../../utils";
 
 interface NewKeyDialogProps {
   open: boolean;
@@ -124,7 +125,10 @@ export function RenameDialog({
         value={value}
         placeholder={t("redis.renamePlaceholder")}
         onChange={(event) => onValueChange(event.target.value)}
-        onPressEnter={onOk}
+        onPressEnter={(event) => {
+          if (isImeEnter(event)) return;
+          onOk();
+        }}
       />
     </Modal>
   );

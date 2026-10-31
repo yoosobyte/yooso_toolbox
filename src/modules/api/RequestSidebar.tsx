@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input } from "antd";
+import { Button, Input, Tooltip } from "antd";
 import {
   HistoryOutlined,
   DeleteOutlined,
@@ -127,17 +127,22 @@ export default function RequestSidebar({
               </div>
             )}
             {shownHistory.map((item: HistoryEntry) => (
-              <div
+              <Tooltip
                 key={item.id}
-                className="api-item api-item-history"
-                onClick={() => onPickHistory(item)}
+                // 历史条目里的 URL 会被省略号截断，悬停时在右侧把完整地址显示出来
+                title={<span className="api-url-tip">{item.url}</span>}
+                placement="right"
+                mouseEnterDelay={0.15}
               >
-                <MethodChip method={item.method} />
-                <span className="api-item-name" title={item.url}>
-                  {item.url}
-                </span>
-                <span className="api-item-time">{dayjs(item.at).format("HH:mm")}</span>
-              </div>
+                <div
+                  className="api-item api-item-history"
+                  onClick={() => onPickHistory(item)}
+                >
+                  <MethodChip method={item.method} />
+                  <span className="api-item-name">{item.url}</span>
+                  <span className="api-item-time">{dayjs(item.at).format("HH:mm")}</span>
+                </div>
+              </Tooltip>
             ))}
             </div>
           </div>

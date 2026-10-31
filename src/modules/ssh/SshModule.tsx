@@ -39,7 +39,7 @@ export default function SshModule() {
           <div className="module-desc">{t("module.sshDesc")}</div>
         </div>
         <span style={{ flex: 1 }} />
-        <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>
+        <Button icon={<PlusOutlined />} onClick={openCreate}>
           {t("session.new")}
         </Button>
       </header>

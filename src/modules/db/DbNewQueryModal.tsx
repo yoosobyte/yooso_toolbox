@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { App as AntdApp, Input, Modal } from "antd";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
+import { isImeEnter } from "../../utils";
 
 interface Props {
   open: boolean;
@@ -45,7 +46,10 @@ export default function DbNewQueryModal({ open, database, onClose, onCreate }: P
           value={name}
           placeholder={t("db.queryNamePlaceholder")}
           onChange={(event) => setName(event.target.value)}
-          onPressEnter={create}
+          onPressEnter={(event) => {
+            if (isImeEnter(event)) return;
+            create();
+          }}
         />
         <span className="db-hint">
           {t("db.currentDatabase", { name: database })}

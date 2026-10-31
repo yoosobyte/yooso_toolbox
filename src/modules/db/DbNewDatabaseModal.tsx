@@ -3,7 +3,7 @@ import { App as AntdApp, Button, Input, Modal, Segmented, Select } from "antd";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { dbExecDdl } from "./api";
-import { errText } from "../../utils";
+import { errText, isImeEnter } from "../../utils";
 
 interface Props {
   open: boolean;
@@ -115,7 +115,10 @@ export default function DbNewDatabaseModal({
                 value={name}
                 placeholder="demo"
                 onChange={(event) => setName(event.target.value)}
-                onPressEnter={() => void submit()}
+                onPressEnter={(event) => {
+                  if (isImeEnter(event)) return;
+                  void submit();
+                }}
               />
             </div>
             <div className="db-field">

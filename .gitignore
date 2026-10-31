@@ -26,3 +26,6 @@ docs/uitest/
 .vite
 src-tauri/.cargo
 *.tsbuildinfo
+
+# 本地 Chrome 调试数据（不要提交）
+.chrome-rs*/

@@ -22,7 +22,7 @@ import { copyText } from "../../clipboard";
 import { useT } from "../../i18n";
 import { useUiStore } from "../../stores/uiStore";
 import type { FileEntry, FileRoot, IndexStatus } from "../../types";
-import { errText, formatBytes } from "../../utils";
+import { errText, formatBytes, isImeEnter } from "../../utils";
 import { FilesNavIcon } from "../../components/NavIcons";
 import FilesContextMenu from "./FilesContextMenu";
 import { fileIcon, rootIcon } from "./fileIcons";
@@ -574,7 +574,10 @@ export default function FilesModule() {
           value={renameValue}
           placeholder={t("files.renamePlaceholder")}
           onChange={(event) => setRenameValue(event.target.value)}
-          onPressEnter={() => void submitRename()}
+          onPressEnter={(event) => {
+            if (isImeEnter(event)) return;
+            void submitRename();
+          }}
         />
       </Modal>
     </div>

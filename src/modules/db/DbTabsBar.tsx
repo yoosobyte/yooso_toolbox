@@ -3,7 +3,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import type { DbQueryDef } from "./queries";
 import type { TableTab } from "./dbModuleTypes";
-import useTabDragScroll from "./useTabDragScroll";
+import useTabDragScroll from "../../components/useTabDragScroll";
 
 interface Props {
   tableTabs: TableTab[];

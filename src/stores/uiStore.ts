@@ -16,6 +16,20 @@ interface Appearance {
   language: LangSetting;
   theme: ThemeSetting;
   showStatusBar: boolean;
+  /** API 调试请求超时（秒） */
+  apiTimeoutSecs: number;
+}
+
+/** API 调试请求超时的默认值（秒） */
+export const DEFAULT_API_TIMEOUT_SECS = 10;
+export const API_TIMEOUT_MIN_SECS = 1;
+export const API_TIMEOUT_MAX_SECS = 600;
+
+/** 设置页输入统一收口：非数字回落默认值，并夹到允许区间 */
+export function clampApiTimeout(value: unknown): number {
+  const num = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(num) || num <= 0) return DEFAULT_API_TIMEOUT_SECS;
+  return Math.min(API_TIMEOUT_MAX_SECS, Math.max(API_TIMEOUT_MIN_SECS, Math.round(num)));
 }
 
 interface Layout {
@@ -69,12 +83,20 @@ function readAppearance(): Appearance {
         language: parsed.language ?? "system",
         theme: parsed.theme ?? "system",
         showStatusBar: parsed.showStatusBar ?? true,
+        apiTimeoutSecs: clampApiTimeout(
+          parsed.apiTimeoutSecs ?? DEFAULT_API_TIMEOUT_SECS,
+        ),
       };
     }
   } catch {
     /* 忽略损坏的本地配置 */
   }
-  return { language: "system", theme: "system", showStatusBar: true };
+  return {
+    language: "system",
+    theme: "system",
+    showStatusBar: true,
+    apiTimeoutSecs: DEFAULT_API_TIMEOUT_SECS,
+  };
 }
 
 /** 旧版本把布局也塞在 yooso.ui 里，这里读出来用于一次性迁移 */
@@ -132,6 +154,8 @@ interface UiState {
   theme: ThemeSetting;
   /** 是否显示最底部的版本/阶段状态栏 */
   showStatusBar: boolean;
+  /** API 调试请求超时（秒），设置页可改 */
+  apiTimeoutSecs: number;
   defaultModule: ModuleKey;
   sideWidth: number;
   moduleOrder: ModuleKey[];
@@ -142,6 +166,7 @@ interface UiState {
   setLanguage: (value: LangSetting) => void;
   setTheme: (value: ThemeSetting) => void;
   setShowStatusBar: (value: boolean) => void;
+  setApiTimeoutSecs: (value: number) => void;
   setDefaultModule: (value: ModuleKey) => void;
   setSideWidth: (value: number) => void;
   setModuleOrder: (order: ModuleKey[]) => void;
@@ -151,6 +176,12 @@ interface UiState {
   hydrate: () => Promise<void>;
   /** 监听系统主题变化 */
   syncSystem: () => void;
+}
+
+/** 只挑外观相关的字段写盘，避免把运行态（lang/activeTheme 等）也存进去 */
+function appearanceOf(state: UiState): Appearance {
+  const { language, theme, showStatusBar, apiTimeoutSecs } = state;
+  return { language, theme, showStatusBar, apiTimeoutSecs };
 }
 
 const initialAppearance = readAppearance();
@@ -178,32 +209,26 @@ export const useUiStore = create<UiState>((set, get) => ({
   activeTheme: resolveTheme(initialAppearance.theme),
 
   setLanguage: (value) => {
-    persistAppearance({
-      language: value,
-      theme: get().theme,
-      showStatusBar: get().showStatusBar,
-    });
+    persistAppearance({ ...appearanceOf(get()), language: value });
     set({ language: value, lang: resolveLang(value) });
   },
 
   setTheme: (value) => {
-    persistAppearance({
-      language: get().language,
-      theme: value,
-      showStatusBar: get().showStatusBar,
-    });
+    persistAppearance({ ...appearanceOf(get()), theme: value });
     const active = resolveTheme(value);
     applyTheme(active);
     set({ theme: value, activeTheme: active });
   },
 
   setShowStatusBar: (value) => {
-    persistAppearance({
-      language: get().language,
-      theme: get().theme,
-      showStatusBar: value,
-    });
+    persistAppearance({ ...appearanceOf(get()), showStatusBar: value });
     set({ showStatusBar: value });
+  },
+
+  setApiTimeoutSecs: (value) => {
+    const next = clampApiTimeout(value);
+    persistAppearance({ ...appearanceOf(get()), apiTimeoutSecs: next });
+    set({ apiTimeoutSecs: next });
   },
 
   setDefaultModule: (value) => {
@@ -251,11 +276,7 @@ export const useUiStore = create<UiState>((set, get) => ({
         set(legacy);
         await saveStored(LAYOUT_KEY, JSON.stringify(legacy));
         // 旧数据里还混着布局字段，重写成只含外观
-        persistAppearance({
-          language: get().language,
-          theme: get().theme,
-          showStatusBar: get().showStatusBar,
-        });
+        persistAppearance(appearanceOf(get()));
       }
     } catch {
       /* 读取失败时保持默认布局 */

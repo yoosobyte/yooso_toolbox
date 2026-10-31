@@ -3,6 +3,7 @@ import { Input, Modal, Typography } from "antd";
 import { useT } from "../../../i18n";
 import { useUiStore } from "../../../stores/uiStore";
 import type { SftpDialogState } from "./types";
+import { isImeEnter } from "../../../utils";
 
 interface Props {
   dialog: SftpDialogState;
@@ -41,7 +42,10 @@ export default function SftpNameDialog({
         value={dialog?.value ?? ""}
         placeholder={dialog?.kind === "mkdir" ? t("sftp.enterName") : t("sftp.newName")}
         onChange={(event) => onChange(event.target.value)}
-        onPressEnter={onSubmit}
+        onPressEnter={(event) => {
+          if (isImeEnter(event)) return;
+          onSubmit();
+        }}
       />
       <Typography.Text type="secondary" style={{ fontSize: 11 }}>
         {t("sftp.location", { path })}

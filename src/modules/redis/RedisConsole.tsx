@@ -3,7 +3,7 @@ import { Button, Input } from "antd";
 import { ClearOutlined, CodeOutlined } from "@ant-design/icons";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
-import { errText } from "../../utils";
+import { errText, isImeEnter } from "../../utils";
 import { redisCommand } from "./api";
 
 interface Props {
@@ -109,7 +109,10 @@ export default function RedisConsole({ connectionId }: Props) {
           value={input}
           placeholder={t("redis.consolePlaceholder")}
           onChange={(event) => setInput(event.target.value)}
-          onPressEnter={() => void run()}
+          onPressEnter={(event) => {
+            if (isImeEnter(event)) return;
+            void run();
+          }}
           onKeyDown={(event) => {
             if (event.key === "ArrowUp") {
               event.preventDefault();

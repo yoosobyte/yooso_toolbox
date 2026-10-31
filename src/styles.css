@@ -11,6 +11,10 @@
   --surface-2: #131b28;
   --bg-elevated: #131b28;
   --track: #16202f;
+  /* 浏览器标签底色：未选中 / 悬停 / 选中，逐级变亮 */
+  --tab-bg: #17202f;
+  --tab-bg-hover: #1b2637;
+  --tab-bg-active: #00224b;
   --accent-soft: #17233a;
   --border: #1a2332;
   --border-strong: #243044;
@@ -45,6 +49,9 @@
   --surface-2: #eef2f8;
   --bg-elevated: #ffffff;
   --track: #e4eaf3;
+  --tab-bg: #f4f7fc;
+  --tab-bg-hover: #eaf0f8;
+  --tab-bg-active: #ffffff;
   --accent-soft: #e3ecfd;
   --border: #dde4ee;
   --border-strong: #c8d3e2;
@@ -2144,6 +2151,17 @@ body.sftp-resizing .sftp-resizer::after {
   flex: none;
   font-size: 12px;
   color: var(--text-mute);
+}
+
+/* 历史条目悬停提示：完整 URL 允许换行，超长地址也不会把气泡撑出窗口 */
+.api-url-tip {
+  display: block;
+  max-width: 520px;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  word-break: break-all;
+  white-space: normal;
 }
 
 .api-item-remove {
@@ -7506,24 +7524,55 @@ body.side-resizing {
 .browser-tabs {
   flex: none;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 4px;
   padding: 6px 10px 0;
-  border-bottom: 1px solid var(--border);
+  /* 标签栏保持深色；和下面浅色工具行之间不画边框线 */
+  border-bottom: 0;
   background: var(--bg-panel);
+  overflow: hidden;
+}
+
+/* 标签横向滚动区：隐藏滚动条，按住可拖动（和数据库页签一致） */
+.browser-tabs-scroll {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+}
+
+.browser-tabs-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .browser-tab {
-  flex: none;
+  /* 标签多时优先压缩宽度，压到 min-width（只剩图标 + 关闭）后才横向滚动 */
+  flex: 0 1 auto;
+  min-width: 62px;
+  max-width: 220px;
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 220px;
-  padding: 5px 9px;
+  /* 高度取整数（6px 标签栏内边距 + 30px = 36px），避免小数高度在高分屏下
+     露出标签栏底色，形成一条 1px 暗缝 */
+  height: 30px;
+  padding: 0 9px;
+  box-sizing: border-box;
   border: 1px solid transparent;
+  border-bottom: 0;
   border-radius: 6px 6px 0 0;
-  background: transparent;
+  background: var(--tab-bg);
   color: var(--text-2);
   font-size: 12px;
   cursor: pointer;
@@ -7531,13 +7580,49 @@ body.side-resizing {
 }
 
 .browser-tab:hover {
-  background: var(--surface);
+  background: var(--tab-bg-hover);
 }
 
 .browser-tab.active {
-  background: var(--surface);
-  border-color: var(--border);
+  background: var(--tab-bg-active);
+  border-color: var(--border-strong);
   color: var(--text);
+}
+
+/* 跟在标签末尾的「+」：浅色描边按钮，点击回到主页 */
+.browser-tab-add {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  /* 和普通标签一致：同样的底色、悬停变亮 */
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: var(--tab-bg);
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.browser-tab-add:hover {
+  background: var(--tab-bg-hover);
+  color: var(--text);
+}
+
+/* 「主页」固定在左侧、不压缩，用更浅的底色和其它标签区分 */
+.browser-tab-home {
+  /* 只保留布局：底色 / 悬停 / 选中态都沿用普通标签 */
+  position: relative;
+  z-index: 1;
+  flex: none;
+  margin-right: 2px;
 }
 
 .browser-tab > .anticon {
@@ -7546,6 +7631,8 @@ body.side-resizing {
 }
 
 .browser-tab-title {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7576,9 +7663,12 @@ body.side-resizing {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
+  /* 高度写死：8 + 32(输入框) + 8 + 1(下边框)，有无标签时都保持一致 */
+  height: 49px;
+  padding: 0 10px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--tab-bg-active);
 }
 
 .browser-address {
@@ -7741,18 +7831,20 @@ body.side-resizing {
   justify-content: center;
   gap: 8px;
   min-height: 64px;
-  border: 1px dashed var(--border);
-  background: transparent;
-  color: var(--text-mute);
-  font-size: 12px;
+  /* 比普通站点卡片更醒目：虚线圈 + 淡蓝底 + 蓝色文字 */
+  border: 1px dashed color-mix(in srgb, var(--accent) 65%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent-text);
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
   font-family: inherit;
 }
 
 .browser-card-add:hover {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent-text);
 }
 
 .browser-card-add-icon {
@@ -7761,8 +7853,10 @@ body.side-resizing {
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  border: 1px dashed currentColor;
-  font-size: 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  font-size: 12px;
 }
 
 .browser-card {
@@ -9454,4 +9548,25 @@ body.row-resizing {
   font-size: 12.5px;
   color: var(--text-mute);
   line-height: 1.65;
+}
+
+/* 全局 message 提示：静态 message 不继承 ConfigProvider 主题，这里用变量覆盖 */
+.ant-message .ant-message-notice,
+.ant-message .ant-message-notice-wrapper,
+.ant-message .ant-message-notice-content,
+.ant-message-notice-content {
+  background: var(--bg-elevated) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.ant-message .ant-message-notice-title,
+.ant-message .ant-message-custom-content,
+.ant-message-notice-content .ant-message-custom-content {
+  color: var(--text) !important;
+}
+
+.ant-message .ant-message-notice-icon {
+  flex: none;
 }

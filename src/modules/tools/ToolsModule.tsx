@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  App as AntdApp,
   Button,
   Input,
   InputNumber,
   Spin,
   Tooltip,
   Typography,
-  message,
 } from "antd";
 import {
   CopyOutlined,
@@ -18,6 +18,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { inTauri } from "../../save";
 import { copyText } from "../../clipboard";
+import { isImeEnter } from "../../utils";
 
 interface NetworkInfo {
   publicIp: string | null;
@@ -72,6 +73,8 @@ async function sha256Hex(text: string): Promise<string> {
 
 export default function ToolsModule() {
   const t = useT(useUiStore((state) => state.lang));
+  // 和「文本」等模块一样走 App 上下文的 message，保证提示的样式与行为完全一致
+  const { message } = AntdApp.useApp();
 
   const [info, setInfo] = useState<NetworkInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -414,7 +417,10 @@ export default function ToolsModule() {
             value={md5Input}
             placeholder={t("tools.md5Placeholder")}
             onChange={(event) => setMd5Input(event.target.value)}
-            onPressEnter={() => void computeMd5()}
+            onPressEnter={(event) => {
+              if (isImeEnter(event)) return;
+              void computeMd5();
+            }}
             allowClear
           />
           <Button
@@ -444,7 +450,10 @@ export default function ToolsModule() {
             value={shaInput}
             placeholder={t("tools.shaPlaceholder")}
             onChange={(event) => setShaInput(event.target.value)}
-            onPressEnter={() => void computeSha()}
+            onPressEnter={(event) => {
+              if (isImeEnter(event)) return;
+              void computeSha();
+            }}
             allowClear
           />
           <Button
@@ -545,10 +554,7 @@ export default function ToolsModule() {
               onChange={(value) => setPasswordLength(Number(value) || 16)}
               style={{ width: 72 }}
             />
-            <Button
-              size="small"
-              onClick={() => setPassword(randomPassword(passwordLength))}
-            >
+            <Button onClick={() => setPassword(randomPassword(passwordLength))}>
               {t("tools.generate")}
             </Button>
           </div>

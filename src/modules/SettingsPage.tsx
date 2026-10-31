@@ -4,6 +4,7 @@ import {
   Button,
   Checkbox,
   Divider,
+  InputNumber,
   Modal,
   Radio,
   Segmented,
@@ -15,6 +16,7 @@ import {
 } from "antd";
 import {
   AntDesignOutlined,
+  ApiOutlined,
   AppstoreOutlined,
   CheckCircleOutlined,
   CloudDownloadOutlined,
@@ -35,7 +37,12 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { checkUpdate, configExport } from "../api";
 import { importBackupFile, pickBackupFile, reloadApp } from "../backup";
 import type { UpdateInfo } from "../types";
-import { useUiStore } from "../stores/uiStore";
+import {
+  API_TIMEOUT_MAX_SECS,
+  API_TIMEOUT_MIN_SECS,
+  DEFAULT_API_TIMEOUT_SECS,
+  useUiStore,
+} from "../stores/uiStore";
 import yoosoLogo from "../assets/yoosobyte.png";
 import type { ThemeSetting } from "../stores/uiStore";
 import type { LangSetting } from "../i18n";
@@ -65,6 +72,8 @@ export default function SettingsPage({ onClose, onOpenUrl }: Props) {
   const setLanguage = useUiStore((state) => state.setLanguage);
   const setTheme = useUiStore((state) => state.setTheme);
   const setShowStatusBar = useUiStore((state) => state.setShowStatusBar);
+  const apiTimeoutSecs = useUiStore((state) => state.apiTimeoutSecs);
+  const setApiTimeoutSecs = useUiStore((state) => state.setApiTimeoutSecs);
   const defaultModule = useUiStore((state) => state.defaultModule);
   const setDefaultModule = useUiStore((state) => state.setDefaultModule);
   const t = useT(lang);
@@ -371,6 +380,28 @@ export default function SettingsPage({ onClose, onOpenUrl }: Props) {
             </Typography.Text>
           </div>
           <Switch checked={showStatusBar} onChange={setShowStatusBar} />
+        </section>
+
+        {/* API 调试请求超时 */}
+        <section className="settings-row">
+          <div className="settings-label">
+            <ApiOutlined /> {t("settings.apiTimeout")}
+            <Typography.Text type="secondary" className="settings-hint">
+              {t("settings.apiTimeoutHint")}
+            </Typography.Text>
+          </div>
+          <InputNumber
+            min={API_TIMEOUT_MIN_SECS}
+            max={API_TIMEOUT_MAX_SECS}
+            step={1}
+            precision={0}
+            value={apiTimeoutSecs}
+            onChange={(value) =>
+              setApiTimeoutSecs(value ?? DEFAULT_API_TIMEOUT_SECS)
+            }
+            addonAfter={t("settings.apiTimeoutUnit")}
+            style={{ width: 132 }}
+          />
         </section>
 
         <Divider style={{ margin: "14px 0" }} />

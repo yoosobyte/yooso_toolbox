@@ -1,11 +1,13 @@
 import { useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { Webview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { userAgentFor } from "./browserUtils";
 import type { BrowserTab } from "./types";
+
 
 interface Params {
   native: boolean;
@@ -16,6 +18,21 @@ interface Params {
   frameRef: RefObject<HTMLDivElement | null>;
   /** 站点编辑弹窗是否打开（打开期间不恢复 WebView） */
   dialogOpenRef: RefObject<boolean>;
+  /** 页面标题变化：把某个标签的标题同步成页面真实 document.title */
+  onTitle: (tabId: string, title: string) => void;
+}
+
+/**
+ * Rust 侧刚创建完的 WebView 不一定立刻能被 getAllWebviews 看到，
+ * 这里短轮询几次再放弃。
+ */
+async function waitForWebview(label: string, tries = 8): Promise<Webview | null> {
+  for (let attempt = 0; attempt < tries; attempt += 1) {
+    const found = await Webview.getByLabel(label);
+    if (found) return found;
+    await new Promise((resolve) => window.setTimeout(resolve, 30));
+  }
+  return null;
 }
 
 /**
@@ -29,13 +46,27 @@ export function useNativeWebviews({
   obscured,
   frameRef,
   dialogOpenRef,
+  onTitle,
 }: Params) {
   const labelSeq = useRef(0);
   const webviewsRef = useRef<Map<string, Webview>>(new Map());
+  /** 正在创建中的标签（创建是异步的，避免重复创建） */
+  const pendingRef = useRef<Set<string>>(new Set());
+  /** 每个标签的创建代次：重建后旧的创建结果要丢弃 */
+  const generationRef = useRef<Map<string, number>>(new Map());
+  /** 子 WebView label → 标签页 id（标题事件里只有 label） */
+  const labelToTabRef = useRef<Map<string, string>>(new Map());
+  /** 建 WebView 之间页面就发来的标题，等映射建立后再补上 */
+  const pendingTitlesRef = useRef<Map<string, string>>(new Map());
   const activeIdRef = useRef<string | null>(null);
+  const tabsRef = useRef<BrowserTab[]>(tabs);
+  const onTitleRef = useRef(onTitle);
+  const obscuredRef = useRef(obscured);
   const originRef = useRef<{ x: number; y: number } | null>(null);
-  const fullscreenRef = useRef(false);
   activeIdRef.current = activeId;
+  tabsRef.current = tabs;
+  onTitleRef.current = onTitle;
+  obscuredRef.current = obscured;
 
   /**
    * 子 WebView 的坐标相对整个窗口，而 React 坐标相对网页视口（标题栏下方），
@@ -47,18 +78,23 @@ export function useNativeWebviews({
     const isWindows = /windows/i.test(navigator.userAgent);
     try {
       const win = getCurrentWindow();
-      const [scale, outer, fullscreen] = await Promise.all([
+      const [scale, inner, outer, fullscreen] = await Promise.all([
         win.scaleFactor(),
+        win.innerPosition(),
         win.outerPosition(),
         win.isFullscreen(),
       ]);
-      fullscreenRef.current = fullscreen;
       // 全屏 / Windows：子 WebView 坐标相对窗口客户区，原点就是 0
       if (fullscreen || isWindows) {
         originRef.current = { x: 0, y: 0 };
         return originRef.current;
       }
+      // 客户区相对窗口外框的偏移 = 标题栏高度。
+      // 注意：WKWebView 里 window.outerHeight 是 0，innerHeight 却是真实值，
+      // 旧逻辑会算出负数被丢弃、退回硬编码 28，实际标题栏是 31~32 时
+      // 子 WebView 就会被抬高几像素、盖住工具栏底部。
       const candidates = [
+        (inner.y - outer.y) / scale,
         window.outerHeight - window.innerHeight,
         window.screenY - outer.y / scale,
       ];
@@ -85,13 +121,12 @@ export function useNativeWebviews({
     await webview
       .setPosition(new PhysicalPosition(x, y))
       .catch(() => undefined);
-    // 窗口模式底部多探 3px 盖住缝隙；全屏时窗口底边就是屏幕底边，不能再多探
-    const bottomExtra = fullscreenRef.current ? 0 : Math.round(3 * dpr);
+    // 窗口和全屏统一尺寸：不再给窗口模式额外多探 3px
     await webview
       .setSize(
         new PhysicalSize(
           Math.ceil(rect.width * dpr) + 2,
-          Math.ceil(rect.height * dpr) + bottomExtra,
+          Math.ceil(rect.height * dpr),
         ),
       )
       .catch(() => undefined);
@@ -106,46 +141,63 @@ export function useNativeWebviews({
     if (rect.width < 1 || rect.height < 1) return;
     labelSeq.current += 1;
     const label = `browser_${labelSeq.current}`;
-    try {
-      const webview = new Webview(getCurrentWindow(), label, {
-        url,
-        userAgent: userAgentFor(url),
-        // macOS：点击未激活的 WebView 时也把点击传进去，避免第一次点击被吞
-        acceptFirstMouse: true,
-        focus: true,
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        width: Math.ceil(rect.width) + 1,
-        height: Math.ceil(rect.height) + 3,
-      });
-      webviewsRef.current.set(tabId, webview);
-      // 创建后多次定位，避免 created 事件竞态 / 首帧未就绪
-      void placeWebview(webview, rect, show);
-      window.setTimeout(() => void placeWebview(webview, rect, show), 50);
-      window.setTimeout(() => void placeWebview(webview, rect, show), 200);
-      webview.once("tauri://created", () => {
-        void placeWebview(webview, rect, show);
-      });
-      webview.once("tauri://error", () => {
-        webviewsRef.current.delete(tabId);
-      });
-      // deepseek.com 首页的 canvas 覆盖层会拦截点击，注入穿透
-      try {
-        const host = new URL(url).hostname;
-        if (host === "deepseek.com" || host === "www.deepseek.com") {
-          const script =
-            "document.querySelectorAll('canvas').forEach(function(c){c.style.pointerEvents='none';});";
-          for (const delay of [1200, 3000, 6000]) {
-            window.setTimeout(() => {
-              void invoke("browser_eval", { label, script }).catch(() => undefined);
-            }, delay);
-          }
+    const generation = (generationRef.current.get(tabId) ?? 0) + 1;
+    generationRef.current.set(tabId, generation);
+    pendingRef.current.add(tabId);
+    // 由 Rust 侧创建，才能挂上 on_navigation / on_new_window：页面里 target=_blank
+    // 或 window.open 的开窗请求会被转成 browser:new-window 事件，由主界面开新标签页。
+    void invoke("browser_create_webview", {
+      label,
+      url,
+      x: Math.round(rect.left),
+      y: Math.round(rect.top),
+      width: Math.ceil(rect.width) + 1,
+      height: Math.ceil(rect.height),
+      userAgent: userAgentFor(url) ?? null,
+    })
+      .then(() => waitForWebview(label))
+      .then((webview) => {
+        const latest = generationRef.current.get(tabId) === generation;
+        if (latest) pendingRef.current.delete(tabId);
+        if (!webview) return;
+        // 创建是异步的：这期间标签页可能被关掉，或又被重建过一次
+        if (!latest || !tabsRef.current.some((tab) => tab.id === tabId)) {
+          void webview.close().catch(() => undefined);
+          return;
         }
-      } catch {
-        /* ignore */
+        webviewsRef.current.set(tabId, webview);
+        labelToTabRef.current.set(label, tabId);
+        // 页面可能在映射建立前就改了标题，这里补一次
+        const pendingTitle = pendingTitlesRef.current.get(label);
+        if (pendingTitle) {
+          pendingTitlesRef.current.delete(label);
+          onTitleRef.current(tabId, pendingTitle);
+        }
+        // 创建后多次定位，避免首帧未就绪 / 尺寸还在变化
+        void placeWebview(webview, rect, show);
+        window.setTimeout(() => void placeWebview(webview, rect, tabId === activeIdRef.current), 50);
+        window.setTimeout(() => void placeWebview(webview, rect, tabId === activeIdRef.current), 200);
+      })
+      .catch((error) => {
+        if (generationRef.current.get(tabId) === generation) {
+          pendingRef.current.delete(tabId);
+        }
+        console.error("failed to create browser webview", error);
+      });
+    // deepseek.com 首页的 canvas 覆盖层会拦截点击，注入穿透
+    try {
+      const host = new URL(url).hostname;
+      if (host === "deepseek.com" || host === "www.deepseek.com") {
+        const script =
+          "document.querySelectorAll('canvas').forEach(function(c){c.style.pointerEvents='none';});";
+        for (const delay of [1200, 3000, 6000]) {
+          window.setTimeout(() => {
+            void invoke("browser_eval", { label, script }).catch(() => undefined);
+          }, delay);
+        }
       }
-    } catch (error) {
-      console.error("failed to create browser webview", error);
+    } catch {
+      /* ignore */
     }
   };
 
@@ -153,23 +205,30 @@ export function useNativeWebviews({
     if (!native) return;
     const existing = webviewsRef.current.get(tabId);
     if (existing) {
+      labelToTabRef.current.delete(existing.label);
       void existing.close().catch(() => undefined);
       webviewsRef.current.delete(tabId);
     }
+    pendingRef.current.delete(tabId);
     createWebview(tabId, url, show);
   };
 
-  /* tab 增删与激活切换：创建 / 关闭 / 显示隐藏子 WebView */
+  /* tab 增删与激活切换：创建 / 关闭 / 显示隐藏子 WebView。
+     标题变化也会产生新的 tabs 数组，这里只关心「哪些标签、各自的地址」，
+     用 tabsKey 做依赖，避免页面频繁改标题时反复 show/hide/setFocus。 */
+  const tabsKey = tabs.map((tab) => `${tab.id}\u0000${tab.url}`).join("\u0001");
   useEffect(() => {
     if (!native) return;
+    const list = tabsRef.current;
     for (const [id, webview] of webviewsRef.current) {
-      if (!tabs.some((tab) => tab.id === id)) {
+      if (!list.some((tab) => tab.id === id)) {
+        labelToTabRef.current.delete(webview.label);
         void webview.close().catch(() => undefined);
         webviewsRef.current.delete(id);
       }
     }
-    for (const tab of tabs) {
-      if (!webviewsRef.current.has(tab.id)) {
+    for (const tab of list) {
+      if (!webviewsRef.current.has(tab.id) && !pendingRef.current.has(tab.id)) {
         createWebview(tab.id, tab.url, tab.id === activeId);
       }
     }
@@ -181,7 +240,7 @@ export function useNativeWebviews({
       void activeWebview?.setFocus().catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabs, activeId, native]);
+  }, [tabsKey, activeId, native]);
 
   /* 内容区位置/尺寸变化时同步子 WebView；模块隐藏时全部隐藏 */
   useEffect(() => {
@@ -227,6 +286,8 @@ export function useNativeWebviews({
         void webview.close().catch(() => undefined);
       }
       webviewsRef.current.clear();
+      labelToTabRef.current.clear();
+      pendingTitlesRef.current.clear();
     };
   }, []);
 
@@ -239,7 +300,8 @@ export function useNativeWebviews({
 
   /** 关闭弹层后恢复当前激活页面的 WebView（弹窗还开着时不恢复） */
   const showActiveWebview = () => {
-    if (dialogOpenRef.current) return;
+    // 站点编辑弹窗 / 全局弹窗还开着时不恢复，避免原生层盖住弹层
+    if (dialogOpenRef.current || obscuredRef.current) return;
     const frame = frameRef.current;
     if (!frame) return;
     const rect = frame.getBoundingClientRect();
@@ -247,6 +309,28 @@ export function useNativeWebviews({
       void placeWebview(webview, rect, id === activeIdRef.current);
     }
   };
+
+  /* 页面标题实时同步到标签页 */
+  useEffect(() => {
+    if (!native) return;
+    let unlisten: (() => void) | undefined;
+    void listen<{ label: string; title: string }>("browser:title", (event) => {
+      const label = event.payload?.label;
+      const title = (event.payload?.title ?? "").trim();
+      if (!label || !title) return;
+      const tabId = labelToTabRef.current.get(label);
+      if (!tabId) {
+        pendingTitlesRef.current.set(label, title);
+        return;
+      }
+      onTitleRef.current(tabId, title);
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => undefined);
+    return () => unlisten?.();
+  }, [native]);
 
   /* 全局弹窗（设置等）打开时隐藏 WebView，关闭后恢复 */
   useEffect(() => {

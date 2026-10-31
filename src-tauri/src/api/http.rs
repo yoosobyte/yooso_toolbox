@@ -2,6 +2,16 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
+/// 前端没传超时时的默认值（秒）
+const DEFAULT_TIMEOUT_SECS: u64 = 10;
+/// 允许的超时范围（秒）：设置页会做同样的限制
+const MIN_TIMEOUT_SECS: u64 = 1;
+const MAX_TIMEOUT_SECS: u64 = 600;
+
+fn default_timeout_secs() -> u64 {
+    DEFAULT_TIMEOUT_SECS
+}
+
 /// 单次 HTTP 请求（由前端组装好完整 URL、头、体）
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -15,6 +25,9 @@ pub struct HttpRequestSpec {
     /// none | json | text | form（json 会自动补 Content-Type）
     #[serde(default)]
     pub body_type: String,
+    /// 请求超时（秒），来自设置页；缺省 10 秒
+    #[serde(default = "default_timeout_secs")]
+    pub timeout_secs: u64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -41,14 +54,27 @@ pub struct HttpResponseData {
 /// 响应体最多回传 2 MB，避免大文件把 IPC 和界面拖死
 const MAX_BODY: usize = 2 * 1024 * 1024;
 
+/// 把 reqwest 的错误翻译成给用户看的中文，超时单独提示
+fn describe_error(error: reqwest::Error, timeout: Duration, action: &str) -> String {
+    if error.is_timeout() {
+        format!("请求超时（超过 {} 秒），已中断", timeout.as_secs())
+    } else if error.is_connect() {
+        format!("连接失败：{error}")
+    } else {
+        format!("{action}：{error}")
+    }
+}
+
 /// 执行 HTTP 请求。放在 Rust 侧是为了绕开 WebView 的 CORS/混合内容限制，
 /// 行为对齐 Postman：任意方法、任意头、跟随重定向、记录耗时。
 pub async fn execute(spec: HttpRequestSpec) -> Result<HttpResponseData, String> {
     let method = reqwest::Method::from_bytes(spec.method.as_bytes())
         .map_err(|_| format!("无效的请求方法：{}", spec.method))?;
 
+    // 超时由设置页控制；请求一直没响应时及时中断，避免界面一直转圈
+    let timeout = Duration::from_secs(spec.timeout_secs.clamp(MIN_TIMEOUT_SECS, MAX_TIMEOUT_SECS));
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(60))
+        .timeout(timeout)
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .map_err(|error| format!("创建 HTTP 客户端失败：{error}"))?;
@@ -106,7 +132,7 @@ pub async fn execute(spec: HttpRequestSpec) -> Result<HttpResponseData, String> 
     let response = request
         .send()
         .await
-        .map_err(|error| format!("请求失败：{error}"))?;
+        .map_err(|error| describe_error(error, timeout, "请求失败"))?;
     let time_ms = started.elapsed().as_millis() as u64;
 
     let status = response.status();
@@ -122,7 +148,7 @@ pub async fn execute(spec: HttpRequestSpec) -> Result<HttpResponseData, String> 
     let bytes = response
         .bytes()
         .await
-        .map_err(|error| format!("读取响应失败：{error}"))?;
+        .map_err(|error| describe_error(error, timeout, "读取响应失败"))?;
     let size = bytes.len() as u64;
     let truncated = bytes.len() > MAX_BODY;
     let slice = if truncated {
@@ -154,6 +180,7 @@ mod tests {
             headers: Vec::new(),
             body: None,
             body_type: "none".to_string(),
+            timeout_secs: DEFAULT_TIMEOUT_SECS,
         }
     }
 
@@ -190,5 +217,28 @@ mod tests {
         let result = execute(spec("GET", "https://this-host-does-not-exist.invalid/x")).await;
         assert!(result.is_err());
         println!("err={}", result.err().unwrap());
+    }
+
+    /// 目标一直不响应时要按设置的超时中断，而不是挂在那边
+    #[tokio::test]
+    #[ignore = "需要网络环境，且会等待约 1 秒"]
+    async fn timeout_interrupts_hanging_request() {
+        let mut request = spec("GET", "http://10.255.255.1/");
+        request.timeout_secs = 1;
+        let started = Instant::now();
+        let result = execute(request).await;
+        println!("err={:?}", result.as_ref().err());
+        assert!(result.is_err());
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    /// 老版本前端不带 timeoutSecs，反序列化时要回落到 10 秒
+    #[test]
+    fn timeout_defaults_to_ten_seconds() {
+        let parsed: HttpRequestSpec = serde_json::from_str(
+            r#"{"method":"GET","url":"https://example.com","bodyType":"none"}"#,
+        )
+        .expect("spec 反序列化失败");
+        assert_eq!(parsed.timeout_secs, 10);
     }
 }
