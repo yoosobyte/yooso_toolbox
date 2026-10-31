@@ -305,6 +305,25 @@ pub fn fs_index_status() -> IndexStatus {
     }
 }
 
+/// 统一路径分隔符：`\` → `/`，并折叠连续的 `/`，用于“带斜杠的路径搜索”
+fn normalize_slashes(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut last_separator = false;
+    for ch in input.chars() {
+        if ch == '/' || ch == '\\' {
+            if last_separator {
+                continue;
+            }
+            last_separator = true;
+            out.push('/');
+        } else {
+            last_separator = false;
+            out.push(ch);
+        }
+    }
+    out
+}
+
 fn indexed_of(path: &Path) -> Option<IndexedFile> {
     let metadata = std::fs::metadata(path).ok()?;
     let name = path.file_name()?.to_string_lossy().to_string();
@@ -312,7 +331,7 @@ fn indexed_of(path: &Path) -> Option<IndexedFile> {
     Some(IndexedFile {
         lower: name.to_lowercase(),
         name,
-        lower_path: full_path.to_lowercase(),
+        lower_path: normalize_slashes(&full_path.to_lowercase()),
         path: full_path,
         is_dir: metadata.is_dir(),
         size: if metadata.is_dir() { 0 } else { metadata.len() },
@@ -444,12 +463,26 @@ fn search_index(
     scope: Option<String>,
     limit: Option<usize>,
 ) -> Result<Vec<FileEntry>, String> {
-    // "foo bar" → 两段都要命中，类似 .*foo.*bar.* / .*bar.*foo.*
-    let tokens: Vec<String> = query
-        .split_whitespace()
-        .map(|part| part.to_lowercase())
-        .filter(|part| !part.is_empty())
-        .collect();
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+    // 带 / 或 \ 时按“路径片段”匹配：a/b/c、a//b//c、a\b\c、a\\b\\c 等价
+    let path_mode = trimmed.contains('/') || trimmed.contains('\\');
+    let tokens: Vec<String> = if path_mode {
+        let normalized = normalize_slashes(&trimmed.to_lowercase());
+        let normalized = normalized.trim_matches('/').to_string();
+        if normalized.is_empty() {
+            return Ok(Vec::new());
+        }
+        vec![normalized]
+    } else {
+        trimmed
+            .split_whitespace()
+            .map(|part| part.to_lowercase())
+            .filter(|part| !part.is_empty())
+            .collect()
+    };
     if tokens.is_empty() {
         return Ok(Vec::new());
     }
@@ -510,7 +543,7 @@ fn index_rename(from: &Path, to: &Path) {
         if let Ok(rest) = path.strip_prefix(from) {
             let next = to.join(rest);
             entry.path = next.to_string_lossy().to_string();
-            entry.lower_path = entry.path.to_lowercase();
+            entry.lower_path = normalize_slashes(&entry.path.to_lowercase());
             if let Some(name) = next.file_name() {
                 entry.name = name.to_string_lossy().to_string();
                 entry.lower = entry.name.to_lowercase();

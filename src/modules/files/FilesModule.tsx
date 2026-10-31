@@ -293,7 +293,11 @@ export default function FilesModule() {
   const tokens = needle
     .split(/\s+/)
     .filter(Boolean)
-    .map((token) => token.toLowerCase());
+    .flatMap((token) => {
+      // 路径查询：折叠重复分隔符，并同时给出 / 与 \ 两种写法用于高亮
+      const collapsed = token.toLowerCase().replace(/[\\/]+/g, "/");
+      return [collapsed, collapsed.replace(/\//g, "\\")];
+    });
   const indexing = !status.ready;
 
   return (
