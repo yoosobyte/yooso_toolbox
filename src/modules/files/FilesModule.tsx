@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { App as AntdApp, Button, Input, Modal, Tooltip, Typography } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
@@ -58,7 +58,14 @@ function typeLabel(entry: FileEntry, folderLabel: string, unknownLabel: string):
 
 function IndexingArt() {
   return (
-    <svg className="files-art files-art-spin" viewBox="0 0 64 64" aria-hidden="true">
+    <svg
+      className="files-art files-art-spin"
+      viewBox="0 0 64 64"
+      width={64}
+      height={64}
+      style={{ width: 64, height: 64, flex: "none" }}
+      aria-hidden="true"
+    >
       <circle cx="32" cy="32" r="24" fill="none" stroke="var(--border-strong)" strokeWidth="4" />
       <circle
         cx="32"
@@ -76,7 +83,14 @@ function IndexingArt() {
 
 function EmptyArt() {
   return (
-    <svg className="files-art" viewBox="0 0 64 64" aria-hidden="true">
+    <svg
+      className="files-art"
+      viewBox="0 0 64 64"
+      width={64}
+      height={64}
+      style={{ width: 64, height: 64, flex: "none" }}
+      aria-hidden="true"
+    >
       <rect x="12" y="14" width="28" height="36" rx="4" fill="none" stroke="var(--border-strong)" strokeWidth="2.5" />
       <path d="M19 24h14M19 31h14M19 38h9" stroke="var(--text-mute)" strokeWidth="2.5" strokeLinecap="round" />
       <circle cx="45" cy="42" r="9" fill="none" stroke="var(--text-mute)" strokeWidth="2.5" />
@@ -104,6 +118,8 @@ export default function FilesModule() {
   const [searching, setSearching] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const listRef = useRef<HTMLDivElement | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; entry: FileEntry | null } | null>(
     null,
   );
@@ -164,6 +180,19 @@ export default function FilesModule() {
       window.clearTimeout(timer);
     };
   }, [deferredQuery, scope, status.ready, reloadKey, message]);
+
+  /* 结果刷新后清空键盘选中 */
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [results]);
+
+  /* 键盘上下移动时保证当前行可见 */
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    listRef.current
+      ?.querySelector<HTMLElement>(".files-row.active")
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
 
   useEffect(() => {
     if (!menu) return;
@@ -316,7 +345,23 @@ export default function FilesModule() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && results[0]) void openEntry(results[0]);
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              // 上下键在输入框里只用来选结果，不移动光标
+              event.preventDefault();
+              if (results.length === 0) return;
+              setActiveIndex((index) => {
+                if (event.key === "ArrowDown") {
+                  return index < 0 ? 0 : Math.min(index + 1, results.length - 1);
+                }
+                return index < 0 ? results.length - 1 : Math.max(index - 1, 0);
+              });
+              return;
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              const entry = results[activeIndex] ?? results[0];
+              if (entry) void openEntry(entry);
+            }
           }}
         />
       </div>
@@ -342,7 +387,7 @@ export default function FilesModule() {
         ))}
       </div>
 
-      <div className="files-results">
+      <div className="files-results" ref={listRef}>
         {indexing ? (
           <div className="files-indexing">
             <IndexingArt />
@@ -370,19 +415,26 @@ export default function FilesModule() {
               </span>
             </div>
             <div className="files-columns">
+              <span />
               <span className="files-col-name">{t("files.colName")}</span>
               <span className="files-col-path">{t("files.colPath")}</span>
               <span className="files-col-type">{t("files.colType")}</span>
               <span className="files-col-size">{t("files.colSize")}</span>
               <span className="files-col-time">{t("files.colTime")}</span>
             </div>
-            {results.map((entry) => (
+            {results.map((entry, index) => (
               <div
                 key={entry.path}
-                className={`files-row${selected === entry.path ? " selected" : ""}`}
+                className={`files-row${selected === entry.path ? " selected" : ""}${
+                  activeIndex === index ? " active" : ""
+                }`}
                 draggable={false}
                 onDragStart={(event) => event.preventDefault()}
-                onMouseDown={() => setSelected(entry.path)}
+                onMouseEnter={() => setActiveIndex(index)}
+                onMouseDown={() => {
+                  setSelected(entry.path);
+                  setActiveIndex(index);
+                }}
                 onDoubleClick={() => void openEntry(entry)}
                 onContextMenu={(event) => {
                   event.preventDefault();
