@@ -89,7 +89,16 @@ function JsonNode({
       <div
         className={`json-line${isContainer ? " json-toggle" : ""}`}
         style={{ paddingLeft: depth * 16 }}
-        onClick={isContainer ? () => onToggle(path) : undefined}
+        onClick={
+          isContainer
+            ? () => {
+                // 正在选中文本时不要触发展开/折叠，否则没法复制片段
+                const selection = window.getSelection();
+                if (selection && selection.toString().length > 0) return;
+                onToggle(path);
+              }
+            : undefined
+        }
       >
         <span className="json-caret">{isContainer ? (open ? "▾" : "▸") : ""}</span>
         {name !== null && (
