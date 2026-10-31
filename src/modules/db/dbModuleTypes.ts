@@ -37,6 +37,8 @@ export interface TabMenuState {
   x: number;
   y: number;
   key: string;
+  /** 该页签所属数据库，用于「新建查询」 */
+  database: string;
 }
 
 /** 当前活动的连接 id；异步请求返回时用它判断连接是否已经切换 */
@@ -54,13 +56,10 @@ export const SYSTEM_DATABASES = new Set([
 export const MIN_SIDE_WIDTH = 200;
 export const MAX_SIDE_WIDTH = 560;
 
+/** 只有显式指定（连接配置默认库 / 新建库 / 刷新当前库）时才自动选中，
+ *  打开连接不再默认展开第一个库 */
 export function pickDatabase(databases: string[], preferred: string | null): string | null {
-  if (preferred && databases.includes(preferred)) return preferred;
-  return (
-    databases.find((name) => !SYSTEM_DATABASES.has(name.toLowerCase())) ??
-    databases[0] ??
-    null
-  );
+  return preferred && databases.includes(preferred) ? preferred : null;
 }
 
 /** 表格页签的 key：database.table */

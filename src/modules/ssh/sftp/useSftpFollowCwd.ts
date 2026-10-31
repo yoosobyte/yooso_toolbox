@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { shellCwd } from "../../../api";
 import { onTerminalOutput } from "../../../events";
 import { FOLLOW_KEY } from "./utils";
+import { loadStored, migrateStored, saveStored } from "../../../storage";
 
 /**
  * 「跟随终端 cwd」开关及同步逻辑：
@@ -13,7 +14,8 @@ export function useSftpFollowCwd(
   path: string,
   loadDir: (target: string) => Promise<void>,
 ) {
-  const [follow, setFollow] = useState(() => localStorage.getItem(FOLLOW_KEY) !== "0");
+  const [follow, setFollow] = useState(true);
+  const [followLoaded, setFollowLoaded] = useState(false);
   const lastFollowCwd = useRef<string | null>(null);
   const pathRef = useRef("");
   pathRef.current = path;
@@ -22,10 +24,26 @@ export function useSftpFollowCwd(
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
 
-  /* 记住「跟随」开关 */
+  /* 跟随开关存在后端凭据库 */
   useEffect(() => {
-    localStorage.setItem(FOLLOW_KEY, follow ? "1" : "0");
-  }, [follow]);
+    let alive = true;
+    void (async () => {
+      await migrateStored(FOLLOW_KEY, "sftp.follow");
+      const raw = await loadStored("sftp.follow");
+      if (alive) {
+        if (raw !== null) setFollow(raw !== "0");
+        setFollowLoaded(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!followLoaded) return;
+    void saveStored("sftp.follow", follow ? "1" : "0");
+  }, [follow, followLoaded]);
 
   const checkCwd = useCallback(async () => {
     const sid = sessionIdRef.current;

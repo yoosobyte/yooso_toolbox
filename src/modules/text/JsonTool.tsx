@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { App as AntdApp, Button, Segmented, Select } from "antd";
 import {
+  FileTextOutlined,
   AlignLeftOutlined,
   ClearOutlined,
   CompressOutlined,
@@ -14,20 +15,107 @@ import { useT } from "../../i18n";
 import { copyText } from "../../clipboard";
 import { errText, formatBytes } from "../../utils";
 import JsonTree, { collectContainerPaths, type JsonValue } from "./JsonTree";
-import { highlightJsonText } from "./jsonHighlight";
+import {
+  formatJsonInput,
+  highlightJsonText,
+  isWhitespaceOnlyChange,
+  mapCaret,
+} from "./jsonHighlight";
 
 const SAMPLE = JSON.stringify(
   {
-    name: "yooso-toolbox",
-    version: "0.1.0",
-    enabled: true,
-    modules: ["ssh", "api", "qrcode", "translate", "text"],
-    owner: {
-      name: "Yooso",
-      site: "https://www.yoosobyte.com",
-      since: 2024,
+    requestId: "0b6f1c2d-3e4f-5a6b-7c8d-9e0f1a2b3c4d",
+    traceId: "trace-2026-11-01T08:30:00.123Z-1a2b3c4d5e6f7g8h9i0j",
+    endpoint:
+      "https://api.example.com/v2/organizations/org_9f8e7d6c/projects/proj_5a4b3c2d/resources",
+    status: "SUCCEEDED_WITH_WARNINGS_PARTIAL_RETRY_SUGGESTED",
+    durationMs: 12734,
+    user: {
+      id: "usr_0123456789abcdef",
+      displayName: "张三（高级平台架构师 / 基础架构与可观测性团队）",
+      email: "zhangsan.platform-architecture@example-internal-domain.com",
     },
-    tags: null,
+    organization: {
+      id: "org_9f8e7d6c",
+      name: "示例科技（中国）有限公司 - 平台工程中心 - 基础架构组",
+      billingAccount: "acct_00112233445566778899",
+    },
+    resources: [
+      "https://cdn.example.com/assets/images/2026/11/01/very-long-file-name-for-testing-horizontal-width.png",
+      "https://cdn.example.com/assets/documents/2026/11/01/quarterly-platform-reliability-review-final-v12-signed.pdf",
+      "https://cdn.example.com/assets/archives/2026/11/01/metrics-export-2026-11-01T08-30-00Z.tar.gz",
+    ],
+    metrics: {
+      cpuUtilizationPercent: 87.42,
+      memoryUtilizationPercent: 93.18,
+      diskReadBytesPerSecond: 104857600,
+      diskWriteBytesPerSecond: 209715200,
+      networkInBytesPerSecond: 1258291.2,
+      networkOutBytesPerSecond: 838860.8,
+    },
+    labels: {
+      environment: "production-cn-east-1",
+      service: "platform-observability-collector",
+      version: "v3.14.159-rc.2+build.20261101",
+      team: "platform-architecture-observability",
+      costCenter: "CC-1042-PLATFORM-INFRASTRUCTURE",
+    },
+    slo: {
+      availabilityTargetPercent: 99.95,
+      availabilityActualPercent: 99.87,
+      latencyP99TargetMs: 250,
+      latencyP99ActualMs: 412,
+      errorBudgetRemainingPercent: 38.2,
+      burnRate: 2.75,
+    },
+    incidents: [
+      {
+        id: "inc_001",
+        title:
+          "Upstream database connection pool exhaustion causing elevated API latency",
+        severity: "SEV-2",
+        startedAt: "2026-11-01T06:12:44.001Z",
+        resolvedAt: "2026-11-01T07:48:19.887Z",
+      },
+    ],
+    featureFlags: {
+      enable_new_scheduler_v2: true,
+      enable_experimental_batching_pipeline: false,
+      enable_shadow_traffic_mirroring_for_canary: true,
+    },
+    regions: {
+      "cn-east-1": "healthy",
+      "cn-north-1": "degraded",
+      "cn-south-1": "healthy",
+      "ap-southeast-1": "unavailable",
+    },
+    retryPolicy: {
+      maxAttempts: 5,
+      initialBackoffMs: 500,
+      maxBackoffMs: 32000,
+      backoffMultiplier: 2,
+      jitter: true,
+    },
+    checksum:
+      "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    trackingUrl:
+      "https://tracking.example.com/click?ad=platform-campaign-2026-q4&campaign=reliability-review&source=observability-collector&medium=internal-report&content=quarterly-summary-with-extra-long-descriptive-parameters&term=api+latency+p99+degradation+incident+investigation&utm_referrer=https%3A%2F%2Fconsole.example.com%2Forganizations%2Forg_9f8e7d6c%2Fprojects%2Fproj_5a4b3c2d%2Fdashboards%2Fplatform-overview",
+    deep: {
+      level1: {
+        level2: {
+          level3: {
+            level4: {
+              level5: {
+                level6: {
+                  note: "六层嵌套，用来测试缩进与折叠层级",
+                  leaf: [1, 2, 3],
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   null,
   2,
@@ -66,6 +154,18 @@ export default function JsonTool() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [paths, setPaths] = useState<string[]>([]);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const caretRef = useRef<{ start: number; end: number } | null>(null);
+
+  /* 自动格式化后恢复光标，避免跳到末尾 */
+  useEffect(() => {
+    const caret = caretRef.current;
+    if (!caret) return;
+    caretRef.current = null;
+    const element = inputRef.current;
+    if (!element) return;
+    element.focus();
+    element.setSelectionRange(caret.start, caret.end);
+  }, [input]);
 
   const applyParsed = (parsed: JsonValue) => {
     setValue(parsed);
@@ -174,15 +274,6 @@ export default function JsonTool() {
           <span className="txt-panel-title">{t("text.tabJson")}</span>
           {stats && <span className="txt-meta">{stats}</span>}
           <span style={{ flex: 1 }} />
-          <Segmented
-            size="small"
-            value={view}
-            onChange={(next) => showTree(next === "tree")}
-            options={[
-              { value: "text", label: t("text.raw") },
-              { value: "tree", label: t("text.tree") },
-            ]}
-          />
           {view === "tree" && paths.length > 0 && (
             <Button
               size="small"
@@ -193,14 +284,15 @@ export default function JsonTool() {
               {allExpanded ? t("text.collapseAll") : t("text.expandAll")}
             </Button>
           )}
-          <Button
+          <Segmented
             size="small"
-            icon={<CopyOutlined />}
-            onClick={copyOutput}
-            disabled={!input.trim()}
-          >
-            {t("common.copy")}
-          </Button>
+            value={view}
+            onChange={(next) => showTree(next === "tree")}
+            options={[
+              { value: "tree", label: t("text.tree") },
+              { value: "text", label: t("text.raw") },
+            ]}
+          />
         </div>
 
         <div className={`txt-panel-body txt-json-body${view === "tree" ? " is-tree" : ""}`}>
@@ -230,7 +322,29 @@ export default function JsonTool() {
                   value={input}
                   spellCheck={false}
                   placeholder={t("text.jsonPlaceholder")}
-                  onChange={(event) => setInput(event.target.value)}
+                  onChange={(event) => {
+                    const raw = event.target.value;
+                    // 只是敲了回车 / 空格 / Tab：原样保留，绝不格式化
+                    if (isWhitespaceOnlyChange(input, raw)) {
+                      setInput(raw);
+                      return;
+                    }
+                    // 非空白编辑：解析成功就格式化，缩进跟随下方选项
+                    const formatted = formatJsonInput(
+                      raw,
+                      indent === "tab" ? "\t" : Number(indent),
+                    );
+                    if (formatted !== null && formatted !== raw) {
+                      const element = event.currentTarget;
+                      caretRef.current = {
+                        start: mapCaret(raw, element.selectionStart, formatted),
+                        end: mapCaret(raw, element.selectionEnd, formatted),
+                      };
+                      setInput(formatted);
+                      return;
+                    }
+                    setInput(raw);
+                  }}
                   onPaste={onPaste}
                   onScroll={(event) => {
                     const pre = event.currentTarget.previousElementSibling;
@@ -265,7 +379,15 @@ export default function JsonTool() {
           <Select
             size="small"
             value={indent}
-            onChange={setIndent}
+            onChange={(value) => {
+              setIndent(value);
+              // 缩进变化时立刻按新缩进重新格式化一次
+              const formatted = formatJsonInput(
+                input,
+                value === "tab" ? "\t" : Number(value),
+              );
+              if (formatted !== null) setInput(formatted);
+            }}
             className="txt-indent-select"
             options={[
               { value: "2", label: "2" },
@@ -274,15 +396,18 @@ export default function JsonTool() {
             ]}
           />
           <span style={{ flex: 1 }} />
-          <Button size="small" type="text" onClick={() => transform(SAMPLE, "format")}>
+          <Button
+            size="small"
+            icon={<FileTextOutlined />}
+            onClick={() => transform(SAMPLE, "format", false)}
+          >
             {t("text.sample")}
           </Button>
-          <Button size="small" type="text" icon={<ClearOutlined />} onClick={clear}>
+          <Button size="small" icon={<ClearOutlined />} onClick={clear}>
             {t("text.clear")}
           </Button>
           <Button
             size="small"
-            type="primary"
             icon={<AlignLeftOutlined />}
             disabled={!input.trim()}
             onClick={() => transform(input, "format")}
@@ -296,6 +421,14 @@ export default function JsonTool() {
             onClick={() => transform(input, "minify")}
           >
             {t("text.minify")}
+          </Button>
+          <Button
+            size="small"
+            icon={<CopyOutlined />}
+            onClick={copyOutput}
+            disabled={!input.trim()}
+          >
+            {t("common.copy")}
           </Button>
         </div>
       </section>

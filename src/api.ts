@@ -195,3 +195,41 @@ export const fsRevealPath = (path: string) => invoke<void>("fs_reveal_path", { p
 
 export const fsRename = (path: string, newName: string) =>
   invoke<string>("fs_rename", { path, newName });
+/* ------------------------------ 凭据库 ------------------------------ */
+
+export interface VaultStatus {
+  configured: boolean;
+  unlocked: boolean;
+}
+
+export const vaultStatus = () => invoke<VaultStatus>("vault_status");
+export const vaultAutoUnlock = () => invoke<void>("vault_auto_unlock");
+export const vaultReset = () => invoke<void>("vault_reset");
+
+/* --------------------------- 加密键值（凭据库） --------------------------- */
+
+export const secretGet = (key: string) =>
+  invoke<string | null>("secret_get", { key });
+export const secretSet = (key: string, value: string) =>
+  invoke<void>("secret_set", { key, value });
+export const secretDelete = (key: string) =>
+  invoke<void>("secret_delete", { key });
+
+/* ------------------------------ 备份 / 恢复 ------------------------------ */
+
+export interface ExportOptions {
+  sessions: boolean;
+  redis: boolean;
+  db: boolean;
+  secrets: string[];
+  ui: boolean;
+}
+
+export const configExport = (
+  path: string,
+  options: ExportOptions,
+  ui: string | null,
+) => invoke<void>("config_export", { path, options, ui });
+
+export const configImport = (path: string) =>
+  invoke<{ ui: string | null }>("config_import", { path });

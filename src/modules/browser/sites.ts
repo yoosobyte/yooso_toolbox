@@ -1,3 +1,5 @@
+import { loadStored, migrateStored, saveStored } from "../../storage";
+
 export interface BrowserSite {
   id: string;
   name: string;
@@ -9,7 +11,8 @@ export interface BrowserSite {
   icon?: string;
 }
 
-const STORAGE_KEY = "yooso.browser.sites.v1";
+const SECRET_KEY = "browser.sites";
+const LEGACY_KEY = "yooso.browser.sites.v1";
 
 const DEFAULT_SITES: BrowserSite[] = [
   {
@@ -57,9 +60,10 @@ function normalizeSite(raw: unknown): BrowserSite | null {
   };
 }
 
-export function loadSites(): BrowserSite[] {
+export async function loadSites(): Promise<BrowserSite[]> {
+  await migrateStored(LEGACY_KEY, SECRET_KEY);
+  const raw = await loadStored(SECRET_KEY);
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SITES.map((site) => ({ ...site }));
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return DEFAULT_SITES.map((site) => ({ ...site }));
@@ -77,10 +81,6 @@ export function loadSites(): BrowserSite[] {
   }
 }
 
-export function saveSites(sites: BrowserSite[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sites));
-  } catch {
-    /* ignore */
-  }
+export async function saveSites(sites: BrowserSite[]): Promise<void> {
+  await saveStored(SECRET_KEY, JSON.stringify(sites));
 }

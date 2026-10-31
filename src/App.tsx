@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Tooltip, Typography } from "antd";
 import {
@@ -32,7 +32,11 @@ import { RedisIcon } from "./modules/redis/icons";
 import DbModule from "./modules/db/DbModule";
 import Placeholder from "./modules/Placeholder";
 import SettingsPage from "./modules/SettingsPage";
+import VaultGate from "./VaultGate";
 import { useUiStore } from "./stores/uiStore";
+import { useApiStore } from "./stores/apiStore";
+import { cleanupLegacyKeys } from "./storage";
+import { useTerminalPrefs } from "./modules/ssh/terminalPrefs";
 import type { ModuleKey } from "./modules/keys";
 import { useT } from "./i18n";
 import AppLogo from "./AppLogo";
@@ -166,8 +170,32 @@ export default function App() {
   const [activeKey, setActiveKey] = useState<ModuleKey>(
     () => useUiStore.getState().defaultModule ?? "files",
   );
+  const initializeApiStore = useApiStore((state) => state.init);
+  const hydrateUi = useUiStore((state) => state.hydrate);
+
+  useEffect(() => {
+    void initializeApiStore();
+    void hydrateUi();
+    void cleanupLegacyKeys();
+    void useTerminalPrefs.getState().hydrate();
+  }, [initializeApiStore, hydrateUi]);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingBrowserUrl, setPendingBrowserUrl] = useState<string | null>(null);
+
+  /* 任意模块可以请求在内部浏览器打开链接 */
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const url = (event as CustomEvent<string>).detail;
+      if (!url) return;
+      setPendingBrowserUrl(url);
+      setMounted((prev) => ({ ...prev, browser: true }));
+      setActiveKey("browser");
+    };
+    window.addEventListener("yooso:open-browser", handler as EventListener);
+    return () =>
+      window.removeEventListener("yooso:open-browser", handler as EventListener);
+  }, []);
   // 头部模块（SSH / API）常驻；其余模块首次打开后再保持挂载，避免一启动就请求外网/占用资源
   const [mounted, setMounted] = useState<Partial<Record<ModuleKey, boolean>>>(() => {
     const initial: Partial<Record<ModuleKey, boolean>> = {
@@ -233,6 +261,7 @@ export default function App() {
   }, [moduleOrder, hiddenModules]);
 
   return (
+    <VaultGate>
     <div className={`app${showStatusBar ? "" : " no-statusbar"}`}>
       <aside className="rail">
         <div className="rail-logo" title="悦盒">
@@ -414,5 +443,6 @@ export default function App() {
       )}
 
     </div>
+    </VaultGate>
   );
 }

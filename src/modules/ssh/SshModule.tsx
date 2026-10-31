@@ -45,7 +45,7 @@ export default function SshModule() {
       </header>
 
       <div className="ssh-body">
-        <SessionList onCreate={openCreate} onEdit={openEdit} />
+        <SessionList onEdit={openEdit} />
         <div className="terminal-area">
           <TerminalTabs onCreate={openCreate} />
         </div>

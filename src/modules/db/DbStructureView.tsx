@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Spin } from "antd";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
@@ -6,6 +7,7 @@ import useDbStructureEditor from "./useDbStructureEditor";
 import DbStructureToolbar from "./DbStructureToolbar";
 import DbStructureTable from "./DbStructureTable";
 import DbStructureActions from "./DbStructureActions";
+import DbStructureContextMenu from "./DbStructureContextMenu";
 
 interface Props {
   connectionId: string;
@@ -22,6 +24,15 @@ export default function DbStructureView({ connectionId, database, table, refresh
     table,
     refreshToken,
   });
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [menu]);
+
   const editor = useDbStructureEditor({
     t,
     connectionId,
@@ -61,11 +72,36 @@ export default function DbStructureView({ connectionId, database, table, refresh
             <Spin size="small" />
           </div>
         ) : (
-          <DbStructureTable rows={rows} editor={editor} t={t} />
+          <DbStructureTable
+            rows={rows}
+            editor={editor}
+            t={t}
+            onRowContextMenu={(event, rowIndex) => {
+              if (!editor.selectedRows.has(rowIndex)) {
+                editor.selectRow(rowIndex, event);
+              }
+              setMenu({ x: event.clientX, y: event.clientY });
+            }}
+          />
         )}
       </div>
 
       <DbStructureActions editor={editor} rowCount={rows.length} t={t} />
+
+      {menu && (
+        <DbStructureContextMenu
+          x={menu.x}
+          y={menu.y}
+          selectedCount={editor.selectedRows.size}
+          canDelete={
+            editor.selectedRows.size > 0 && !editor.applying && !editor.draft
+          }
+          onDelete={() => {
+            setMenu(null);
+            editor.deleteSelected();
+          }}
+        />
+      )}
     </div>
   );
 }

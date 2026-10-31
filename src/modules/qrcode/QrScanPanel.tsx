@@ -4,14 +4,14 @@ import { App as AntdApp, Button, Tooltip } from "antd";
 import {
   CheckCircleOutlined,
   CopyOutlined,
-  FileImageOutlined,
   InboxOutlined,
   LinkOutlined,
   LoadingOutlined,
+  ClearOutlined,
+  QrcodeOutlined,
   ScanOutlined,
 } from "@ant-design/icons";
 import jsQR from "jsqr";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
 import { errText } from "../../utils";
@@ -71,19 +71,91 @@ export default function QrScanPanel({ onUseContent }: Props) {
       const source = await loadImageElement(url);
       const naturalWidth = source.naturalWidth || source.width;
       const naturalHeight = source.naturalHeight || source.height;
-      const scale = Math.min(1, MAX_EDGE / Math.max(naturalWidth, naturalHeight));
-      const width = Math.max(1, Math.round(naturalWidth * scale));
-      const height = Math.max(1, Math.round(naturalHeight * scale));
 
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) throw new Error("Canvas 2D unavailable");
-      ctx.drawImage(source, 0, 0, width, height);
-      const pixels = ctx.getImageData(0, 0, width, height);
+      /** 在指定区域上识别一次；区域会被缩放到 targetSize 像素宽 */
+      const decodeRegion = (
+        sx: number,
+        sy: number,
+        sw: number,
+        sh: number,
+        targetSize: number,
+        threshold?: number,
+      ) => {
+        if (sw < 24 || sh < 24) return null;
+        const ratio = sh / sw;
+        const width = Math.max(32, Math.round(targetSize));
+        const height = Math.max(32, Math.round(width * ratio));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) return null;
+        ctx.drawImage(source, sx, sy, sw, sh, 0, 0, width, height);
+        const pixels = ctx.getImageData(0, 0, width, height);
+        const data = pixels.data;
+        if (threshold !== undefined) {
+          // 灰度二值化：应对偏灰、对比度低的图（截图 / 缩放过的二维码）
+          for (let i = 0; i < data.length; i += 4) {
+            const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            const value = gray < threshold ? 0 : 255;
+            data[i] = value;
+            data[i + 1] = value;
+            data[i + 2] = value;
+          }
+        }
+        return jsQR(data, width, height, { inversionAttempts: "attemptBoth" });
+      };
 
-      const result = jsQR(pixels.data, width, height, { inversionAttempts: "attemptBoth" });
+      // 先整图，再按九宫格 + 中心区域裁剪：二维码可能只占画面的一小块
+      const attempts: [number, number, number, number, number][] = [];
+      const fullEdge = Math.max(naturalWidth, naturalHeight);
+      const fullTarget = Math.min(MAX_EDGE, Math.max(512, fullEdge));
+      attempts.push([0, 0, naturalWidth, naturalHeight, fullTarget]);
+      if (fullTarget < 1200) {
+        attempts.push([
+          0,
+          0,
+          naturalWidth,
+          naturalHeight,
+          Math.min(MAX_EDGE, fullTarget * 2),
+        ]);
+      }
+      for (let gy = 0; gy < 3; gy += 1) {
+        for (let gx = 0; gx < 3; gx += 1) {
+          attempts.push([
+            (naturalWidth * gx) / 3,
+            (naturalHeight * gy) / 3,
+            (naturalWidth / 3) * 1.6,
+            (naturalHeight / 3) * 1.6,
+            900,
+          ]);
+        }
+      }
+      attempts.push([
+        naturalWidth * 0.15,
+        naturalHeight * 0.15,
+        naturalWidth * 0.7,
+        naturalHeight * 0.7,
+        900,
+      ]);
+
+      let result = null;
+      // 第一轮：原图；第二轮：二值化（阈值从高到低，覆盖深浅不同的码）
+      for (const threshold of [undefined, 190, 160, 128, 100]) {
+        for (const [sx, sy, sw, sh, size] of attempts) {
+          result = decodeRegion(
+            Math.max(0, sx),
+            Math.max(0, sy),
+            Math.min(sw, naturalWidth - Math.max(0, sx)),
+            Math.min(sh, naturalHeight - Math.max(0, sy)),
+            size,
+            threshold,
+          );
+          if (result) break;
+        }
+        if (result) break;
+      }
+
       setImage({ url, name: file.name, width: naturalWidth, height: naturalHeight });
       if (!result) {
         setScanError(t("qr.scanNotFound"));
@@ -96,6 +168,14 @@ export default function QrScanPanel({ onUseContent }: Props) {
     } finally {
       setScanning(false);
     }
+  };
+
+  /** 清空当前图片与识别结果 */
+  const reset = () => {
+    if (image) URL.revokeObjectURL(image.url);
+    setImage(null);
+    setDecoded(null);
+    setScanError(null);
   };
 
   const onPick = (event: ChangeEvent<HTMLInputElement>) => {
@@ -119,8 +199,18 @@ export default function QrScanPanel({ onUseContent }: Props) {
     );
   };
 
-  const decodedUrl =
-    decoded && /^https?:\/\/\S+$/i.test(decoded.trim()) ? decoded.trim() : null;
+  /** 判断识别内容像不像一个可以打开的链接（支持 baidu.com 这种没有协议的写法） */
+  const decodedUrl = (() => {
+    if (!decoded) return null;
+    const value = decoded.trim();
+    if (!value || /\s/.test(value)) return null;
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return value;
+    // 域名（可带端口 / 路径）
+    if (/^[\w-]+(\.[\w-]+)+(\/[\w\-./?%&=#]*)?$/.test(value)) {
+      return `https://${value}`;
+    }
+    return null;
+  })();
 
   return (
     <div className="qr-body">
@@ -129,6 +219,10 @@ export default function QrScanPanel({ onUseContent }: Props) {
           <span className="qr-panel-title">
             <ScanOutlined /> {t("qr.scan")}
           </span>
+          <span style={{ flex: 1 }} />
+          <Tooltip title={t("qr.scanReset")}>
+            <Button size="small" type="text" icon={<ClearOutlined />} onClick={reset} />
+          </Tooltip>
         </div>
         <div className="qr-panel-scroll">
           <div
@@ -155,9 +249,6 @@ export default function QrScanPanel({ onUseContent }: Props) {
             <div className="qr-drop-title">
               {dragActive ? t("qr.scanDrop") : scanning ? t("qr.scanning") : t("qr.scanHint")}
             </div>
-            <Button size="small" icon={<FileImageOutlined />} loading={scanning}>
-              {t("qr.scanPick")}
-            </Button>
             <input
               ref={fileInputRef}
               type="file"
@@ -193,33 +284,38 @@ export default function QrScanPanel({ onUseContent }: Props) {
             {t("qr.scanResult")}
           </span>
           <span style={{ flex: 1 }} />
-          {decoded && (
-            <>
-              <Tooltip title={t("qr.openLink")}>
-                <Button
-                  size="small"
-                  icon={<LinkOutlined />}
-                  disabled={!decodedUrl}
-                  onClick={() => {
-                    if (!decodedUrl) return;
-                    void openUrl(decodedUrl).catch((error) =>
-                      message.error(errText(error)),
-                    );
-                  }}
-                />
-              </Tooltip>
-              <Button size="small" icon={<CopyOutlined />} onClick={copyResult}>
-                {t("common.copy")}
-              </Button>
-              <Button
-                size="small"
-                type="primary"
-                onClick={() => onUseContent(decoded)}
-              >
-                {t("qr.useAsContent")}
-              </Button>
-            </>
-          )}
+          <Button
+            size="small"
+            icon={<LinkOutlined />}
+            disabled={!decodedUrl}
+            onClick={() => {
+              if (!decodedUrl) return;
+              // 交给内部浏览器打开，不再调系统浏览器
+              window.dispatchEvent(
+                new CustomEvent("yooso:open-browser", { detail: decodedUrl }),
+              );
+            }}
+          >
+            {t("qr.openLink")}
+          </Button>
+          <Button
+            size="small"
+            icon={<CopyOutlined />}
+            disabled={!decoded}
+            onClick={copyResult}
+          >
+            {t("common.copy")}
+          </Button>
+          <Button
+            size="small"
+            icon={<QrcodeOutlined />}
+            disabled={!decoded}
+            onClick={() => {
+              if (decoded) onUseContent(decoded);
+            }}
+          >
+            {t("qr.useAsContent")}
+          </Button>
         </div>
 
         <div className="qr-preview-body qr-result-body">
@@ -230,7 +326,8 @@ export default function QrScanPanel({ onUseContent }: Props) {
               <span className="qr-empty-icon">
                 <ScanOutlined />
               </span>
-              <div className="qr-empty-title">{t("qr.scanEmpty")}</div>
+              <div className="app-empty-title">{t("qr.scanEmpty")}</div>
+              <div className="app-empty-hint">{t("qr.scanEmptyHint")}</div>
             </div>
           )}
         </div>

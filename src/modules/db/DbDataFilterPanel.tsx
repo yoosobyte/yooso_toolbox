@@ -3,6 +3,7 @@ import {
   CheckOutlined,
   ClearOutlined,
   CloseOutlined,
+  FilterFilled,
   FilterOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
@@ -47,8 +48,10 @@ export default function DbDataFilterPanel({
       <div className="db-view-toolbar">
         <Button
           size="small"
-          type="text"
-          icon={<FilterOutlined />}
+          type={filterOpen ? "primary" : "text"}
+          icon={
+            filterOpen || filterCount > 0 ? <FilterFilled /> : <FilterOutlined />
+          }
           disabled={disabled}
           onClick={(event) => {
             event.stopPropagation();

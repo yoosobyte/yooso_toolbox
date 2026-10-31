@@ -1,35 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-
-/** 左右分栏宽度：读写 localStorage，刷新后保持 */
-export function useSideWidth(
-  storageKey: string,
-  defaultWidth: number,
-  min = 200,
-  max = 560,
-): [number, (width: number) => void] {
-  const [width, setWidth] = useState(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      const value = raw === null ? Number.NaN : Number(raw);
-      if (Number.isFinite(value) && value >= min) {
-        return Math.min(max, value);
-      }
-    } catch {
-      /* ignore */
-    }
-    return defaultWidth;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, String(Math.round(width)));
-    } catch {
-      /* ignore */
-    }
-  }, [storageKey, width]);
-
-  return [width, setWidth];
-}
+import { useRef } from "react";
 
 interface SideResizerProps {
   width: number;

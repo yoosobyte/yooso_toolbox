@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, Input, Modal, Select, Tooltip, Typography } from "antd";
+import { App as AntdApp, Button, Input, Modal, Select, Tooltip, Typography } from "antd";
 import {
+  RobotOutlined,
   ArrowUpOutlined,
   ClearOutlined,
   FolderOpenOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { secretDelete, secretGet, secretSet } from "../../api";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useUiStore } from "../../stores/uiStore";
 import { AgentNavIcon } from "../../components/NavIcons";
 import { useT } from "../../i18n";
 import { inTauri } from "../../save";
+import { errText } from "../../utils";
+import { loadStored, saveStored } from "../../storage";
 import { renderMarkdown } from "../note/markdown";
 import {
   TOOL_SCHEMAS,
@@ -46,21 +50,28 @@ interface AiSettings {
 const SETTINGS_KEY = "yooso.ai.settings.v1";
 const DEFAULT_MODEL = "deepseek-chat";
 
-function loadSettings(): AiSettings {
+const AI_SECRET_KEY = "ai.apiKey";
+const AI_PREFS_KEY = "ai.settings";
+
+/** 读取本地旧的设置（apiKey 现已迁移到加密凭据库） */
+function readLocalSettings(): Partial<AiSettings> {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<AiSettings>;
-      return {
-        apiKey: typeof parsed.apiKey === "string" ? parsed.apiKey : "",
-        model: typeof parsed.model === "string" && parsed.model ? parsed.model : DEFAULT_MODEL,
-        workspace: typeof parsed.workspace === "string" ? parsed.workspace : "",
-      };
-    }
+    if (raw) return JSON.parse(raw) as Partial<AiSettings>;
   } catch {
     /* ignore */
   }
-  return { apiKey: "", model: DEFAULT_MODEL, workspace: "" };
+  return {};
+}
+
+function loadSettings(): AiSettings {
+  const local = readLocalSettings();
+  return {
+    // apiKey 启动后从加密凭据库异步读取
+    apiKey: "",
+    model: typeof local.model === "string" && local.model ? local.model : DEFAULT_MODEL,
+    workspace: typeof local.workspace === "string" ? local.workspace : "",
+  };
 }
 
 const SYSTEM_PROMPT = `你是「悦盒」里的 AI 编码助手，帮助用户阅读和修改项目代码。
@@ -82,6 +93,7 @@ function formatToolStatus(name: string, args: Record<string, unknown>): string {
 
 export default function AiModule() {
   const t = useT(useUiStore((state) => state.lang));
+  const { message } = AntdApp.useApp();
   const [settings, setSettings] = useState<AiSettings>(loadSettings);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [history, setHistory] = useState<ApiMessage[]>([]);
@@ -96,13 +108,77 @@ export default function AiModule() {
   const abortRef = useRef(false);
   const listRef = useRef<HTMLDivElement | null>(null);
 
+  /* 迁移完成前不要覆盖 localStorage，避免迁移失败时把旧 Key 抹掉 */
+  const migratedRef = useRef(false);
+
+  /* API Key 与 model/workspace 都存在加密凭据库 */
   useEffect(() => {
-    try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch {
-      /* ignore */
+    if (!inTauri()) {
+      migratedRef.current = true;
+      return;
     }
-  }, [settings]);
+    let alive = true;
+    void (async () => {
+      try {
+        // API Key
+        const storedKey = await secretGet(AI_SECRET_KEY);
+        if (storedKey) {
+          if (alive) setSettings((prev) => ({ ...prev, apiKey: storedKey }));
+        }
+
+        // model / workspace（旧版在 localStorage，迁移后删除）
+        const raw = await loadStored(AI_PREFS_KEY);
+        let prefs: { model?: string; workspace?: string } | null = null;
+        if (raw) {
+          try {
+            prefs = JSON.parse(raw) as { model?: string; workspace?: string };
+          } catch {
+            prefs = null;
+          }
+        }
+        const legacy = readLocalSettings();
+        if (!prefs && (legacy.model || legacy.workspace)) {
+          prefs = { model: legacy.model, workspace: legacy.workspace };
+          await saveStored(AI_PREFS_KEY, JSON.stringify(prefs));
+        }
+        if (!storedKey && legacy.apiKey?.trim()) {
+          await secretSet(AI_SECRET_KEY, legacy.apiKey.trim());
+          if (alive) setSettings((prev) => ({ ...prev, apiKey: legacy.apiKey!.trim() }));
+        }
+        // 旧 key 里可能还残留明文 apiKey，迁移完直接删掉
+        try {
+          localStorage.removeItem(SETTINGS_KEY);
+        } catch {
+          /* ignore */
+        }
+        if (prefs && alive) {
+          setSettings((prev) => ({
+            ...prev,
+            model: prefs?.model ?? prev.model,
+            workspace: prefs?.workspace ?? prev.workspace,
+          }));
+        }
+      } catch {
+        /* 凭据库不可用时保持默认 */
+      } finally {
+        migratedRef.current = true;
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // 只在挂载时执行一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* model / workspace 存后端凭据库 */
+  useEffect(() => {
+    if (!migratedRef.current) return;
+    void saveStored(
+      AI_PREFS_KEY,
+      JSON.stringify({ model: settings.model, workspace: settings.workspace }),
+    );
+  }, [settings.model, settings.workspace]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -124,12 +200,22 @@ export default function AiModule() {
   };
 
   const saveSettings = () => {
-    setSettings((prev) => ({
-      ...prev,
-      apiKey: draftKey.trim(),
-      model: draftModel || DEFAULT_MODEL,
-    }));
+    const apiKey = draftKey.trim();
+    setSettings((prev) => ({ ...prev, model: draftModel || DEFAULT_MODEL }));
     setSettingsOpen(false);
+    if (!inTauri()) {
+      setSettings((prev) => ({ ...prev, apiKey }));
+      return;
+    }
+    void (async () => {
+      try {
+        if (apiKey) await secretSet(AI_SECRET_KEY, apiKey);
+        else await secretDelete(AI_SECRET_KEY);
+        setSettings((prev) => ({ ...prev, apiKey }));
+      } catch (error) {
+        message.error(errText(error));
+      }
+    })();
   };
 
   const streamOnce = async (nextHistory: ApiMessage[]): Promise<ApiMessage> => {
@@ -296,7 +382,15 @@ export default function AiModule() {
       </div>
 
       <div className="ai-messages" ref={listRef}>
-        {messages.length === 0 && <div className="ai-empty">{t("ai.empty")}</div>}
+        {messages.length === 0 && (
+          <div className="ai-empty">
+            <span className="app-empty-glyph">
+              <RobotOutlined />
+            </span>
+            <div className="app-empty-title">{t("ai.emptyTitle")}</div>
+            <div className="app-empty-hint">{t("ai.empty")}</div>
+          </div>
+        )}
         {messages.map((message, index) => (
           <div key={index} className={`ai-message ${message.role}`}>
             <div className="ai-role">{message.role === "user" ? t("ai.you") : "AI"}</div>

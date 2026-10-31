@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { Button, Dropdown, Input, Spin, Tooltip } from "antd";
+import { Button, Input, Spin, Tooltip } from "antd";
 import {
   DeleteOutlined,
   DisconnectOutlined,
@@ -8,7 +8,7 @@ import {
   EditOutlined,
   EyeOutlined,
   FileTextOutlined,
-  MoreOutlined,
+  PlusOutlined,
   ReloadOutlined,
   RightOutlined,
   SearchOutlined,
@@ -56,6 +56,8 @@ interface Props {
   onEdit: (config: DbConfig) => void;
   onDelete: (config: DbConfig) => void;
   onDisconnect: (config: DbConfig) => void;
+  onNewTable: (database: string) => void;
+  onNewDatabase: (config: DbConfig) => void;
 }
 
 export default function DbTree({
@@ -86,9 +88,23 @@ export default function DbTree({
   onEdit,
   onDelete,
   onDisconnect,
+  onNewTable,
+  onNewDatabase,
 }: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const keyword = filter.trim().toLowerCase();
+  const [connMenu, setConnMenu] = useState<{
+    x: number;
+    y: number;
+    config: DbConfig;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!connMenu) return;
+    const close = () => setConnMenu(null);
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [connMenu]);
 
   const filtered = useMemo(() => {
     const result: Record<string, DbTableInfo[]> = {};
@@ -129,11 +145,81 @@ export default function DbTree({
         />
       </div>
 
+      {connMenu && (
+        <div
+          className="db-context-menu"
+          style={{ left: connMenu.x, top: connMenu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {connMenu.config.id === activeId && (
+            <button
+              type="button"
+              onClick={() => {
+                onDisconnect(connMenu.config);
+                setConnMenu(null);
+              }}
+            >
+              <DisconnectOutlined />
+              {t("db.disconnect")}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              onNewDatabase(connMenu.config);
+              setConnMenu(null);
+            }}
+          >
+            <DatabaseIcon />
+            {t("db.newDatabase")}
+          </button>
+          <button
+            type="button"
+            disabled={!activeDatabase}
+            onClick={() => {
+              if (!activeDatabase) return;
+              onNewTable(activeDatabase);
+              setConnMenu(null);
+            }}
+          >
+            <PlusOutlined />
+            {t("db.newTable")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onEdit(connMenu.config);
+              setConnMenu(null);
+            }}
+          >
+            <EditOutlined />
+            {t("db.edit")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onDelete(connMenu.config);
+              setConnMenu(null);
+            }}
+          >
+            <DeleteOutlined />
+            {t("common.delete")}
+          </button>
+        </div>
+      )}
+
       <div className="db-tree-scroll">
         {error && <div className="db-tree-error">{error}</div>}
 
         {connections.length === 0 && (
-          <div className="db-empty">{t("db.emptyConnections")}</div>
+          <div className="db-empty">
+            <span className="app-empty-glyph">
+              <DatabaseIcon />
+            </span>
+            <div className="app-empty-title">{t("db.emptyTitle")}</div>
+            <div className="app-empty-hint">{t("db.emptyConnections")}</div>
+          </div>
         )}
 
         {connections.map((config) => {
@@ -146,6 +232,10 @@ export default function DbTree({
                 className={`db-tree-conn${active ? " active" : ""}`}
                 style={{ "--db-conn-color": connectionColor(config.color) } as CSSProperties}
                 onClick={() => onToggleConnection(config)}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setConnMenu({ x: event.clientX, y: event.clientY, config });
+                }}
                 role="button"
                 tabIndex={0}
                 title={`${config.name ? `${config.name} · ` : ""}${config.host}:${config.port}`}
@@ -165,53 +255,6 @@ export default function DbTree({
                 </span>
                 {connecting && <Spin size="small" />}
                 {active && <span className="db-tree-live" />}
-                <span className="db-tree-conn-actions">
-                  <Dropdown
-                    trigger={["click"]}
-                    placement="bottomRight"
-                    menu={{
-                      className: "db-conn-menu",
-                      items: [
-                        ...(active
-                          ? [
-                              {
-                                key: "disconnect",
-                                label: t("db.disconnect"),
-                                icon: <DisconnectOutlined />,
-                              },
-                              { type: "divider" as const },
-                            ]
-                          : []),
-                        {
-                          key: "edit",
-                          label: t("db.edit"),
-                          icon: <EditOutlined />,
-                        },
-                        { type: "divider" as const },
-                        {
-                          key: "delete",
-                          label: t("common.delete"),
-                          icon: <DeleteOutlined />,
-                          danger: true,
-                        },
-                      ],
-                      onClick: ({ key }) => {
-                        if (key === "disconnect") onDisconnect(config);
-                        else if (key === "edit") onEdit(config);
-                        else if (key === "delete") onDelete(config);
-                      },
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className="db-tree-icon-btn"
-                      title={t("db.more")}
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <MoreOutlined />
-                    </button>
-                  </Dropdown>
-                </span>
               </div>
 
               {expanded && (

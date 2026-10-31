@@ -18,7 +18,16 @@ export function terminalTheme(theme: Theme): ITheme {
   return terminalThemeFor(theme);
 }
 
-/** 创建 Terminal 时使用的完整选项（基础选项 + 当前主题） */
-export function terminalOptions(theme: Theme): ITerminalOptions {
-  return { ...TERMINAL_OPTIONS, theme: terminalTheme(theme) };
+/** 创建 Terminal 时使用的完整选项（基础选项 + 字体偏好 + 当前主题） */
+export function terminalOptions(
+  theme: Theme,
+  font?: string,
+  size?: number,
+): ITerminalOptions {
+  return {
+    ...TERMINAL_OPTIONS,
+    ...(font ? { fontFamily: font } : {}),
+    ...(size ? { fontSize: size } : {}),
+    theme: terminalTheme(theme),
+  };
 }

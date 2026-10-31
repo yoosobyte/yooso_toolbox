@@ -24,10 +24,14 @@ export default function DbNewTableModal({
   const t = useT(useUiStore((state) => state.lang));
   const { message } = AntdApp.useApp();
   const [name, setName] = useState("");
+  const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setName("");
+    if (open) {
+      setName("");
+      setComment("");
+    }
   }, [open]);
 
   const create = async () => {
@@ -38,9 +42,12 @@ export default function DbNewTableModal({
     }
     setSaving(true);
     try {
+      const commentSql = comment.trim()
+        ? ` COMMENT='${comment.trim().replace(/'/g, "''")}'`
+        : "";
       await dbExecDdl(
         connectionId,
-        `CREATE TABLE ${qualified(database, table)} (\`id\` BIGINT NOT NULL AUTO_INCREMENT, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+        `CREATE TABLE ${qualified(database, table)} (\`id\` BIGINT NOT NULL AUTO_INCREMENT, PRIMARY KEY (\`id\`)) ENGINE=InnoDB${commentSql}`,
       );
       message.success(t("db.tableCreated"));
       onCreated(table);
@@ -69,6 +76,15 @@ export default function DbNewTableModal({
           value={name}
           placeholder={t("db.tableNamePlaceholder")}
           onChange={(event) => setName(event.target.value)}
+          onPressEnter={() => void create()}
+        />
+      </div>
+      <div className="db-field">
+        <span className="db-label">{t("db.tableComment")}</span>
+        <Input
+          value={comment}
+          placeholder={t("db.tableCommentPlaceholder")}
+          onChange={(event) => setComment(event.target.value)}
           onPressEnter={() => void create()}
         />
       </div>

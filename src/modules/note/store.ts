@@ -1,4 +1,5 @@
 import type { NoteFont } from "./fonts";
+import { loadStored, migrateStored, saveStored } from "../../storage";
 
 export type NoteFormat = "md" | "txt" | "json";
 
@@ -15,7 +16,8 @@ export interface Note {
   updatedAt: number;
 }
 
-const STORAGE_KEY = "yooso.notes.v1";
+const SECRET_KEY = "notes";
+const LEGACY_KEY = "yooso.notes.v1";
 const NOTE_FONT_KEYS: Record<string, true> = {
   system: true,
   sans: true,
@@ -52,11 +54,12 @@ function normalizeNote(raw: unknown): Note | null {
   };
 }
 
-/** 读取本机保存的笔记，按更新时间倒序 */
-export function loadNotes(): Note[] {
+/** 读取本机保存的笔记，按更新时间倒序（加密凭据库） */
+export async function loadNotes(): Promise<Note[]> {
+  await migrateStored(LEGACY_KEY, SECRET_KEY);
+  const raw = await loadStored(SECRET_KEY);
+  if (!raw) return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
@@ -68,12 +71,8 @@ export function loadNotes(): Note[] {
   }
 }
 
-export function saveNotes(notes: Note[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-  } catch {
-    /* 存储空间不可用时忽略 */
-  }
+export async function saveNotes(notes: Note[]): Promise<void> {
+  await saveStored(SECRET_KEY, JSON.stringify(notes));
 }
 
 export function createNote(format: NoteFormat = "md"): Note {

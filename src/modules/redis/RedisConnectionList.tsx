@@ -1,5 +1,6 @@
 import { Button, Tooltip } from "antd";
 import {
+  KeyOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
@@ -47,7 +48,13 @@ export default function RedisConnectionList({
 
         <div className="redis-conn-scroll">
           {connections.length === 0 && (
-            <div className="redis-side-empty">{t("redis.emptyConnections")}</div>
+            <div className="redis-side-empty">
+              <span className="app-empty-glyph">
+                <KeyOutlined />
+              </span>
+              <div className="app-empty-title">{t("redis.emptyTitle")}</div>
+              <div className="app-empty-hint">{t("redis.emptyHint")}</div>
+            </div>
           )}
 
           {connections.map((config) => {

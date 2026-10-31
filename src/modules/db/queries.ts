@@ -1,3 +1,5 @@
+import { loadStored, migrateStored, saveStored } from "../../storage";
+
 export interface DbQueryDef {
   id: string;
   connectionId: string;
@@ -7,11 +9,13 @@ export interface DbQueryDef {
   createdAt: number;
 }
 
-const STORAGE_KEY = "yooso.toolbox.db.queries.v1";
+const SECRET_KEY = "db.queries";
+const LEGACY_KEY = "yooso.toolbox.db.queries.v1";
 
-export function loadQueries(): DbQueryDef[] {
+export async function loadQueries(): Promise<DbQueryDef[]> {
+  await migrateStored(LEGACY_KEY, SECRET_KEY);
+  const raw = await loadStored(SECRET_KEY);
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
@@ -31,12 +35,8 @@ export function loadQueries(): DbQueryDef[] {
   }
 }
 
-export function saveQueries(queries: DbQueryDef[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(queries));
-  } catch {
-    // localStorage 不可用时仅保留当前会话内状态。
-  }
+export async function saveQueries(queries: DbQueryDef[]): Promise<void> {
+  await saveStored(SECRET_KEY, JSON.stringify(queries));
 }
 
 export function createQueryDef(

@@ -134,11 +134,11 @@ export default function ResponsePanel({
         )}
         {!error && !response && (
           <div className="api-empty-state">
-            <span className="api-empty-icon">
+            <span className="app-empty-glyph">
               <InboxOutlined />
             </span>
-            <div className="api-empty-title">{t("api.responseEmptyTitle")}</div>
-            <div className="api-empty-hint">{t("api.responseEmptyHint")}</div>
+            <div className="app-empty-title">{t("api.responseEmptyTitle")}</div>
+            <div className="app-empty-hint">{t("api.responseEmptyHint")}</div>
           </div>
         )}
         {response && tab === "body" && (

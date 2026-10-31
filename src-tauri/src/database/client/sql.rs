@@ -194,12 +194,16 @@ pub(super) fn table_data_sql(
 }
 
 pub(super) fn validate_ddl(statement: &str) -> Result<(), String> {
-    let value = statement.trim();
+    // 允许语句末尾带分号（SQL 预览 / 手工输入都常见），只拒绝语句内部的分号
+    let value = statement.trim().trim_end_matches(';').trim();
     if value.is_empty() {
         return Err("DDL 语句不能为空".to_string());
     }
     let upper = value.to_ascii_uppercase();
     let allowed = [
+        "CREATE DATABASE ",
+        "ALTER DATABASE ",
+        "DROP DATABASE ",
         "ALTER TABLE ",
         "CREATE TABLE ",
         "DROP TABLE ",
@@ -210,7 +214,7 @@ pub(super) fn validate_ddl(statement: &str) -> Result<(), String> {
         "CREATE UNIQUE INDEX ",
     ];
     if !allowed.iter().any(|prefix| upper.starts_with(prefix)) {
-        return Err("只允许执行建表/改表/索引相关的 DDL 语句".to_string());
+        return Err("只允许执行库/表/索引相关的 DDL 语句".to_string());
     }
     if value.contains(';') || value.contains("--") || value.contains("/*") || value.contains("*/") {
         return Err("DDL 语句不能包含多条语句或注释".to_string());

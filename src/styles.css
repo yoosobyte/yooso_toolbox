@@ -391,6 +391,22 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
+.ssh-list-empty {
+  flex: 1;
+  /* 抵消 .sessions-list 的 8px 内边距，让渐变贴边 */
+  margin: -8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 12px;
+  text-align: center;
+  background:
+    radial-gradient(320px 160px at 50% 30%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
+}
+
 .sessions-list {
   flex: 1;
   min-height: 0;
@@ -1746,12 +1762,61 @@ body.sftp-resizing .sftp-resizer::after {
 
 .about-card {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+}
+
+.about-brand {
+  flex: none;
+}
+
+/* 五个徽标（GitHub / 网站 / Tauri / React / AntD）与品牌 Logo 同尺寸 */
+.about-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.about-badge {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-2);
+  font-size: 23px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.about-badge:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface);
+}
+
+/* 公司 Logo 徽标：图片缩小，四周留出黑边 */
+.about-badge-logo {
+  overflow: hidden;
+  padding: 5px;
+}
+
+.about-badge-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 7px;
+  display: block;
 }
 
 .about-brand {
@@ -1761,12 +1826,12 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .about-logo {
-  width: 38px;
-  height: 38px;
+  width: 46px;
+  height: 46px;
   flex: none;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 12px;
   background: linear-gradient(135deg, var(--accent), #6366f1);
   color: #fff;
   font-size: 13px;
@@ -1913,8 +1978,40 @@ body.sftp-resizing .sftp-resizer::after {
 .api-side-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 4px 6px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 请求 / 历史：标题固定，只有列表区各自滚动 */
+.api-side-scroll > .api-group {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.api-side-scroll > .api-group + .api-group {
+  margin-top: 8px;
+}
+
+.api-group-head {
+  flex: none;
+}
+
+.api-group-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.api-side-empty {
+  margin-block: auto;
 }
 
 .api-group + .api-group {
@@ -2051,19 +2148,23 @@ body.sftp-resizing .sftp-resizer::after {
 
 .api-item-remove {
   flex: none;
-  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
   background: transparent;
   color: var(--text-mute);
+  font-size: 12px;
+  line-height: 1;
   cursor: pointer;
-  padding: 2px;
-  opacity: 0;
-}
-
-.api-item:hover .api-item-remove {
-  opacity: 1;
 }
 
 .api-item-remove:hover {
+  border-color: var(--danger);
   color: var(--danger);
 }
 
@@ -2082,23 +2183,27 @@ body.sftp-resizing .sftp-resizer::after {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 40px;
+  height: 32px;
   flex: none;
 }
 
-/* 一行里所有控件严格等高 40px：下拉 / 输入框 / 按钮 */
+/* 一行里所有控件严格等高 32px（与左侧「新建请求」按钮一致） */
 .api-bar > *,
 .api-bar .ant-btn,
 .api-bar .ant-input-affix-wrapper,
+.api-bar .ant-select,
+.api-bar .ant-select .ant-select-content {
+  height: 32px !important;
+}
 
-
-.api-bar .ant-select-selector {
-  height: 40px !important;
+.api-bar .ant-select .ant-select-content {
+  display: flex;
+  align-items: center;
 }
 
 .api-bar .ant-select-selection-item,
 .api-bar .ant-select-selection-placeholder {
-  line-height: 38px !important;
+  line-height: 30px !important;
 }
 
 .api-bar .ant-btn {
@@ -2108,7 +2213,7 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .api-bar .anticon {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .api-method {
@@ -2117,7 +2222,7 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .api-new {
-  height: 40px;
+  height: 32px;
 }
 
 .api-url {
@@ -2129,8 +2234,8 @@ body.sftp-resizing .sftp-resizer::after {
 
 .api-url.ant-input,
 .api-url .ant-input {
-  height: 40px;
-  line-height: 40px;
+  height: 32px;
+  line-height: 32px;
 }
 
 .api-url .ant-input-group-addon {
@@ -2304,12 +2409,12 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .kv-thead {
-  height: 32px;
+  height: 34px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--text-mute);
+  color: var(--text-dim);
 }
 
 .kv-thead .kv-cell {
@@ -2403,6 +2508,26 @@ body.sftp-resizing .sftp-resizer::after {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 请求体编辑器撑满剩余空间（拖动分隔条时跟着变高） */
+.api-card-body:has(.api-body-editor) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.api-body-editor .api-body-area {
+  flex: 1;
+  min-height: 64px;
+  resize: none;
+}
+
+.api-body-editor .api-json-editor {
+  flex: 1;
+  min-height: 64px;
 }
 
 .api-body-tools {
@@ -2772,10 +2897,14 @@ body.sftp-resizing .sftp-resizer::after {
 .qr-preview-body {
   flex: 1;
   min-height: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 18px;
   overflow: auto;
+  background:
+    radial-gradient(700px 320px at 50% 35%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
 }
 
 .qr-canvas-box {
@@ -2783,19 +2912,31 @@ body.sftp-resizing .sftp-resizer::after {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  width: 100%;
   max-width: 100%;
+}
+
+.qr-svg-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  /* 缩放按「可用高度」映射：20% 很小，100% 正好铺满预览区且不超出窗口 */
+  width: min(100%, calc((100vh - 170px) * var(--qr-zoom, 0.8)));
 }
 
 .qr-svg {
   display: flex;
   justify-content: center;
-  width: min(360px, 100%, 52vh);
+  width: 100%;
 }
 
 .qr-svg svg {
   display: block;
   width: 100%;
   height: auto;
+  max-width: 100%;
   border-radius: 6px;
   box-shadow: 0 8px 26px var(--shadow);
 }
@@ -2814,21 +2955,25 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .qr-empty-icon {
-  width: 52px;
-  height: 52px;
+  position: relative;
+  width: 64px;
+  height: 64px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  border: 1px dashed var(--border-strong);
-  background: var(--surface);
-  color: var(--text-mute);
+  border-radius: 18px;
+  border: 1px solid var(--border-strong);
+  color: var(--accent-text);
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  box-shadow: 0 10px 30px var(--shadow);
   font-size: 22px;
 }
 
 .qr-empty-title {
   max-width: 320px;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  line-height: 1.5;
 }
 
 .qr-error {
@@ -2907,8 +3052,9 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .qr-thumb {
-  max-width: 100%;
-  max-height: 240px;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
@@ -2922,19 +3068,28 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .qr-result-body {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  overflow: auto;
+}
+
+/* 只有空状态在可视区垂直居中；识别结果正常顶部对齐 */
+.qr-result-body > .qr-empty-state {
+  margin-block: auto;
+  align-self: center;
 }
 
 .qr-result-pre {
   margin: 0;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-2);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
   font-family: "Cascadia Mono", "Consolas", monospace;
-  font-size: 13px;
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
   user-select: text;
@@ -3026,6 +3181,7 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .tr-hint {
+  white-space: pre-line;
   font-size: 12px;
   line-height: 1.5;
   color: var(--text-mute);
@@ -3138,6 +3294,7 @@ body.sftp-resizing .sftp-resizer::after {
   font-family: "Cascadia Mono", "Consolas", monospace;
 }
 
+.tr-input textarea,
 .tr-input.ant-input {
   font-family: "Cascadia Mono", "Consolas", monospace;
   font-size: 13px;
@@ -3155,6 +3312,7 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .tr-empty-state {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3163,13 +3321,24 @@ body.sftp-resizing .sftp-resizer::after {
   min-height: 220px;
   padding: 20px;
   text-align: center;
+  background:
+    radial-gradient(520px 240px at 50% 32%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
   color: var(--text-mute);
   font-size: 13px;
 }
 
 .tr-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
   font-size: 28px;
-  color: var(--text-mute);
+  color: var(--accent-text);
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  box-shadow: 0 10px 30px var(--shadow);
 }
 
 .tr-result-text {
@@ -3442,6 +3611,9 @@ body.sftp-resizing .sftp-resizer::after {
   min-height: 0;
   overflow: auto;
   padding: 10px 12px;
+  background:
+    radial-gradient(520px 240px at 50% 20%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
 }
 
 .txt-output-body {
@@ -3451,6 +3623,7 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .txt-empty {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3461,6 +3634,9 @@ body.sftp-resizing .sftp-resizer::after {
   text-align: center;
   color: var(--text-mute);
   font-size: 13px;
+  background:
+    radial-gradient(560px 260px at 50% 32%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
 }
 
 .txt-empty-icon {
@@ -3469,6 +3645,11 @@ body.sftp-resizing .sftp-resizer::after {
   justify-content: center;
   font-size: 26px;
   color: var(--text-mute);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+.txt-empty-glyph {
+  font-size: 26px;
   font-family: "Cascadia Mono", "Consolas", monospace;
 }
 
@@ -3670,8 +3851,49 @@ body.sftp-resizing .sftp-resizer::after {
   cursor: text;
 }
 
+/* 对比视图：做成一本摊开的书 */
+.txt-diff-cols {
+  position: relative;
+  background: var(--bg);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 22px 46px -30px rgb(0 0 0 / 85%),
+    0 0 0 1px rgb(255 255 255 / 3%);
+}
+
+.txt-col {
+  position: relative;
+}
+
+/* 左页：书脊在右，近脊处压暗，纸面向左变浅 */
+.txt-col:first-child {
+  background:
+    linear-gradient(270deg, rgb(0 0 0 / 62%) 0, rgb(0 0 0 / 0%) 104px),
+    linear-gradient(270deg, transparent 4%, var(--accent-soft) 30%, transparent 86%),
+    var(--bg-deep);
+  box-shadow:
+    inset -30px 0 46px -26px rgb(0 0 0 / 98%),
+    inset 34px 0 46px -40px rgb(0 0 0 / 92%);
+}
+
+/* 右页：镜像 */
+.txt-col:last-child {
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 62%) 0, rgb(0 0 0 / 0%) 104px),
+    linear-gradient(90deg, transparent 4%, var(--accent-soft) 30%, transparent 86%),
+    var(--bg-deep);
+  box-shadow:
+    inset 30px 0 46px -26px rgb(0 0 0 / 98%),
+    inset -34px 0 46px -40px rgb(0 0 0 / 92%);
+}
+
+/* 书脊折痕：中线一道暗线 + 两侧微光 */
 .txt-col + .txt-col {
-  border-left: 1px solid var(--border);
+  border-left: 1px solid rgb(0 0 0 / 72%);
+  box-shadow:
+    inset 22px 0 36px -26px rgb(0 0 0 / 95%),
+    -1px 0 0 rgb(255 255 255 / 10%);
 }
 
 .txt-mirror {
@@ -3950,11 +4172,20 @@ body.sftp-resizing .sftp-resizer::after {
 }
 
 .redis-side-empty {
-  padding: 16px 12px;
+  flex: 1;
+  margin: -8px;
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 220px;
   text-align: center;
-  font-size: 12.5px;
-  line-height: 1.6;
   color: var(--text-mute);
+  background:
+    radial-gradient(320px 160px at 50% 30%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
 }
 
 .redis-main {
@@ -4033,8 +4264,10 @@ body.sftp-resizing .sftp-resizer::after {
   padding: 24px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--bg-panel);
   text-align: center;
+  background:
+    radial-gradient(700px 320px at 50% 30%, var(--accent-soft) 0%, transparent 72%),
+    var(--bg-panel);
 }
 
 .redis-welcome-icon {
@@ -4274,10 +4507,22 @@ body.sftp-resizing .sftp-resizer::after {
   text-align: center;
   color: var(--text-mute);
   font-size: 13px;
+  background:
+    radial-gradient(640px 300px at 50% 32%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
 }
 
 .redis-empty-icon {
-  font-size: 26px;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  font-size: 28px;
+  color: var(--accent-text);
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  box-shadow: 0 10px 30px var(--shadow);
 }
 
 .redis-string-editor {
@@ -4447,13 +4692,23 @@ body.sftp-resizing .sftp-resizer::after {
   overflow: auto;
   padding: 10px 12px;
   background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
 }
 
 .redis-console-empty {
-  padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 16px;
   text-align: center;
-  font-size: 12.5px;
   color: var(--text-mute);
+  background:
+    radial-gradient(520px 240px at 50% 32%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
 }
 
 .redis-console-line {
@@ -4759,11 +5014,17 @@ body.db-resizing {
 }
 
 .db-empty {
-  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 220px;
+  padding: 20px 12px;
   text-align: center;
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: var(--text-mute);
+  background:
+    radial-gradient(320px 160px at 50% 30%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
 }
 
 .db-conn-empty {
@@ -4888,6 +5149,14 @@ body.db-resizing {
   min-height: 0;
   overflow: auto;
   padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 空状态在连接树区域里垂直居中，有数据时按正常顺序堆叠 */
+.db-tree-scroll > .db-empty {
+  flex: 1;
+  margin-block: auto;
 }
 
 .db-tree-conn {
@@ -5142,9 +5411,11 @@ body.db-resizing {
   padding: 24px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--bg-panel);
   text-align: center;
   color: var(--text-mute);
+  background:
+    radial-gradient(700px 320px at 50% 30%, var(--accent-soft) 0%, transparent 72%),
+    var(--bg-panel);
   font-size: 13px;
 }
 
@@ -5459,8 +5730,12 @@ body.db-resizing {
 
 .db-check {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
+}
+
+.db-check .db-hint {
+  margin: 0;
 }
 
 .db-test-row {
@@ -6515,7 +6790,8 @@ body.db-resizing {
 }
 
 .about-logo {
-  padding: 0;
+  /* 内部图形略微内缩，底色保持透明 */
+  padding: 3px;
   overflow: hidden;
   background: transparent;
   color: inherit;
@@ -6889,6 +7165,10 @@ body.note-resizing {
 }
 
 .note-list-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 18px 8px;
   text-align: center;
   color: var(--text-mute);
@@ -7030,8 +7310,13 @@ body.note-resizing {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
   color: var(--text-mute);
+  background:
+    radial-gradient(700px 320px at 50% 32%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
 }
 
 .note-empty-icon {
@@ -7339,6 +7624,10 @@ body.side-resizing {
   min-height: 0;
   overflow: auto;
   padding: 22px 24px;
+  background:
+    radial-gradient(900px 460px at 50% -8%, var(--accent-soft) 0%, transparent 68%),
+    radial-gradient(620px 320px at 88% 102%, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, var(--surface) 0%, var(--bg) 55%);
 }
 
 .browser-home-title {
@@ -7580,11 +7869,19 @@ body.side-resizing {
 
 .ai-empty {
   margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px;
   color: var(--text-mute);
-  font-size: 12px;
   text-align: center;
-  line-height: 1.8;
-  max-width: 320px;
+}
+
+.ai-messages:has(> .ai-empty) {
+  background:
+    radial-gradient(640px 300px at 50% 32%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
 }
 
 .ai-message {
@@ -8237,16 +8534,59 @@ body.side-resizing {
   font-size: 11px;
 }
 
+.files-results.is-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 参考 SSH 空白页：顶部淡淡的光晕渐变 */
+  background:
+    radial-gradient(760px 340px at 50% 28%, var(--accent-soft) 0%, transparent 72%),
+    var(--bg);
+}
+
+.files-results.is-placeholder .files-empty,
+.files-results.is-placeholder .files-indexing {
+  padding: 0;
+}
+
 .files-empty,
 .files-error {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 46px 12px;
   text-align: center;
   color: var(--text-mute);
   font-size: 12.5px;
+}
+
+.files-empty-glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  margin-bottom: 4px;
+  border-radius: 20px;
+  font-size: 36px;
+  color: var(--accent-text);
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.files-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.files-empty-hint {
+  font-size: 12.5px;
+  color: var(--text-mute);
+  line-height: 1.5;
 }
 
 .files-error {
@@ -8279,15 +8619,22 @@ body.side-resizing {
   }
 }
 
-.files-indexing-title {
-  margin-bottom: 8px;
-  color: var(--text-2);
-  font-size: 14px;
+.files-indexing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
 }
 
-.files-indexing-hint {
-  color: var(--text-mute);
-  font-size: 12px;
+/* 索引卡片：转圈 SVG 自带旋转动画，这里只保证不溢出 */
+.files-empty-glyph.is-spinning {
+  overflow: hidden;
+}
+
+/* 卡片内的图标去掉外边距，保证严格居中 */
+.files-empty-glyph .files-art {
+  margin: 0;
 }
 
 .files-menu {
@@ -8454,6 +8801,9 @@ body.side-resizing {
 
 /* JSON 输入高亮：透明 textarea 叠在彩色 pre 上 */
 .txt-json-editor {
+  background:
+    radial-gradient(520px 240px at 50% 20%, var(--accent-soft) 0%, transparent 72%),
+    transparent;
   position: relative;
   flex: 1;
   min-height: 0;
@@ -8585,4 +8935,523 @@ body.side-resizing {
 .note-module.is-fullscreen .note-body {
   flex: 1;
   min-height: 0;
+}
+
+/* 新建数据库（参照 Navicat） */
+.db-newdb {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.db-newdb-tabs {
+  display: flex;
+  justify-content: center;
+}
+
+.db-newdb-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 12px 8px;
+}
+
+.db-newdb-form .db-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.db-newdb-form .db-label {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.db-newdb-sql {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 凭据库解锁屏 */
+.vault-screen {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 0%, #16161d 0%, #0a0a0c 70%);
+}
+
+.vault-card {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 26px 24px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.vault-logo {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+.vault-title {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vault-desc {
+  color: var(--text-mute);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+
+.vault-hint {
+  color: var(--text-mute);
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+/* 设置：修改主密码 */
+.settings-vault {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+  margin-top: 8px;
+}
+
+/* 设置：备份与恢复按钮 */
+.settings-backup {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+/* SSH 终端外观设置 */
+.term-prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px;
+}
+
+.term-prefs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.term-prefs-label {
+  width: 34px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* 笔记 JSON 编辑：透明 textarea 叠在彩色 pre 上 */
+.note-json-editor {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.note-json-highlight {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-2);
+  line-height: 1.65;
+}
+
+.note-json-input {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  color: transparent;
+  caret-color: var(--text);
+  background: transparent;
+}
+
+.note-json-highlight .tok-key {
+  color: #7dd3fc;
+}
+
+.note-json-highlight .tok-str {
+  color: #a5e8a1;
+}
+
+.note-json-highlight .tok-num {
+  color: #fbbf24;
+}
+
+.note-json-highlight .tok-lit {
+  color: #c4b5fd;
+}
+
+.note-json-highlight .tok-punc {
+  color: var(--text-mute);
+}
+
+/* 数据库连接弹窗底部：测试连接在左，取消/保存在右 */
+.db-modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.db-modal-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.db-modal-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 连接测试结果：按钮上方单独占一块 */
+.db-test-result {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.db-test-result.is-ok {
+  border: 1px solid color-mix(in srgb, #22c55e 45%, var(--border));
+  background: color-mix(in srgb, #22c55e 10%, transparent);
+  color: #86efac;
+}
+
+.db-test-result.is-error {
+  border: 1px solid color-mix(in srgb, #ef4444 45%, var(--border));
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+  color: #fca5a5;
+}
+
+/* 统一连接表单里 Input 与 Select 的高度（antd 6 的 Select 内部是 .ant-select-content） */
+.db-form .ant-select {
+  height: 32px;
+}
+
+.db-form .ant-select .ant-select-content {
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.db-form .ant-select .ant-select-content .db-type-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+/* API 请求体 JSON：透明 textarea 叠在彩色 pre 上 */
+.api-json-editor {
+  position: relative;
+  min-height: 64px;
+  display: flex;
+}
+
+.api-json-highlight {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.api-json-input {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  resize: vertical;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.api-json-highlight .tok-key {
+  color: #7dd3fc;
+}
+
+.api-json-highlight .tok-str {
+  color: #a5e8a1;
+}
+
+.api-json-highlight .tok-num {
+  color: #fbbf24;
+}
+
+.api-json-highlight .tok-lit {
+  color: #c4b5fd;
+}
+
+.api-json-highlight .tok-punc {
+  color: var(--text-mute);
+}
+
+/* API 上下分栏：请求区可拖动调整高度 */
+.api-editor-slot {
+  flex: none;
+  min-height: 0;
+  max-height: 52%;
+  display: flex;
+  flex-direction: column;
+}
+
+.api-editor-slot > .api-card {
+  flex: 1;
+  min-height: 0;
+}
+
+.api-card-request {
+  max-height: none;
+}
+
+.api-split {
+  flex: none;
+  position: relative;
+  height: 13px;
+  margin: -8px 0;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.api-split::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 34px;
+  height: 3px;
+  margin: -1.5px 0 0 -17px;
+  border-radius: 3px;
+  background: var(--border-strong);
+  transition: background 0.15s ease;
+}
+
+.api-split:hover::after {
+  background: var(--accent);
+}
+
+body.row-resizing {
+  cursor: row-resize;
+  user-select: none;
+}
+
+/* 二维码分组标题行：右侧放操作按钮 */
+.qr-group-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qr-group-title-row > span {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 二维码文字标注：预览里可拖动 */
+.qr-canvas-box {
+  position: relative;
+}
+
+.qr-caption-box {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  max-width: 90%;
+  padding: 2px 6px;
+  line-height: 1.05;
+  letter-spacing: 0;
+  border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  border-radius: 4px;
+  font-weight: 600;
+  white-space: pre-wrap;
+  text-align: center;
+  cursor: move;
+  user-select: none;
+  line-height: 1.2;
+}
+
+.qr-caption-box:hover {
+  border-color: var(--accent);
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* 二维码文字标注：多条编辑卡片 */
+.qr-caption-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.qr-caption-item.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.qr-caption-item-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qr-caption-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qr-color-mini {
+  flex: none;
+  width: 42px;
+  min-width: 42px;
+  height: 22px;
+}
+
+.qr-caption-box.is-active {
+  border-color: var(--accent);
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* 二维码预览缩放滑块 */
+.qr-zoom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 120px;
+  flex: none;
+}
+
+.qr-preview-zoom-value {
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.qr-zoom .ant-slider {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.qr-caption-item-row .ant-segmented {
+  flex: none;
+}
+
+.qr-download-label {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* 通用空状态：渐变图标卡片 + 标题 + 说明 */
+.app-empty-glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  font-size: 28px;
+  color: var(--accent-text);
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.app-empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.app-empty-hint {
+  font-size: 12.5px;
+  color: var(--text-mute);
+  line-height: 1.5;
+}
+
+/* API 响应空状态：撑满 + 居中 + 渐变背景 */
+.api-empty-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 0;
+  text-align: center;
+  background:
+    radial-gradient(560px 260px at 50% 30%, var(--accent-soft) 0%, transparent 72%),
+    var(--bg);
+}
+
+/* API 历史空状态：同样居中 + 渐变 */
+.api-side-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--text-mute);
+  line-height: 1.65;
 }

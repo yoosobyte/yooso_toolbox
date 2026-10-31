@@ -15,10 +15,10 @@ import KeyTreeView from "./KeyTreeView";
 import {
   formatTtlLabel,
   KEY_VIEW_STORAGE,
-  readStoredKeyView,
   type RedisKeyView,
 } from "./browserTypes";
 import { formatTtlShort } from "./ttl";
+import { loadStored, migrateStored, saveStored } from "../../storage";
 
 interface Props {
   pattern: string;
@@ -53,17 +53,31 @@ export default function RedisKeyPanel({
   onSelectKey,
 }: Props) {
   const t = useT(useUiStore((state) => state.lang));
-  const [keyView, setKeyView] = useState<RedisKeyView>(readStoredKeyView);
+  const [keyView, setKeyView] = useState<RedisKeyView>("tree");
+  const [keyViewLoaded, setKeyViewLoaded] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const tree = useMemo(() => buildKeyTree(keys), [keys]);
 
+  /* 键视图偏好存在后端凭据库 */
   useEffect(() => {
-    try {
-      localStorage.setItem(KEY_VIEW_STORAGE, keyView);
-    } catch {
-      /* 忽略存储失败 */
-    }
-  }, [keyView]);
+    let alive = true;
+    void (async () => {
+      await migrateStored(KEY_VIEW_STORAGE, "redis.keyView");
+      const raw = await loadStored("redis.keyView");
+      if (alive) {
+        if (raw === "list") setKeyView("list");
+        setKeyViewLoaded(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!keyViewLoaded) return;
+    void saveStored("redis.keyView", keyView);
+  }, [keyView, keyViewLoaded]);
 
   const toggleFolder = (id: string) => {
     setCollapsedFolders((prev) => {

@@ -6,13 +6,21 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { copyText, pasteText } from "../../clipboard";
 import { useUiStore } from "../../stores/uiStore";
 import { terminalOptions, terminalTheme } from "./terminalThemes";
+import { fontStack, useTerminalPrefs } from "./terminalPrefs";
 
 /**
  * 创建一个挂好 fit / web-links 插件的 xterm 实例。
  * 实例的销毁与 SSH 连接生命周期仍由调用方（TerminalView）负责。
  */
 export function createXterm(container: HTMLElement): { term: Terminal; fit: FitAddon } {
-  const term = new Terminal(terminalOptions(useUiStore.getState().activeTheme));
+  const prefs = useTerminalPrefs.getState();
+  const term = new Terminal(
+    terminalOptions(
+      useUiStore.getState().activeTheme,
+      fontStack(prefs.font),
+      prefs.size,
+    ),
+  );
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.loadAddon(
@@ -106,6 +114,8 @@ export function useXterm() {
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const activeTheme = useUiStore((state) => state.activeTheme);
+  const font = useTerminalPrefs((state) => state.font);
+  const size = useTerminalPrefs((state) => state.size);
 
   /* 主题切换时同步终端配色 */
   useEffect(() => {
@@ -113,6 +123,19 @@ export function useXterm() {
       termRef.current.options.theme = terminalTheme(activeTheme);
     }
   }, [activeTheme]);
+
+  /* 字体 / 字号变化时实时应用到已打开的终端 */
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    term.options.fontFamily = fontStack(font);
+    term.options.fontSize = size;
+    try {
+      fitRef.current?.fit();
+    } catch {
+      /* 容器尚未挂载时忽略 */
+    }
+  }, [font, size]);
 
   return { termRef, fitRef };
 }

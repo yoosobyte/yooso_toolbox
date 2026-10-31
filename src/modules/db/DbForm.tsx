@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { App as AntdApp, Button, Checkbox, Input, InputNumber, Modal, Select } from "antd";
-import { CheckOutlined } from "@ant-design/icons";
+import { CheckOutlined, LinkOutlined } from "@ant-design/icons";
 import { useDbStore } from "../../stores/dbStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
@@ -60,6 +60,11 @@ export default function DbForm({ open, initial, onClose, onSaved }: Props) {
   const patch = (next: Partial<DbConfig>) => setDraft((prev) => ({ ...prev, ...next }));
 
   const test = async () => {
+    // 主机和用户名必填；密码允许为空（有些数据库没有密码）
+    if (!draft.host.trim() || !draft.username?.trim()) {
+      message.warning(t("db.fillRequired"));
+      return;
+    }
     setTesting(true);
     setTestResult(null);
     try {
@@ -110,15 +115,103 @@ export default function DbForm({ open, initial, onClose, onSaved }: Props) {
       confirmLoading={saving}
       width={580}
       destroyOnHidden
+      footer={
+        <div className="db-modal-footer">
+          <div className="db-modal-footer-left">
+            <Button
+              icon={<LinkOutlined />}
+              onClick={() => void test()}
+              loading={testing}
+            >
+              {testing ? t("db.testing") : t("db.test")}
+            </Button>
+          </div>
+          <div className="db-modal-footer-right">
+            <Button onClick={onClose}>{t("common.cancel")}</Button>
+            <Button
+              type="primary"
+              loading={saving}
+              disabled={!draft.host.trim()}
+              onClick={() => void save()}
+            >
+              {t("common.save")}
+            </Button>
+          </div>
+        </div>
+      }
     >
       <div className="db-form">
         <div className="db-form-grid">
+
+          <label className="db-field">
+            <span className="db-label">{t("db.type")}</span>
+            <Select
+              value={draft.kind}
+              onChange={(value) => patch({ kind: value })}
+              options={[
+                {
+                  value: "mysql",
+                  label: (
+                    <span className="db-type-option">
+                      <MysqlIcon />
+                      MySQL
+                    </span>
+                  ),
+                },
+              ]}
+            />
+            <span className="db-hint">{t("db.onlyMysqlHint")}</span>
+          </label>
           <label className="db-field">
             <span className="db-label">{t("db.name")}</span>
             <Input
               value={draft.name}
               placeholder={t("db.namePlaceholder")}
               onChange={(event) => patch({ name: event.target.value })}
+            />
+          </label>
+          <label className="db-field">
+            <span className="db-label">{t("db.host")}</span>
+            <Input
+              value={draft.host}
+              placeholder="127.0.0.1"
+              onChange={(event) => patch({ host: event.target.value })}
+            />
+          </label>
+          <label className="db-field">
+            <span className="db-label">{t("db.port")}</span>
+            <InputNumber
+              min={1}
+              max={65535}
+              value={draft.port}
+              style={{ width: "100%" }}
+              onChange={(value) => patch({ port: Number(value) || 3306 })}
+            />
+          </label>
+          <label className="db-field">
+            <span className="db-label">{t("db.username")}</span>
+            <Input
+              value={draft.username ?? ""}
+              placeholder="root"
+              autoComplete="off"
+              onChange={(event) => patch({ username: event.target.value })}
+            />
+          </label>
+          <label className="db-field">
+            <span className="db-label">{t("db.password")}</span>
+            <Input.Password
+              value={draft.password ?? ""}
+              placeholder={t("db.passwordPlaceholder")}
+              autoComplete="new-password"
+              onChange={(event) => patch({ password: event.target.value })}
+            />
+          </label>
+          <label className="db-field">
+            <span className="db-label">{t("db.database")}</span>
+            <Input
+              value={draft.database ?? ""}
+              placeholder={t("db.databasePlaceholder")}
+              onChange={(event) => patch({ database: event.target.value })}
             />
           </label>
           <label className="db-field">
@@ -145,72 +238,6 @@ export default function DbForm({ open, initial, onClose, onSaved }: Props) {
               )}
             </div>
           </label>
-          <label className="db-field">
-            <span className="db-label">{t("db.type")}</span>
-            <Select
-              value={draft.kind}
-              onChange={(value) => patch({ kind: value })}
-              options={[
-                {
-                  value: "mysql",
-                  label: (
-                    <span className="db-type-option">
-                      <MysqlIcon />
-                      MySQL
-                    </span>
-                  ),
-                },
-              ]}
-            />
-            <span className="db-hint">{t("db.onlyMysqlHint")}</span>
-          </label>
-
-          <label className="db-field">
-            <span className="db-label">{t("db.host")}</span>
-            <Input
-              value={draft.host}
-              placeholder="127.0.0.1"
-              onChange={(event) => patch({ host: event.target.value })}
-            />
-          </label>
-          <label className="db-field">
-            <span className="db-label">{t("db.port")}</span>
-            <InputNumber
-              min={1}
-              max={65535}
-              value={draft.port}
-              style={{ width: "100%" }}
-              onChange={(value) => patch({ port: Number(value) || 3306 })}
-            />
-          </label>
-
-          <label className="db-field">
-            <span className="db-label">{t("db.username")}</span>
-            <Input
-              value={draft.username ?? ""}
-              placeholder="root"
-              autoComplete="off"
-              onChange={(event) => patch({ username: event.target.value })}
-            />
-          </label>
-          <label className="db-field">
-            <span className="db-label">{t("db.password")}</span>
-            <Input.Password
-              value={draft.password ?? ""}
-              placeholder={t("db.passwordPlaceholder")}
-              autoComplete="new-password"
-              onChange={(event) => patch({ password: event.target.value })}
-            />
-          </label>
-
-          <label className="db-field db-field-wide">
-            <span className="db-label">{t("db.database")}</span>
-            <Input
-              value={draft.database ?? ""}
-              placeholder={t("db.databasePlaceholder")}
-              onChange={(event) => patch({ database: event.target.value })}
-            />
-          </label>
         </div>
 
         <div className="db-check">
@@ -223,16 +250,14 @@ export default function DbForm({ open, initial, onClose, onSaved }: Props) {
           <span className="db-hint">{t("db.savePasswordHint")}</span>
         </div>
 
-        <div className="db-test-row">
-          <Button size="small" onClick={() => void test()} loading={testing}>
-            {testing ? t("db.testing") : t("db.test")}
-          </Button>
-          {testResult && (
-            <span className={testResult.ok ? "db-test-ok" : "db-test-error"}>
-              {testResult.text}
-            </span>
-          )}
-        </div>
+        {testResult && (
+          <div
+            className={`db-test-result${testResult.ok ? " is-ok" : " is-error"}`}
+          >
+            {testResult.text}
+          </div>
+        )}
+
       </div>
     </Modal>
   );
