@@ -8097,6 +8097,41 @@ body.side-resizing {
   font-size: 11.5px;
 }
 
+.files-columns {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 6px 40px;
+  color: var(--text-mute);
+  font-size: 11px;
+}
+
+.files-col-name {
+  flex: 0 0 42%;
+}
+
+.files-col-path {
+  flex: 1;
+  min-width: 0;
+}
+
+.files-col-type {
+  width: 56px;
+  flex: none;
+}
+
+.files-col-size {
+  width: 70px;
+  flex: none;
+  text-align: right;
+}
+
+.files-col-time {
+  width: 92px;
+  flex: none;
+  text-align: right;
+}
+
 .files-row {
   display: flex;
   align-items: center;
@@ -8162,6 +8197,13 @@ body.side-resizing {
   font-size: 11px;
 }
 
+.files-type {
+  width: 56px;
+  flex: none;
+  color: var(--text-mute);
+  font-size: 11px;
+}
+
 .files-time {
   width: 92px;
   flex: none;
@@ -8172,6 +8214,10 @@ body.side-resizing {
 
 .files-empty,
 .files-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   padding: 46px 12px;
   text-align: center;
   color: var(--text-mute);
@@ -8183,8 +8229,29 @@ body.side-resizing {
 }
 
 .files-indexing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 60px 16px;
   text-align: center;
+}
+
+.files-art {
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  opacity: 0.85;
+}
+
+.files-art-spin {
+  animation: files-spin 1.1s linear infinite;
+}
+
+@keyframes files-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .files-indexing-title {
