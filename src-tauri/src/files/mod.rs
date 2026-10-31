@@ -629,6 +629,103 @@ pub fn fs_copy_to_clipboard(paths: Vec<String>) -> Result<(), String> {
     clipboard_copy_files(&paths)
 }
 
+/* ------------------------------------------------------------------ */
+/* 打开文件 / 在资源管理器（访达）中定位                                */
+/* ------------------------------------------------------------------ */
+
+#[cfg(windows)]
+fn platform_open(path: &str, reveal: bool) -> Result<(), String> {
+    use windows::core::{PCWSTR, w};
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    let (file, params) = if reveal {
+        ("explorer.exe".to_string(), format!("/select,\"{path}\""))
+    } else {
+        (path.to_string(), String::new())
+    };
+
+    let file_wide: Vec<u16> = file.encode_utf16().chain(std::iter::once(0)).collect();
+    let params_wide: Vec<u16> = params.encode_utf16().chain(std::iter::once(0)).collect();
+    let params_ptr = if reveal {
+        PCWSTR(params_wide.as_ptr())
+    } else {
+        PCWSTR::null()
+    };
+
+    let result = unsafe {
+        ShellExecuteW(
+            None,
+            w!("open"),
+            PCWSTR(file_wide.as_ptr()),
+            params_ptr,
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    if result.0 as isize <= 32 {
+        Err("打开失败（系统拒绝或文件已不存在）".to_string())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn platform_open(path: &str, reveal: bool) -> Result<(), String> {
+    let mut command = std::process::Command::new("open");
+    if reveal {
+        command.arg("-R");
+    }
+    let status = command
+        .arg(path)
+        .status()
+        .map_err(|error| format!("打开失败: {error}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("打开失败".to_string())
+    }
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn platform_open(path: &str, reveal: bool) -> Result<(), String> {
+    let target = if reveal {
+        Path::new(path)
+            .parent()
+            .map(|parent| parent.to_string_lossy().to_string())
+            .unwrap_or_else(|| path.to_string())
+    } else {
+        path.to_string()
+    };
+    let status = std::process::Command::new("xdg-open")
+        .arg(&target)
+        .status()
+        .map_err(|error| format!("打开失败: {error}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("打开失败".to_string())
+    }
+}
+
+/// 用系统默认程序打开文件 / 文件夹
+#[tauri::command]
+pub fn fs_open_path(path: String) -> Result<(), String> {
+    if !Path::new(&path).exists() {
+        return Err("文件不存在".to_string());
+    }
+    platform_open(&path, false)
+}
+
+/// 在资源管理器 / 访达中定位文件
+#[tauri::command]
+pub fn fs_reveal_path(path: String) -> Result<(), String> {
+    if !Path::new(&path).exists() {
+        return Err("文件不存在".to_string());
+    }
+    platform_open(&path, true)
+}
+
 /// 删除到系统回收站（本地磁盘内）
 #[tauri::command]
 pub fn fs_delete(paths: Vec<String>) -> Result<(), String> {

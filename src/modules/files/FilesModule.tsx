@@ -2,14 +2,15 @@ import { useDeferredValue, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { App as AntdApp, Button, Input, Modal, Tooltip, Typography } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import dayjs from "dayjs";
 import {
   fsCopyToClipboard,
   fsDelete,
   fsIndexBuild,
   fsIndexStatus,
+  fsOpenPath,
   fsRename,
+  fsRevealPath,
   fsRoots,
   fsSearch,
 } from "../../api";
@@ -134,7 +135,7 @@ export default function FilesModule() {
 
   const openEntry = async (entry: FileEntry) => {
     try {
-      await openPath(entry.path);
+      await fsOpenPath(entry.path);
     } catch (err) {
       message.error(errText(err));
     }
@@ -142,7 +143,7 @@ export default function FilesModule() {
 
   const reveal = async (entry: FileEntry) => {
     try {
-      await revealItemInDir(entry.path);
+      await fsRevealPath(entry.path);
     } catch (err) {
       message.error(errText(err));
     }
@@ -150,7 +151,7 @@ export default function FilesModule() {
 
   const openLocation = async (entry: FileEntry) => {
     try {
-      await openPath(parentOf(entry.path));
+      await fsOpenPath(parentOf(entry.path));
     } catch (err) {
       message.error(errText(err));
     }
