@@ -94,11 +94,15 @@ pub fn browser_eval(app: tauri::AppHandle, label: String, script: String) -> Res
 
 /// 创建浏览器子 WebView。
 ///
+/// 注意：这里必须是 async。同步 Tauri 命令在主线程执行时，`add_child` 会把创建
+/// 任务投递到主线程并阻塞等待，Windows 上会直接死锁（表现就是子 WebView 不存在、
+/// 页面一片空白）。async 命令运行在异步运行时线程上，主线程才能完成真正的创建。
+///
 /// 由 Rust 侧创建而不是前端 `new Webview(...)`，是为了能挂上 `on_navigation`
 /// 与 `on_new_window`：前者接住拦截脚本转来的新标签地址，后者兜住表单 / iframe
 /// 等其它路径发起的开窗请求，统一转成应用内的新标签页。
 #[tauri::command]
-pub fn browser_create_webview(
+pub async fn browser_create_webview(
     app: tauri::AppHandle,
     label: String,
     url: String,
