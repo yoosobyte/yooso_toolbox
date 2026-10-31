@@ -185,6 +185,32 @@ npm run rename:bundles
 > `yooso_box_0.1.1_x64-setup.exe`、`yooso_box_0.1.1.dmg`
 > （直接 `npm run tauri build` 生成的是 `悦盒_0.1.1_x64-setup.exe`，再跑一次 `npm run rename:bundles` 即可；脚本按 `tauri.conf.json` 的版本号命名。）
 
+## 项目结构
+
+前后端都按「功能域」组织；大文件拆成「组合根 + 子组件 / hook / 纯函数」，对外导出和调用路径保持不变。
+
+前端 `src/`：
+
+- `modules/<domain>/`：`db`、`ssh`、`redis`、`api`、`browser`、`note`、`text`、`qrcode`、`translate`、`tools`、`ai`
+  - `db/`：`DbModule`（组合根）+ `DbTabsBar` / `DbTabContent` / `DbContextMenus` + `useDbSession` / `useDbCatalog` / `useDbTabs` / `useDbTableActions` 等 hook + `DbStructure*` / `DbData*` 视图
+  - `ssh/`：`TerminalView` + `useXterm` / `terminalThemes` / `TerminalToolbar` / `TerminalContextMenu`，`sftp/` 子目录放 SFTP 面板的组件与 hook
+  - `api/`：`ApiModule` + `RequestEditor` / `ResponsePanel` / `RequestSidebar` / `SaveRequestModal` + `helpers.ts`
+  - `browser/`：`BrowserModule` + `BrowserTabs` / `BrowserToolbar` / `BrowserContent` / `BrowserHome` + `useNativeWebviews`
+  - `redis/`：`RedisBrowser` + `RedisKeyPanel` / `RedisValueDetail` / `RedisKeyDialogs` + `useRedisKeyList` / `useRedisKeyDetail`
+- `i18n/`：`zh.ts`、`en.ts`、`index.ts`（字典与运行时分离）
+- 共享层：`api.ts`、`types.ts`、`stores/`、`components/`、`utils.ts`、`theme.ts`、`save.ts` 等
+
+后端 `src-tauri/src/`：
+
+- `core/models/`：`ssh.rs`、`db.rs`、`redis.rs`、`update.rs`、`common.rs`，统一从 `crate::core::models::*` 导出
+- `database/client/`：`mod.rs`（连接/配置命令）、`query.rs`、`schema.rs`、`rows.rs`、`sql.rs`
+- `ssh/commands/`：`session.rs`、`shell.rs`、`sftp.rs`、`process.rs`、`tests.rs`
+- `redis/client/`：`mod.rs`、`scan.rs`、`value.rs`、`write.rs`、`command.rs`、`tests.rs`
+- 其余：`ssh/client.rs`、`ssh/sftp.rs`、`api/`、`translate/`、`update/`、`ai/`、`core/store.rs`
+
+> ⚠️ 拆后端命令模块时，`#[tauri::command]` 会同时生成 `__cmd__*` / `__tauri_command_name_*` 隐藏宏，`generate_handler!` 依赖它们。
+> 所以子模块必须用 **glob** 重导出（`pub use query::*;`），不要改成逐个 `pub use query::db_query;`，否则会报 `could not find __cmd__...`。
+
 ### 应用图标
 
 - 图标由 `scripts/make_icons.py` 从 `src/AppLogo.tsx` 的设计（黑底圆角方块 + 白色立方体线稿）直接重绘生成，不依赖 `tauri icon`：
@@ -216,6 +242,12 @@ npm run rename:bundles
 - 可执行文件：`src-tauri/target/release/yooso-toolbox.exe`（实测 8.89 MB）
 - Windows 安装包：`src-tauri/target/release/bundle/nsis/yooso_box_0.1.1_x64-setup.exe`（实测 3.48 MB）
 - macOS 安装包：`src-tauri/target/release/bundle/dmg/yooso_box_0.1.1.dmg`（在 mac 上执行 `npm run tauri:build:mac` 生成）
+
+安装位置（`productName` 用 ASCII 的 `yoosoBox`，避免中文路径引发的问题）：
+
+- Windows：`%LOCALAPPDATA%\yoosoBox`（currentUser 模式），快捷方式/卸载项名称随之为 `yoosoBox`
+- macOS：`yoosoBox.app`；Dock / 菜单栏仍显示「悦盒」（`src-tauri/Info.plist` 覆盖了 `CFBundleName`、`CFBundleDisplayName`）
+- 窗口标题、安装向导配图仍然使用「悦盒」品牌
 
 单独校验前端：
 
