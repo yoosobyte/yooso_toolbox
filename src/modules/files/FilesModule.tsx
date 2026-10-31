@@ -1,14 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { App as AntdApp, Button, Input, Modal, Tooltip, Typography } from "antd";
-import { ArrowLeftOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import dayjs from "dayjs";
-import { fsDelete, fsList, fsRename, fsRoots, fsSearch } from "../../api";
+import {
+  fsDelete,
+  fsIndexBuild,
+  fsIndexStatus,
+  fsRename,
+  fsRoots,
+  fsSearch,
+} from "../../api";
 import { copyText } from "../../clipboard";
 import { useT } from "../../i18n";
 import { useUiStore } from "../../stores/uiStore";
-import type { FileEntry, FileRoot } from "../../types";
+import type { FileEntry, FileRoot, IndexStatus } from "../../types";
 import { errText, formatBytes } from "../../utils";
 import { FilesNavIcon } from "../../components/NavIcons";
 import FilesContextMenu from "./FilesContextMenu";
@@ -18,86 +25,97 @@ function parentOf(path: string): string {
   return path.replace(/[\\/][^\\/]+$/, "");
 }
 
-/** Everything 风格的文件搜索 / 浏览：只访问个人目录，不碰系统敏感目录 */
+function Highlight({ text, needle }: { text: string; needle: string }) {
+  if (!needle) return <>{text}</>;
+  const index = text.toLowerCase().indexOf(needle);
+  if (index < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, index)}
+      <mark className="files-hit">{text.slice(index, index + needle.length)}</mark>
+      {text.slice(index + needle.length)}
+    </>
+  );
+}
+
+/** Everything 风格：后台建立文件索引，输入文件名直接查内存索引 */
 export default function FilesModule() {
   const t = useT(useUiStore((state) => state.lang));
   const { message, modal } = AntdApp.useApp();
 
   const [roots, setRoots] = useState<FileRoot[]>([]);
-  const [dir, setDir] = useState("");
-  const [entries, setEntries] = useState<FileEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<IndexStatus>({
+    ready: false,
+    building: false,
+    count: 0,
+    scanned: 0,
+  });
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<FileEntry[] | null>(null);
+  const [scope, setScope] = useState("");
+  const [results, setResults] = useState<FileEntry[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; entry: FileEntry | null } | null>(
     null,
   );
   const [renaming, setRenaming] = useState<FileEntry | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  /* 根目录 */
+  /* 根目录 + 首次打开时自动建索引 */
   useEffect(() => {
     let alive = true;
     fsRoots()
-      .then((list) => {
+      .then((list) => alive && setRoots(list))
+      .catch(() => {});
+    fsIndexStatus()
+      .then((value) => {
         if (!alive) return;
-        setRoots(list);
-        if (list[0]) setDir(list[0].path);
+        setStatus(value);
+        if (!value.ready && !value.building) void fsIndexBuild();
       })
-      .catch((err) => alive && setError(errText(err)));
+      .catch((err) => alive && message.error(errText(err)));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [message]);
 
-  /* 当前目录 */
+  /* 索引构建中轮询进度 */
   useEffect(() => {
-    if (!dir) return;
-    let alive = true;
-    setLoading(true);
-    setError(null);
-    fsList(dir)
-      .then((list) => alive && setEntries(list))
-      .catch((err) => {
-        if (!alive) return;
-        setEntries([]);
-        setError(errText(err));
-      })
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, [dir, reloadKey]);
+    if (status.ready && !status.building) return;
+    const timer = window.setInterval(() => {
+      fsIndexStatus()
+        .then(setStatus)
+        .catch(() => {});
+    }, 600);
+    return () => window.clearInterval(timer);
+  }, [status.ready, status.building]);
 
-  /* 搜索（输入防抖） */
+  /* 搜索：只查内存索引，输入即出结果 */
   useEffect(() => {
     const needle = query.trim();
-    if (!needle) {
-      setResults(null);
+    if (!needle || !status.ready) {
+      setResults([]);
       setSearching(false);
       return;
     }
     let alive = true;
     setSearching(true);
     const timer = window.setTimeout(() => {
-      fsSearch(needle, 300)
+      fsSearch(needle, scope || undefined, 300)
         .then((list) => alive && setResults(list))
         .catch((err) => {
           if (!alive) return;
           setResults([]);
-          setError(errText(err));
+          message.error(errText(err));
         })
         .finally(() => alive && setSearching(false));
-    }, 250);
+    }, 80);
     return () => {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, scope, status.ready, reloadKey, message]);
 
   useEffect(() => {
     if (!menu) return;
@@ -106,34 +124,14 @@ export default function FilesModule() {
     return () => window.removeEventListener("mousedown", close);
   }, [menu]);
 
-  const refresh = useCallback(() => {
-    const needle = query.trim();
-    if (needle) {
-      setSearching(true);
-      fsSearch(needle, 300)
-        .then(setResults)
-        .catch((err) => {
-          setResults([]);
-          setError(errText(err));
-        })
-        .finally(() => setSearching(false));
-    } else {
-      setReloadKey((value) => value + 1);
-    }
-  }, [query]);
-
-  const navigate = (path: string) => {
-    setDir(path);
-    setQuery("");
-    setResults(null);
-    setSelected(null);
+  const rebuild = () => {
+    setResults([]);
+    setReloadKey((value) => value + 1);
+    setStatus({ ready: false, building: true, count: 0, scanned: 0 });
+    void fsIndexBuild().catch((err) => message.error(errText(err)));
   };
 
   const openEntry = async (entry: FileEntry) => {
-    if (entry.isDir) {
-      navigate(entry.path);
-      return;
-    }
     try {
       await openPath(entry.path);
     } catch (err) {
@@ -176,7 +174,7 @@ export default function FilesModule() {
         try {
           await fsDelete([entry.path]);
           message.success(t("files.deleted"));
-          refresh();
+          setReloadKey((value) => value + 1);
         } catch (err) {
           message.error(errText(err));
         }
@@ -190,13 +188,14 @@ export default function FilesModule() {
       await fsRename(renaming.path, renameValue);
       setRenaming(null);
       message.success(t("files.renamed"));
-      refresh();
+      setReloadKey((value) => value + 1);
     } catch (err) {
       message.error(errText(err));
     }
   };
 
   const openEntryMenu = (event: MouseEvent, entry: FileEntry) => {
+    setSelected(entry.path);
     setMenu({
       x: Math.min(event.clientX, window.innerWidth - 220),
       y: Math.min(event.clientY, window.innerHeight - 280),
@@ -204,9 +203,8 @@ export default function FilesModule() {
     });
   };
 
-  const showEntries = results ?? entries;
-  const busy = results === null ? loading : searching;
-  const atRoot = roots.some((root) => root.path === dir);
+  const needle = query.trim();
+  const indexing = !status.ready;
 
   return (
     <div
@@ -231,62 +229,79 @@ export default function FilesModule() {
           <div className="module-desc">{t("module.filesDesc")}</div>
         </div>
         <span style={{ flex: 1 }} />
+        <span className="files-index-status">
+          {status.building || indexing
+            ? t("files.indexing", { count: status.scanned })
+            : t("files.indexed", { count: status.count })}
+        </span>
+        <Tooltip title={t("files.rebuild")}>
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            loading={status.building}
+            onClick={rebuild}
+          />
+        </Tooltip>
+      </header>
+
+      <div className="files-searchbar">
         <Input
-          className="files-search"
-          size="small"
+          size="large"
           allowClear
+          autoFocus
+          className="files-search-input"
           prefix={<SearchOutlined />}
           placeholder={t("files.searchPlaceholder")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && results[0]) void openEntry(results[0]);
+          }}
         />
-        <Tooltip title={t("files.refresh")}>
-          <Button size="small" icon={<ReloadOutlined />} onClick={refresh} />
-        </Tooltip>
-      </header>
+      </div>
 
-      <div className="files-body">
-        <aside className="files-roots">
-          {roots.map((root) => (
-            <button
-              key={root.key}
-              type="button"
-              className={`files-root${dir === root.path && results === null ? " active" : ""}`}
-              onClick={() => navigate(root.path)}
-            >
-              <span className="files-root-icon">{rootIcon(root.key)}</span>
-              <span>{t(`files.root.${root.key}`)}</span>
-            </button>
-          ))}
-        </aside>
+      <div className="files-scopes">
+        <button
+          type="button"
+          className={`files-scope${scope === "" ? " active" : ""}`}
+          onClick={() => setScope("")}
+        >
+          {t("files.scopeAll")}
+        </button>
+        {roots.map((root) => (
+          <button
+            key={root.key}
+            type="button"
+            className={`files-scope${scope === root.path ? " active" : ""}`}
+            onClick={() => setScope(root.path)}
+          >
+            <span className="files-scope-icon">{rootIcon(root.key)}</span>
+            {t(`files.root.${root.key}`)}
+          </button>
+        ))}
+      </div>
 
-        <section className="files-main">
-          <div className="files-toolbar">
-            <Button
-              size="small"
-              type="text"
-              icon={<ArrowLeftOutlined />}
-              disabled={atRoot || !dir}
-              onClick={() => navigate(parentOf(dir))}
-            />
-            <span className="files-path" title={dir}>
-              {dir}
-            </span>
-            <span style={{ flex: 1 }} />
-            {results !== null && (
-              <span className="files-count">{t("files.results", { count: results.length })}</span>
-            )}
-            {busy && <span className="files-count">{t("files.loading")}</span>}
+      <div className="files-results">
+        {indexing ? (
+          <div className="files-indexing">
+            <div className="files-indexing-title">{t("files.indexingTitle")}</div>
+            <div className="files-indexing-hint">
+              {t("files.indexingHint", { count: status.scanned })}
+            </div>
           </div>
-
-          <div className="files-list">
-            {error && <div className="files-error">{error}</div>}
-            {!error && showEntries.length === 0 && !busy && (
-              <div className="files-empty">
-                {query.trim() ? t("files.noResults") : t("files.empty")}
-              </div>
-            )}
-            {showEntries.map((entry) => (
+        ) : !needle ? (
+          <div className="files-empty">{t("files.prompt")}</div>
+        ) : results.length === 0 && !searching ? (
+          <div className="files-empty">{t("files.noResults")}</div>
+        ) : (
+          <>
+            <div className="files-result-head">
+              <span>
+                {t("files.results", { count: results.length })}
+                {searching ? ` · ${t("files.searching")}` : ""}
+              </span>
+            </div>
+            {results.map((entry) => (
               <div
                 key={entry.path}
                 className={`files-row${selected === entry.path ? " selected" : ""}`}
@@ -297,32 +312,30 @@ export default function FilesModule() {
                 onContextMenu={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
-                  setSelected(entry.path);
                   openEntryMenu(event, entry);
                 }}
               >
                 <span className={`files-icon${entry.isDir ? " is-dir" : ""}`}>
                   {fileIcon(entry)}
                 </span>
-                <span className="files-name">{entry.name}</span>
-                <span className="files-meta">
-                  {results !== null
-                    ? parentOf(entry.path)
-                    : entry.isDir
-                      ? ""
-                      : formatBytes(entry.size)}
+                <span className="files-name">
+                  <Highlight text={entry.name} needle={needle.toLowerCase()} />
                 </span>
-                {results === null && !entry.isDir && (
-                  <span className="files-time">
-                    {entry.modified
-                      ? dayjs(entry.modified * 1000).format("MM-DD HH:mm")
-                      : ""}
-                  </span>
-                )}
+                <span className="files-path-cell" title={entry.path}>
+                  <Highlight text={parentOf(entry.path)} needle={needle.toLowerCase()} />
+                </span>
+                <span className="files-meta">
+                  {entry.isDir ? "" : formatBytes(entry.size)}
+                </span>
+                <span className="files-time">
+                  {entry.modified
+                    ? dayjs(entry.modified * 1000).format("MM-DD HH:mm")
+                    : ""}
+                </span>
               </div>
             ))}
-          </div>
-        </section>
+          </>
+        )}
       </div>
 
       {menu && (
@@ -343,7 +356,7 @@ export default function FilesModule() {
             setMenu(null);
           }}
           onCopyPath={() => {
-            copyPath(menu.entry ? menu.entry.path : dir);
+            copyPath(menu.entry ? menu.entry.path : scope);
             setMenu(null);
           }}
           onRename={() => {
@@ -357,7 +370,7 @@ export default function FilesModule() {
             setMenu(null);
           }}
           onRefresh={() => {
-            refresh();
+            setReloadKey((value) => value + 1);
             setMenu(null);
           }}
         />

@@ -8020,103 +8020,78 @@ body.side-resizing {
   text-transform: uppercase;
 }
 
-/* ---------------- 文件浏览器 ---------------- */
+/* ---------------- 文件搜索（Everything 风格） ---------------- */
 
 .files-module {
   user-select: none;
 }
 
-.files-search {
-  width: 250px;
+.files-index-status {
+  margin-right: 8px;
+  color: var(--text-mute);
+  font-size: 11.5px;
 }
 
-.files-search input {
+.files-searchbar {
+  padding: 16px 18px 10px;
+}
+
+.files-search-input {
+  max-width: 720px;
+}
+
+.files-search-input input {
   user-select: text;
 }
 
-.files-body {
-  flex: 1;
-  min-height: 0;
+.files-scopes {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 18px 10px;
 }
 
-.files-roots {
-  width: 190px;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 8px;
-  border-right: 1px solid var(--border);
-  overflow: auto;
-}
-
-.files-root {
-  display: flex;
+.files-scope {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border: none;
-  border-radius: 6px;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
   background: transparent;
   color: var(--text-2);
-  font-size: 12.5px;
-  text-align: left;
+  font-size: 12px;
   cursor: pointer;
 }
 
-.files-root:hover {
-  background: var(--surface-2);
+.files-scope:hover {
+  border-color: var(--border-strong);
   color: var(--text);
 }
 
-.files-root.active {
-  background: var(--surface-2);
+.files-scope.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
-.files-root-icon {
-  width: 18px;
-  display: inline-flex;
-  justify-content: center;
-  font-size: 15px;
+.files-scope-icon {
+  font-size: 13px;
 }
 
-.files-main {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.files-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.files-path {
-  max-width: 68%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--text-mute);
-  font-size: 11.5px;
-}
-
-.files-count {
-  color: var(--text-mute);
-  font-size: 11.5px;
-}
-
-.files-list {
+.files-results {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 6px 8px 16px;
+  padding: 4px 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.files-result-head {
+  padding: 8px 6px 6px;
+  color: var(--text-mute);
+  font-size: 11.5px;
 }
 
 .files-row {
@@ -8151,19 +8126,35 @@ body.side-resizing {
 }
 
 .files-name {
-  flex: 1;
-  min-width: 0;
+  flex: 0 1 auto;
+  max-width: 42%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: 12.5px;
 }
 
-.files-meta {
-  max-width: 36%;
+.files-hit {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.files-path-cell {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  color: var(--text-mute);
+  font-size: 11.5px;
+}
+
+.files-meta {
+  width: 70px;
+  flex: none;
+  text-align: right;
   color: var(--text-mute);
   font-size: 11px;
 }
@@ -8178,7 +8169,7 @@ body.side-resizing {
 
 .files-empty,
 .files-error {
-  padding: 34px 12px;
+  padding: 46px 12px;
   text-align: center;
   color: var(--text-mute);
   font-size: 12.5px;
@@ -8186,6 +8177,22 @@ body.side-resizing {
 
 .files-error {
   color: var(--danger);
+}
+
+.files-indexing {
+  padding: 60px 16px;
+  text-align: center;
+}
+
+.files-indexing-title {
+  margin-bottom: 8px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.files-indexing-hint {
+  color: var(--text-mute);
+  font-size: 12px;
 }
 
 .files-menu {

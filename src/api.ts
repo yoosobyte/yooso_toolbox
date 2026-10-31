@@ -5,6 +5,7 @@ import type {
   FileEntry,
   FileRoot,
   HttpMethod,
+  IndexStatus,
   MetricsSample,
   ProcessInfo,
   SessionConfig,
@@ -176,8 +177,12 @@ export const fsRoots = () => invoke<FileRoot[]>("fs_roots");
 
 export const fsList = (dir: string) => invoke<FileEntry[]>("fs_list", { dir });
 
-export const fsSearch = (query: string, limit?: number) =>
-  invoke<FileEntry[]>("fs_search", { query, limit });
+export const fsSearch = (query: string, scope?: string, limit?: number) =>
+  invoke<FileEntry[]>("fs_search", { query, scope: scope || null, limit });
+
+export const fsIndexBuild = () => invoke<void>("fs_index_build");
+
+export const fsIndexStatus = () => invoke<IndexStatus>("fs_index_status");
 
 export const fsDelete = (paths: string[]) => invoke<void>("fs_delete", { paths });
 
