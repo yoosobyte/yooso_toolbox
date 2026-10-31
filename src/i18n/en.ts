@@ -57,6 +57,8 @@ export const en: Record<string, string> = {
   "files.reveal": "Reveal in file manager",
   "files.openLocation": "Open containing folder",
   "files.copyPath": "Copy path",
+  "files.copy": "Copy",
+  "files.copiedFiles": "Copied to clipboard",
   "files.copyCurrentPath": "Copy current path",
   "files.rename": "Rename",
   "files.delete": "Delete",

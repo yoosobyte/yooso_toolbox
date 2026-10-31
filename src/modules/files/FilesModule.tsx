@@ -5,6 +5,7 @@ import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import dayjs from "dayjs";
 import {
+  fsCopyToClipboard,
   fsDelete,
   fsIndexBuild,
   fsIndexStatus,
@@ -160,6 +161,15 @@ export default function FilesModule() {
       () => message.success(t("files.copied")),
       () => message.error(t("common.copyFailed")),
     );
+  };
+
+  const copyEntry = async (entry: FileEntry) => {
+    try {
+      await fsCopyToClipboard([entry.path]);
+      message.success(t("files.copiedFiles"));
+    } catch (err) {
+      message.error(errText(err));
+    }
   };
 
   const askDelete = (entry: FileEntry) => {
@@ -353,6 +363,10 @@ export default function FilesModule() {
           }}
           onOpenLocation={() => {
             if (menu.entry) void openLocation(menu.entry);
+            setMenu(null);
+          }}
+          onCopyFiles={() => {
+            if (menu.entry) void copyEntry(menu.entry);
             setMenu(null);
           }}
           onCopyPath={() => {
