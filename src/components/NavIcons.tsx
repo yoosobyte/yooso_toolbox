@@ -103,3 +103,14 @@ export function AgentNavIcon() {
     </NavIcon>
   );
 }
+
+/** 文件：文件夹 + 放大镜 */
+export function FilesNavIcon() {
+  return (
+    <NavIcon>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <circle cx="11" cy="13" r="2.6" />
+      <path d="m13 15l2.2 2.2" />
+    </NavIcon>
+  );
+}

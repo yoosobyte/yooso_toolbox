@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button, Tooltip } from "antd";
 import {
   AlignLeftOutlined,
@@ -13,6 +13,7 @@ import { formatBytes } from "../../utils";
 import { useCopy } from "./useCopy";
 import { HeaderTable } from "./KeyValueEditor";
 import { statusColor } from "./helpers";
+import ResponseCode from "./ResponseCode";
 import type { RespTab } from "./constants";
 
 interface Props {
@@ -36,16 +37,6 @@ export default function ResponsePanel({
   const t = useT(useUiStore((state) => state.lang));
   const copy = useCopy();
   const [pretty, setPretty] = useState(true);
-
-  const responseBody = useMemo(() => {
-    if (!response) return "";
-    if (!pretty) return response.body;
-    try {
-      return JSON.stringify(JSON.parse(response.body), null, 2);
-    } catch {
-      return response.body;
-    }
-  }, [response, pretty]);
 
   return (
     <div className="api-card api-card-response">
@@ -152,7 +143,7 @@ export default function ResponsePanel({
         )}
         {response && tab === "body" && (
           response.body ? (
-            <pre className="api-pre">{responseBody}</pre>
+            <ResponseCode text={response.body} pretty={pretty} />
           ) : (
             <div className="api-empty">{t("api.noBody")}</div>
           )

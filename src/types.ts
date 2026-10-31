@@ -147,3 +147,22 @@ export interface ApiResponse {
   size: number;
   truncated: boolean;
 }
+
+/* ---------------- 文件浏览器 ---------------- */
+
+/** 文件 / 目录条目 */
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+  /** 秒级时间戳 */
+  modified: number | null;
+}
+
+/** 文件模块左侧的根目录（个人目录 / 下载 / 桌面…） */
+export interface FileRoot {
+  key: string;
+  name: string;
+  path: string;
+}
