@@ -19,9 +19,16 @@ import { useNativeWebviews } from "./useNativeWebviews";
 interface Props {
   /** 全局弹窗（如设置）打开时，需要隐藏原生 WebView，避免遮挡 */
   obscured?: boolean;
+  /** 从外部（设置页链接）请求打开某个地址 */
+  pendingUrl?: string | null;
+  onConsumed?: () => void;
 }
 
-export default function BrowserModule({ obscured = false }: Props) {
+export default function BrowserModule({
+  obscured = false,
+  pendingUrl = null,
+  onConsumed,
+}: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const [native] = useState(() => inTauri());
   const [sites, setSites] = useState<BrowserSite[]>(loadSites);
@@ -60,6 +67,23 @@ export default function BrowserModule({ obscured = false }: Props) {
   useEffect(() => {
     saveSites(sites);
   }, [sites]);
+
+  /* 设置页等外部入口请求在内部浏览器打开链接 */
+  const pendingUrlRef = useRef<string | null>(pendingUrl);
+  pendingUrlRef.current = pendingUrl;
+  useEffect(() => {
+    if (!pendingUrl) return;
+    // 等自动打开逻辑先占好 tab，再把链接放到最右侧
+    const timer = window.setTimeout(() => {
+      const queued = pendingUrlRef.current;
+      if (!queued) return;
+      pendingUrlRef.current = null;
+      openUrlInTab(queued);
+      onConsumed?.();
+    }, 150);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingUrl]);
 
   const openUrlInTab = (url: string, title?: string, icon?: string) => {
     tabSeq.current += 1;
@@ -108,6 +132,12 @@ export default function BrowserModule({ obscured = false }: Props) {
       if (visible && !visibleRef.current) {
         visibleRef.current = true;
         autoOpenRef.current();
+        const queued = pendingUrlRef.current;
+        if (queued) {
+          pendingUrlRef.current = null;
+          openUrlInTab(queued);
+          onConsumed?.();
+        }
       } else if (!visible) {
         visibleRef.current = false;
       }

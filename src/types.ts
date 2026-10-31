@@ -158,6 +158,8 @@ export interface FileEntry {
   size: number;
   /** 秒级时间戳 */
   modified: number | null;
+  /** 是否可执行（无扩展名文件用来区分类型） */
+  executable?: boolean;
 }
 
 /** 文件模块左侧的根目录（个人目录 / 下载 / 桌面…） */

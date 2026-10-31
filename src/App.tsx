@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Tooltip, Typography } from "antd";
 import {
   ApiOutlined,
@@ -30,9 +31,9 @@ import RedisModule from "./modules/redis/RedisModule";
 import { RedisIcon } from "./modules/redis/icons";
 import DbModule from "./modules/db/DbModule";
 import Placeholder from "./modules/Placeholder";
-import SettingsModal from "./modules/SettingsModal";
+import SettingsPage from "./modules/SettingsPage";
 import { useUiStore } from "./stores/uiStore";
-import { MODULE_ORDER, type ModuleKey } from "./modules/keys";
+import type { ModuleKey } from "./modules/keys";
 import { useT } from "./i18n";
 import AppLogo from "./AppLogo";
 import { APP_VERSION } from "./version";
@@ -163,9 +164,10 @@ const MODULES: ModuleDef[] = [
 
 export default function App() {
   const [activeKey, setActiveKey] = useState<ModuleKey>(
-    () => useUiStore.getState().defaultModule ?? "note",
+    () => useUiStore.getState().defaultModule ?? "files",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pendingBrowserUrl, setPendingBrowserUrl] = useState<string | null>(null);
   // 头部模块（SSH / API）常驻；其余模块首次打开后再保持挂载，避免一启动就请求外网/占用资源
   const [mounted, setMounted] = useState<Partial<Record<ModuleKey, boolean>>>(() => {
     const initial: Partial<Record<ModuleKey, boolean>> = {
@@ -182,7 +184,20 @@ export default function App() {
   const showStatusBar = useUiStore((state) => state.showStatusBar);
   const t = useT(lang);
 
+  /** 设置页里的链接：浏览器模块可见时用内部浏览器打开 */
+  const openInBrowser = (url: string) => {
+    if (hiddenModules.includes("browser")) {
+      void openUrl(url).catch(() => undefined);
+      return;
+    }
+    setPendingBrowserUrl(url);
+    setSettingsOpen(false);
+    activate("browser");
+  };
+
   const activate = (key: ModuleKey) => {
+    // 切换模块时关闭设置页
+    setSettingsOpen(false);
     setActiveKey(key);
     setMounted((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
   };
@@ -197,16 +212,28 @@ export default function App() {
     [activeKey],
   );
 
-  const sortedModules = useMemo(
-    () =>
-      MODULE_ORDER.map((key) => MODULES.find((item) => item.key === key)).filter(
-        (item): item is ModuleDef => Boolean(item),
-      ),
-    [],
-  );
+  const moduleOrder = useUiStore((state) => state.moduleOrder);
+  const hiddenModules = useUiStore((state) => state.hiddenModules);
+  const sortedModules = useMemo(() => {
+    // 去重并补齐缺失模块，避免本地旧的排序数据导致重复 / 丢项
+    const seen = new Set<ModuleKey>();
+    const list: ModuleDef[] = [];
+    for (const key of moduleOrder) {
+      if (seen.has(key)) continue;
+      const def = MODULES.find((item) => item.key === key);
+      if (def) {
+        seen.add(key);
+        list.push(def);
+      }
+    }
+    for (const def of MODULES) {
+      if (!seen.has(def.key)) list.push(def);
+    }
+    return list.filter((item) => !hiddenModules.includes(item.key));
+  }, [moduleOrder, hiddenModules]);
 
   return (
-    <div className="app">
+    <div className={`app${showStatusBar ? "" : " no-statusbar"}`}>
       <aside className="rail">
         <div className="rail-logo" title="悦盒">
           <AppLogo />
@@ -259,7 +286,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="content">
+      <main className={`content${settingsOpen ? " settings-open" : ""}`}>
         {/* 保持常用模块常驻挂载：切走时只隐藏，避免终端断开、请求状态丢失、翻译页被重载 */}
         <div
           className="module-slot"
@@ -334,7 +361,11 @@ export default function App() {
             className="module-slot"
             style={{ display: activeModule.key === "browser" ? "flex" : "none" }}
           >
-            <BrowserModule obscured={settingsOpen} />
+            <BrowserModule
+              obscured={settingsOpen}
+              pendingUrl={pendingBrowserUrl}
+              onConsumed={() => setPendingBrowserUrl(null)}
+            />
           </div>
         )}
         {mounted.ai && (
@@ -361,6 +392,12 @@ export default function App() {
             features={activeModule.featureKeys.map((key) => t(key))}
           />
         )}
+        {settingsOpen && (
+          <SettingsPage
+            onClose={() => setSettingsOpen(false)}
+            onOpenUrl={openInBrowser}
+          />
+        )}
       </main>
 
       {showStatusBar && (
@@ -376,7 +413,6 @@ export default function App() {
         </footer>
       )}
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

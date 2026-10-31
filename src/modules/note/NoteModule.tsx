@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { App as AntdApp, Button, Input, Segmented, Select, Typography } from "antd";
+import { App as AntdApp, Button, Input, Segmented, Select, Tooltip, Typography } from "antd";
 import {
+  CheckOutlined,
   DeleteOutlined,
   DownloadOutlined,
-  FileAddOutlined,
+  FullscreenExitOutlined,
+  FullscreenOutlined,
+  LoadingOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useUiStore } from "../../stores/uiStore";
@@ -12,10 +16,10 @@ import { errText } from "../../utils";
 import { saveText } from "../../save";
 import { NoteNavIcon } from "../../components/NavIcons";
 import { renderMarkdown } from "./markdown";
+import { highlightJsonText } from "../text/jsonHighlight";
 import {
   NOTE_FONT_STACKS,
-  loadNoteFont,
-  saveNoteFont,
+  NOTE_FONT_SIZES,
   type NoteFont,
 } from "./fonts";
 import {
@@ -27,7 +31,7 @@ import {
 } from "./store";
 
 function formatTime(timestamp: number): string {
-  return dayjs(timestamp).format("MM-DD HH:mm");
+  return dayjs(timestamp).format("YYYY-MM-DD HH:mm");
 }
 
 function safeFileName(name: string): string {
@@ -45,7 +49,7 @@ export default function NoteModule() {
     () => loadNotes()[0]?.id ?? null,
   );
   const [preview, setPreview] = useState(false);
-  const [font, setFont] = useState<NoteFont>(loadNoteFont);
+  const [fullscreen, setFullscreen] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
   const [menu, setMenu] = useState<{ x: number; y: number; noteId: string } | null>(
     null,
@@ -61,6 +65,16 @@ export default function NoteModule() {
     [notes],
   );
   const active = notes.find((note) => note.id === activeId) ?? null;
+
+  // JSON 笔记预览时自动格式化；解析失败显示原文，不报错
+  const jsonPreview = useMemo(() => {
+    if (!active || active.format !== "json") return null;
+    try {
+      return JSON.stringify(JSON.parse(active.content), null, 2);
+    } catch {
+      return null;
+    }
+  }, [active?.content, active?.format]);
   const menuNote = menu
     ? notes.find((note) => note.id === menu.noteId) ?? null
     : null;
@@ -109,12 +123,19 @@ export default function NoteModule() {
   }, [menu]);
 
   useEffect(() => {
+    const startedAt = Date.now();
     setSaveState("saving");
+    let finish: number | undefined;
     const timer = window.setTimeout(() => {
       saveNotes(notes);
-      setSaveState("saved");
+      // loading 至少播放 100ms，避免保存太快时闪一下
+      const wait = Math.max(0, 100 - (Date.now() - startedAt));
+      finish = window.setTimeout(() => setSaveState("saved"), wait);
     }, 300);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      if (finish !== undefined) window.clearTimeout(finish);
+    };
   }, [notes]);
 
   const patch = (id: string, next: Partial<Note>) => {
@@ -154,7 +175,8 @@ export default function NoteModule() {
   };
 
   const exportNote = async (note: Note) => {
-    const extension = note.format === "md" ? "md" : "txt";
+    const extension =
+      note.format === "md" ? "md" : note.format === "json" ? "json" : "txt";
     const fileName = `${safeFileName(note.title.trim() || t("note.untitled"))}.${extension}`;
     try {
       await saveText(
@@ -162,11 +184,20 @@ export default function NoteModule() {
         note.content,
         [
           {
-            name: note.format === "md" ? "Markdown" : t("note.formatTxt"),
+            name:
+              note.format === "md"
+                ? "Markdown"
+                : note.format === "json"
+                  ? "JSON"
+                  : t("note.formatTxt"),
             extensions: [extension],
           },
         ],
-        note.format === "md" ? "text/markdown" : "text/plain",
+        note.format === "md"
+          ? "text/markdown"
+          : note.format === "json"
+            ? "application/json"
+            : "text/plain",
       );
     } catch (error) {
       message.error(errText(error));
@@ -174,7 +205,7 @@ export default function NoteModule() {
   };
 
   return (
-    <div className="module note-module">
+    <div className={`module note-module${fullscreen ? " is-fullscreen" : ""}`}>
       <header className="module-head">
         <span className="module-icon">
           <NoteNavIcon />
@@ -187,15 +218,23 @@ export default function NoteModule() {
         </div>
         <span style={{ flex: 1 }} />
         <span className="note-save-state">
-          {saveState === "saving" ? t("note.saving") : t("note.saved")}
+          {saveState === "saving" ? (
+            <>
+              <LoadingOutlined spin /> {t("note.saving")}
+            </>
+          ) : (
+            <>
+              <CheckOutlined /> {t("note.saved")}
+            </>
+          )}
         </span>
-        <Button icon={<FileAddOutlined />} onClick={addNote}>
-          {t("note.new")}
-        </Button>
       </header>
 
       <div className="note-body" ref={bodyRef}>
         <aside className="note-side" style={{ width: sideWidth }}>
+          <Button block icon={<PlusOutlined />} onClick={addNote}>
+            {t("note.new")}
+          </Button>
           <div className="note-list">
             {ordered.length === 0 && (
               <div className="note-list-empty">{t("note.emptyList")}</div>
@@ -209,7 +248,6 @@ export default function NoteModule() {
                 onContextMenu={(event) => {
                   event.preventDefault();
                   setActiveId(note.id);
-                  setPreview(false);
                   setMenu({
                     x: Math.min(event.clientX, window.innerWidth - 180),
                     y: Math.min(event.clientY, window.innerHeight - 100),
@@ -233,7 +271,11 @@ export default function NoteModule() {
                 </div>
                 <div className="note-item-meta">
                   <span className={`note-format note-format-${note.format}`}>
-                    {note.format === "md" ? "MD" : "TXT"}
+                    {note.format === "md"
+                      ? "MD"
+                      : note.format === "json"
+                        ? "JSON"
+                        : "TXT"}
                   </span>
                   <span>{formatTime(note.updatedAt)}</span>
                 </div>
@@ -263,9 +305,10 @@ export default function NoteModule() {
                   options={[
                     { value: "md", label: t("note.formatMd") },
                     { value: "txt", label: t("note.formatTxt") },
+                    { value: "json", label: "JSON" },
                   ]}
                 />
-                {active.format === "md" && (
+                {active.format !== "txt" && (
                   <Segmented
                     size="small"
                     value={preview ? "preview" : "edit"}
@@ -279,13 +322,11 @@ export default function NoteModule() {
                 <Select
                   size="small"
                   className="note-font-select"
-                  value={font}
+                  value={active.font ?? "mono"}
                   title={t("note.font")}
-                  onChange={(value) => {
-                    const next = value as NoteFont;
-                    setFont(next);
-                    saveNoteFont(next);
-                  }}
+                  onChange={(value) =>
+                    patch(active.id, { font: value as NoteFont })
+                  }
                   options={[
                     { value: "system", label: t("note.fontSystem") },
                     { value: "sans", label: t("note.fontSans") },
@@ -294,20 +335,65 @@ export default function NoteModule() {
                     { value: "kai", label: t("note.fontKai") },
                   ]}
                 />
+                {active.format === "txt" && (
+                  <Select
+                    size="small"
+                    className="note-font-select note-size-select"
+                    value={active.fontSize ?? 13}
+                    title={t("note.fontSize")}
+                    onChange={(value) =>
+                      patch(active.id, { fontSize: Number(value) })
+                    }
+                    options={NOTE_FONT_SIZES.map((size) => ({
+                      value: size,
+                      label: `${size}px`,
+                    }))}
+                  />
+                )}
                 <span style={{ flex: 1 }} />
+                <Tooltip
+                  title={
+                    fullscreen ? t("note.exitFullscreen") : t("note.fullscreen")
+                  }
+                >
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={
+                      fullscreen ? (
+                        <FullscreenExitOutlined />
+                      ) : (
+                        <FullscreenOutlined />
+                      )
+                    }
+                    onClick={() => setFullscreen((value) => !value)}
+                  />
+                </Tooltip>
               </div>
 
-              {active.format === "md" && preview ? (
+              {active.format !== "txt" && preview ? (
                 <div
                   className="note-preview note-md"
-                  style={{ fontFamily: NOTE_FONT_STACKS[font] }}
+                  style={{ fontFamily: NOTE_FONT_STACKS[active.font ?? "mono"] }}
                 >
-                  {renderMarkdown(active.content)}
+                  {active.format === "json" ? (
+                    <pre className="note-json-preview">
+                      {highlightJsonText(jsonPreview ?? active.content)}
+                    </pre>
+                  ) : (
+                    renderMarkdown(active.content)
+                  )}
                 </div>
               ) : (
                 <textarea
                   className="note-editor"
-                  style={{ fontFamily: NOTE_FONT_STACKS[font] }}
+                  style={{
+                    fontFamily: NOTE_FONT_STACKS[active.font ?? "mono"],
+                    fontSize:
+                      active.format === "txt"
+                        ? `${active.fontSize ?? 13}px`
+                        : undefined,
+                  }}
                   value={active.content}
                   placeholder={t("note.contentPlaceholder")}
                   spellCheck={false}
@@ -330,7 +416,7 @@ export default function NoteModule() {
               </span>
               <div className="note-empty-title">{t("note.noSelection")}</div>
               <div className="note-hint">{t("note.noSelectionHint")}</div>
-              <Button type="primary" icon={<FileAddOutlined />} onClick={addNote}>
+              <Button type="primary" icon={<PlusOutlined />} onClick={addNote}>
                 {t("note.new")}
               </Button>
             </div>

@@ -180,15 +180,18 @@ export default function QrGeneratePanel({ content, onContentChange }: Props) {
                 placeholder={t("qr.contentPlaceholder")}
                 autoSize={{ minRows: 4, maxRows: 8 }}
                 className="qr-content"
+                maxLength={2000}
                 allowClear
               />
-              <div className="qr-hint qr-count">{content.length}</div>
+              <div className="qr-count">
+                {content.length} / 2000
+              </div>
             </div>
           </div>
 
           <div className="qr-group">
             <div className="qr-group-title">{t("qr.groupStyle")}</div>
-            <div className="qr-grid">
+            <div className="qr-stack">
               <div className="qr-field">
                 <span className="qr-label">{t("qr.ecLevel")}</span>
                 <Select
@@ -211,7 +214,7 @@ export default function QrGeneratePanel({ content, onContentChange }: Props) {
                 <span className="qr-hint">{t("qr.marginHint")}</span>
               </div>
             </div>
-            <div className="qr-grid">
+            <div className="qr-stack">
               <div className="qr-field">
                 <span className="qr-label">{t("qr.foreground")}</span>
                 <div className="qr-color-row">

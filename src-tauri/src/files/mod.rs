@@ -77,6 +77,8 @@ pub struct FileEntry {
     pub size: u64,
     /// 秒级时间戳
     pub modified: Option<i64>,
+    /// 是否可执行（无扩展名文件用来区分类型）
+    pub executable: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -153,6 +155,32 @@ fn modified_at(metadata: &std::fs::Metadata) -> Option<i64> {
         .map(|duration| duration.as_secs() as i64)
 }
 
+fn is_executable(_path: &Path, metadata: &std::fs::Metadata) -> bool {
+    if metadata.is_dir() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(windows)]
+    {
+        let extension = _path
+            .extension()
+            .map(|value| value.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        matches!(
+            extension.as_str(),
+            "exe" | "bat" | "cmd" | "com" | "msi" | "ps1"
+        )
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        false
+    }
+}
+
 fn entry_of(path: &Path) -> Option<FileEntry> {
     let metadata = std::fs::metadata(path).ok()?;
     let name = path.file_name()?.to_string_lossy().to_string();
@@ -162,6 +190,7 @@ fn entry_of(path: &Path) -> Option<FileEntry> {
         is_dir: metadata.is_dir(),
         size: if metadata.is_dir() { 0 } else { metadata.len() },
         modified: modified_at(&metadata),
+        executable: is_executable(path, &metadata),
     })
 }
 
@@ -179,7 +208,7 @@ fn is_hidden(name: &str) -> bool {
 }
 
 /// 是否应在列表 / 搜索里隐藏：点文件、系统 junction、隐藏/系统属性的条目
-fn should_hide(entry: &std::fs::DirEntry, name: &str) -> bool {
+fn should_hide(_entry: &std::fs::DirEntry, name: &str) -> bool {
     if is_hidden(name) || SYSTEM_NAMES.iter().any(|skip| skip.eq_ignore_ascii_case(name)) {
         return true;
     }
@@ -189,7 +218,7 @@ fn should_hide(entry: &std::fs::DirEntry, name: &str) -> bool {
         const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
         const FILE_ATTRIBUTE_SYSTEM: u32 = 0x4;
         const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
-        if let Ok(metadata) = entry.metadata() {
+        if let Ok(metadata) = _entry.metadata() {
             let attributes = metadata.file_attributes();
             if attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_REPARSE_POINT) != 0 {
                 return true;
@@ -265,6 +294,7 @@ struct IndexedFile {
     is_dir: bool,
     size: u64,
     modified: Option<i64>,
+    executable: bool,
 }
 
 #[derive(Default)]
@@ -336,6 +366,7 @@ fn indexed_of(path: &Path) -> Option<IndexedFile> {
         is_dir: metadata.is_dir(),
         size: if metadata.is_dir() { 0 } else { metadata.len() },
         modified: modified_at(&metadata),
+        executable: is_executable(path, &metadata),
     })
 }
 
@@ -525,6 +556,7 @@ fn search_index(
             is_dir: entry.is_dir,
             size: entry.size,
             modified: entry.modified,
+            executable: entry.executable,
         })
         .collect())
 }

@@ -48,11 +48,18 @@ function Highlight({ text, tokens }: { text: string; tokens: string[] }) {
   );
 }
 
-/** 文件夹 / 扩展名 / 未知 */
-function typeLabel(entry: FileEntry, folderLabel: string, unknownLabel: string): string {
+/** 文件夹 / 扩展名 / 可执行文件 / 普通文件 */
+function typeLabel(
+  entry: FileEntry,
+  folderLabel: string,
+  fileLabel: string,
+  executableLabel: string,
+): string {
   if (entry.isDir) return folderLabel;
   const dot = entry.name.lastIndexOf(".");
-  if (dot <= 0 || dot === entry.name.length - 1) return unknownLabel;
+  if (dot <= 0 || dot === entry.name.length - 1) {
+    return entry.executable ? executableLabel : fileLabel;
+  }
   return entry.name.slice(dot + 1).toLowerCase();
 }
 
@@ -100,6 +107,8 @@ function EmptyArt() {
 }
 
 /** Everything 风格：后台建立文件索引，输入文件名直接查内存索引 */
+const IS_MAC = /mac/i.test(navigator.userAgent);
+
 export default function FilesModule() {
   const t = useT(useUiStore((state) => state.lang));
   const { message, modal } = AntdApp.useApp();
@@ -265,14 +274,6 @@ export default function FilesModule() {
     }
   };
 
-  const openLocation = async (entry: FileEntry) => {
-    try {
-      await fsOpenPath(parentOf(entry.path));
-    } catch (err) {
-      message.error(errText(err));
-    }
-  };
-
   const copyPath = (path: string) => {
     void copyText(path).then(
       () => message.success(t("files.copied")),
@@ -293,14 +294,16 @@ export default function FilesModule() {
     modal.confirm({
       title: t("files.deleteConfirmTitle"),
       icon: null,
-      content: t("files.deleteConfirm", { name: entry.name }),
+      content: t(IS_MAC ? "files.deleteConfirmTrash" : "files.deleteConfirmRecycle", {
+        name: entry.name,
+      }),
       okText: t("common.delete"),
       cancelText: t("common.cancel"),
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
           await fsDelete([entry.path]);
-          message.success(t("files.deleted"));
+          message.success(t(IS_MAC ? "files.deletedTrash" : "files.deletedRecycle"));
           setReloadKey((value) => value + 1);
         } catch (err) {
           message.error(errText(err));
@@ -324,8 +327,9 @@ export default function FilesModule() {
   const openEntryMenu = (event: MouseEvent, entry: FileEntry) => {
     setSelected(entry.path);
     setMenu({
-      x: Math.min(event.clientX, window.innerWidth - 220),
-      y: Math.min(event.clientY, window.innerHeight - 280),
+      // 从鼠标位置开始向右下展开
+      x: event.clientX,
+      y: event.clientY,
       entry,
     });
   };
@@ -348,8 +352,8 @@ export default function FilesModule() {
       onContextMenu={(event) => {
         event.preventDefault();
         setMenu({
-          x: Math.min(event.clientX, window.innerWidth - 220),
-          y: Math.min(event.clientY, window.innerHeight - 160),
+          x: event.clientX,
+          y: event.clientY,
           entry: null,
         });
       }}
@@ -498,14 +502,19 @@ export default function FilesModule() {
                   <Highlight text={parentOf(entry.path)} tokens={tokens} />
                 </span>
                 <span className="files-type">
-                  {typeLabel(entry, t("files.typeFolder"), t("files.typeUnknown"))}
+                  {typeLabel(
+                    entry,
+                    t("files.typeFolder"),
+                    t("files.typeFile"),
+                    t("files.typeExecutable"),
+                  )}
                 </span>
                 <span className="files-meta">
                   {entry.isDir ? "" : formatBytes(entry.size)}
                 </span>
                 <span className="files-time">
                   {entry.modified
-                    ? dayjs(entry.modified * 1000).format("MM-DD HH:mm")
+                    ? dayjs(entry.modified * 1000).format("YYYY-MM-DD HH:mm")
                     : ""}
                 </span>
               </div>
@@ -525,10 +534,6 @@ export default function FilesModule() {
           }}
           onReveal={() => {
             if (menu.entry) void reveal(menu.entry);
-            setMenu(null);
-          }}
-          onOpenLocation={() => {
-            if (menu.entry) void openLocation(menu.entry);
             setMenu(null);
           }}
           onCopyFiles={() => {
