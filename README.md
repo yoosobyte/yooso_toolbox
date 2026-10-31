@@ -169,7 +169,7 @@ npm install
 npm run tauri dev
 
 # 3.1. win 生产构建（生成 NSIS 安装包，自动改成 ASCII 文件名）
-npm run tauri:build
+npm run tauri:build:win
 
 # 3.2. mac 生产构建（生成 .app + .dmg，自动改名）
 npm run tauri:build:mac
