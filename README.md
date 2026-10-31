@@ -54,7 +54,7 @@
 | --- | --- |
 | **语言** | 跟随系统 / 中文 / English，立即生效并记住选择 |
 | **主题** | 跟随系统 / 浅色 / 深色，界面、弹窗、终端配色一起切换 |
-| **升级** | 读取 `https://qnres.yoosobyte.com/yooso-toolbox/version.txt`：**第一行版本号，第二行安装包直链**；有新版显示「下载安装包」按钮 |
+| **升级** | 读取 `https://qnres.yoosobyte.com/yooso-toolbox/update.json`，按平台（`mac` / `win`）取 `new_version` 对应的安装包直链；有新版显示「下载安装包」按钮 |
 | **关于** | 悦速互联 · 接受定制开发 · <https://www.github.com/yoosobyte/> · 官网 <https://www.yoosobyte.com> |
 | **底部状态栏** | 开关控制最底部那条「版本 / 阶段」信息条的显示与隐藏 |
 
@@ -65,11 +65,28 @@
 状态栏指标、SFTP 面板（含全部提示与对话框）、进程管理器、API / 二维码 / 翻译模块、设置面板。
 后端返回的错误信息目前仍是中文（会出现在错误提示里），后续可以把错误码也纳入 i18n。
 
-> 版本 txt 示例：
+> 升级清单 `update.json` 示例（仓库根目录的 `update.json` 就是这份，可直接上传）：
+> ```json
+> {
+>   "new_version": "v0.1.1",
+>   "v0.1.0": {
+>     "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.0_x64-setup.exe"
+>   },
+>   "v0.1.1": {
+>     "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.1_x64-setup.exe",
+>     "mac": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.1.dmg",
+>     "desc": "1. 全新版本\n2. 修复了一些问题"
+>   }
+> }
 > ```
-> 0.2.0
-> https://qnres.yoosobyte.com/yooso-toolbox/Yooso-Toolbox_0.2.0_x64-setup.exe
-> ```
+> - 客户端按当前平台取 `new_version` 那一条的 `mac` / `win` 链接；版本号带不带 `v` 都认。
+> - `desc` 是更新说明，会显示在「发现新版本」下面；用 `\n` 换行（写成 `/n` 也兼容）。没有这个字段就不显示。
+> - 这是标准 JSON，**最后一项后面不能有多余逗号**，否则会报「更新清单不是合法 JSON」。
+> - 安装包文件名统一用 `yooso_box_<版本>_<arch>-setup.exe` / `yooso_box_<版本>.dmg`（打包脚本自动改名，避免中文名的编码问题）。
+> - 发版时：改 `package.json` / `tauri.conf.json` 的版本号 → 打包 → **先上传安装包** → 再在 `update.json` 里新增新版本条目并把 `new_version` 指过去。
+> - 请求会带 `?t=<时间戳>` 绕过缓存；七牛默认给对象 `Cache-Control: max-age=31536000`，建议在 CDN 里给 `yooso-toolbox/update.json` 单独配短缓存（例如 60 秒），或每次更新后手动刷新该 URL 的缓存，否则可能长时间取到旧清单。
+> - 清单缺少当前平台链接时，检查更新会直接报错并提示缺哪个平台的地址。
+> - 联网自检：`cd src-tauri && cargo test --release --lib live_manifest -- --ignored --nocapture`。
 
 主题实现：`styles.css` 里所有颜色都收拢成 CSS 变量（`--bg / --surface / --border / --text / --accent …`），
 `<html data-theme="light">` 只覆盖变量值；antd 在深色/默认算法间切换，xterm 用两套终端配色。
@@ -151,28 +168,54 @@ npm install
 # 2. 开发模式（自动拉起 Vite + Tauri 窗口）
 npm run tauri dev
 
-# 3.1. win生产构建（生成 NSIS 安装包）
-npm run tauri build
+# 3.1. win 生产构建（生成 NSIS 安装包，自动改成 ASCII 文件名）
+npm run tauri:build
 
-# 3.1. mac生产构建
-npm run tauri build -- --bundles app
+# 3.2. mac 生产构建（生成 .app + .dmg，自动改名）
+npm run tauri:build:mac
 
-# 3.3. win生产构建（单exe）
+# 3.3. 只构建单 exe（不打包）
 npm run tauri build -- --no-bundle
+
+# 已经打完包、只想改文件名
+npm run rename:bundles
 ```
+
+> 安装包统一使用 ASCII 文件名，避免七牛 / 浏览器处理中文名的编码问题：
+> `yooso_box_0.1.1_x64-setup.exe`、`yooso_box_0.1.1.dmg`
+> （直接 `npm run tauri build` 生成的是 `悦盒_0.1.1_x64-setup.exe`，再跑一次 `npm run rename:bundles` 即可；脚本按 `tauri.conf.json` 的版本号命名。）
 
 ### 应用图标
 
-- `app-icon.png` 是 1024×1024 母图（内容满画布）。
-- `npm run icons:platform` 会生成平台适配图标：
-  - macOS：内容缩到 **824/1024（约 80.5%）** 并居中留透明边，写入 `icon.icns`，避免 Dock 里比其他 App 显大。
-  - Windows：内容保持 **942/1024（约 92%）**，生成多尺寸 `icon.ico` 和 PNG/Square 资源。
-- 图标更新后需要重新构建并完全重启应用；macOS 若 Dock 仍缓存旧图标，可执行 `killall Dock`。
+- 图标由 `scripts/make_icons.py` 从 `src/AppLogo.tsx` 的设计（黑底圆角方块 + 白色立方体线稿）直接重绘生成，不依赖 `tauri icon`：
+  ```bash
+  npm run icons        # 需要 Pillow： pip install pillow
+  ```
+  效果对比见 `docs/app-icon-check.png`。
+- 平台差异（这是「图标看起来变小」的根因）：
+  - **Windows**：资源管理器不会给图标留边，`.ico` 里的内容必须**铺满画布**（和 WebStorm / IDEA / VS Code 一致）。之前内容只有 83%，桌面上就明显偏小。`icon.ico` 现在包含 16/24/32/48/64/128/256 全部满画布尺寸，16px 单独做了简化笔画。
+  - **macOS**：系统按 1024 画布的 824（约 80.5%）网格展示图标，内容需要缩进并留透明边。`icon.icns` 主体取 **840/1024（约 82%）** 再加柔和阴影，Dock / Finder 里与「终端」等系统 App 体量一致。
+- `app-icon.png` 是脚本产出的 1024×1024 macOS 版母图，仅供预览，**不要**再对它执行 `tauri icon`（那会把 Windows 图标也缩进）。
+- NSIS 安装器品牌图也由同一个脚本生成，`tauri.conf.json` 里引用：
+  - `icons/installer-header.bmp`（150×57，安装/卸载页面顶部的横幅）
+  - `icons/installer-sidebar.bmp`（164×314，欢迎页/完成页左侧）
+  - 另外 `installerIcon` / `uninstallerIcon` 都用 `icons/icon.ico`，安装包和卸载程序不再是 NSIS 默认图标。
+  - 实际效果见 `docs/installer-branding.png`。
+- `src-tauri/build.rs` 里声明了 `cargo:rerun-if-changed=icons`，改图标后增量编译也会重新生成 `resource.lib`。如果 exe 图标仍是旧的，先执行一次 `cd src-tauri && cargo clean -p yooso-toolbox` 再打包。
+- 图标更新后需要重新 `tauri build` 并重新安装。Windows 上 `ie4uinit.exe -show` 往往不够，桌面仍会显示旧图标，可靠做法是清空缓存并重启资源管理器：
+  ```powershell
+  taskkill /F /IM explorer.exe
+  Remove-Item "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\iconcache_*.db" -Force
+  Remove-Item "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\thumbcache_*.db" -Force
+  Start-Process explorer.exe
+  ```
+  macOS 执行 `killall Dock`。
 
 构建产物：
 
-- 可执行文件：`src-tauri/target/release/yooso-toolbox.exe`（实测 5.31 MB）
-- 安装包：`src-tauri/target/release/bundle/nsis/Yooso Toolbox_0.1.0_x64-setup.exe`（实测 2.05 MB）
+- 可执行文件：`src-tauri/target/release/yooso-toolbox.exe`（实测 8.89 MB）
+- Windows 安装包：`src-tauri/target/release/bundle/nsis/yooso_box_0.1.1_x64-setup.exe`（实测 3.48 MB）
+- macOS 安装包：`src-tauri/target/release/bundle/dmg/yooso_box_0.1.1.dmg`（在 mac 上执行 `npm run tauri:build:mac` 生成）
 
 单独校验前端：
 
