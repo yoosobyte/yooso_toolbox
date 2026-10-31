@@ -3510,6 +3510,9 @@ body.sftp-resizing .sftp-resizer::after {
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--text-2);
+  /* body 默认禁用选择，这里放开，方便复制 JSON 片段 */
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .json-node {
