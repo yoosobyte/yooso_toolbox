@@ -166,3 +166,11 @@ export interface FileRoot {
   name: string;
   path: string;
 }
+
+/** 文件索引状态 */
+export interface IndexStatus {
+  ready: boolean;
+  building: boolean;
+  count: number;
+  scanned: number;
+}

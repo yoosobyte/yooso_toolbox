@@ -107,6 +107,8 @@ pub fn run() {
             files::fs_roots,
             files::fs_list,
             files::fs_search,
+            files::fs_index_build,
+            files::fs_index_status,
             files::fs_delete,
             files::fs_rename,
             translate::translate_text,

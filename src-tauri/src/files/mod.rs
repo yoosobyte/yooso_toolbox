@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::UNIX_EPOCH;
 
 use base64::engine::general_purpose::STANDARD;
@@ -29,16 +30,26 @@ pub async fn save_text_file(path: String, text: String) -> Result<(), String> {
 /* ------------------------------------------------------------------ */
 
 const MAX_SEARCH_RESULTS: usize = 500;
-const SEARCH_DEPTH: usize = 12;
+const SEARCH_DEPTH: usize = 32;
 
-/// 搜索时跳过的目录：系统库、依赖目录，避免敏感内容和无谓遍历
+/// 索引时跳过的目录：系统目录、依赖目录、缓存目录
 const SKIP_DIRS: &[&str] = &[
+    "Windows",
+    "WindowsApps",
+    "Program Files",
+    "Program Files (x86)",
+    "ProgramData",
+    "AppData",
     "Library",
+    "$RECYCLE.BIN",
+    "System Volume Information",
     "node_modules",
     "target",
     ".git",
-    "$RECYCLE.BIN",
-    "System Volume Information",
+    ".cargo",
+    ".rustup",
+    ".cache",
+    ".npm",
 ];
 
 /// Windows 用户目录下指向系统位置的 junction / 系统文件夹，不展示也不搜索
@@ -170,7 +181,7 @@ fn is_hidden(name: &str) -> bool {
 
 /// 是否应在列表 / 搜索里隐藏：点文件、系统 junction、隐藏/系统属性的条目
 fn should_hide(entry: &std::fs::DirEntry, name: &str) -> bool {
-    if is_hidden(name) || SYSTEM_NAMES.contains(&name) {
+    if is_hidden(name) || SYSTEM_NAMES.iter().any(|skip| skip.eq_ignore_ascii_case(name)) {
         return true;
     }
     #[cfg(windows)]
@@ -190,7 +201,7 @@ fn should_hide(entry: &std::fs::DirEntry, name: &str) -> bool {
 }
 
 fn should_skip_dir(name: &str) -> bool {
-    name == "Library" || SKIP_DIRS.contains(&name)
+    SKIP_DIRS.iter().any(|skip| skip.eq_ignore_ascii_case(name))
 }
 
 /// 允许访问的根目录：个人目录 + 下载 / 桌面 / 文档 / 图片 / 音乐 / 视频
@@ -241,76 +252,258 @@ pub fn fs_list(dir: String) -> Result<Vec<FileEntry>, String> {
     Ok(entries)
 }
 
-fn walk_matches(root: &Path, query: &str, results: &mut Vec<FileEntry>) {
-    let mut stack = vec![(root.to_path_buf(), 0usize)];
-    while let Some((dir, depth)) = stack.pop() {
-        if results.len() >= MAX_SEARCH_RESULTS || depth > SEARCH_DEPTH {
+/* ------------------------------------------------------------------ */
+/* 内存索引：启动后扫描磁盘，搜索只查内存，做到输入即出结果              */
+/* ------------------------------------------------------------------ */
+
+#[derive(Clone)]
+struct IndexedFile {
+    name: String,
+    lower: String,
+    path: String,
+    /// 小写完整路径，支持按路径搜索
+    lower_path: String,
+    is_dir: bool,
+    size: u64,
+    modified: Option<i64>,
+}
+
+#[derive(Default)]
+struct FileIndex {
+    entries: Vec<IndexedFile>,
+    building: bool,
+    ready: bool,
+    scanned: usize,
+}
+
+static INDEX: OnceLock<Mutex<FileIndex>> = OnceLock::new();
+
+fn index() -> &'static Mutex<FileIndex> {
+    INDEX.get_or_init(|| Mutex::new(FileIndex::default()))
+}
+
+fn lock_index() -> std::sync::MutexGuard<'static, FileIndex> {
+    index().lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexStatus {
+    pub ready: bool,
+    pub building: bool,
+    pub count: usize,
+    pub scanned: usize,
+}
+
+#[tauri::command]
+pub fn fs_index_status() -> IndexStatus {
+    let guard = lock_index();
+    IndexStatus {
+        ready: guard.ready,
+        building: guard.building,
+        count: guard.entries.len(),
+        scanned: guard.scanned,
+    }
+}
+
+fn indexed_of(path: &Path) -> Option<IndexedFile> {
+    let metadata = std::fs::metadata(path).ok()?;
+    let name = path.file_name()?.to_string_lossy().to_string();
+    let full_path = path.to_string_lossy().to_string();
+    Some(IndexedFile {
+        lower: name.to_lowercase(),
+        name,
+        lower_path: full_path.to_lowercase(),
+        path: full_path,
+        is_dir: metadata.is_dir(),
+        size: if metadata.is_dir() { 0 } else { metadata.len() },
+        modified: modified_at(&metadata),
+    })
+}
+
+fn walk_index(dir: &Path, out: &mut Vec<IndexedFile>, depth: usize) {
+    if depth > SEARCH_DEPTH {
+        return;
+    }
+    let read = match std::fs::read_dir(dir) {
+        Ok(value) => value,
+        Err(_) => return,
+    };
+    for item in read.flatten() {
+        let name = item.file_name().to_string_lossy().to_string();
+        if should_hide(&item, &name) || should_skip_dir(&name) {
             continue;
         }
-        let read = match std::fs::read_dir(&dir) {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-        for item in read.flatten() {
-            let name = item.file_name().to_string_lossy().to_string();
-            if should_hide(&item, &name) || should_skip_dir(&name) {
-                continue;
-            }
-            let path = item.path();
-            let is_dir = item.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
-            if name.to_lowercase().contains(query) {
-                if let Some(entry) = entry_of(&path) {
-                    results.push(entry);
-                }
-                if results.len() >= MAX_SEARCH_RESULTS {
-                    return;
-                }
-            }
+        let path = item.path();
+        if let Some(entry) = indexed_of(&path) {
+            let is_dir = entry.is_dir;
+            out.push(entry);
             if is_dir {
-                stack.push((path, depth + 1));
+                walk_index(&path, out, depth + 1);
+            }
+        }
+        if out.len() % 2000 == 0 {
+            if let Ok(mut guard) = index().lock() {
+                guard.scanned = out.len();
             }
         }
     }
 }
 
-/// 按文件名搜索个人目录（不递归 Library / 隐藏目录 / 依赖目录）
+#[cfg(windows)]
+fn index_roots() -> Vec<PathBuf> {
+    use windows::core::PCWSTR;
+    use windows::Win32::Storage::FileSystem::GetDriveTypeW;
+
+    // GetDriveTypeW: 3 = DRIVE_FIXED
+    const DRIVE_FIXED: u32 = 3;
+
+    let mut roots = Vec::new();
+    for letter in b'C'..=b'Z' {
+        let name = format!("{}:\\", letter as char);
+        let wide: Vec<u16> = name
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let kind = unsafe { GetDriveTypeW(PCWSTR(wide.as_ptr())) };
+        if kind == DRIVE_FIXED && Path::new(&name).is_dir() {
+            roots.push(PathBuf::from(&name));
+        }
+    }
+    roots
+}
+
+/// macOS / Linux 只索引个人目录；Windows 索引所有固定磁盘（Everything 风格）
+#[cfg(not(windows))]
+fn index_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(home) = home_dir() {
+        roots.push(home.clone());
+        roots.extend(
+            root_candidates(&home)
+                .into_iter()
+                .map(|(_, _, path)| path)
+                .filter(|path| path.is_dir()),
+        );
+    }
+    roots
+}
+
+fn build_index() {
+    let mut entries = Vec::new();
+    for root in index_roots() {
+        if root.is_dir() {
+            walk_index(&root, &mut entries, 0);
+        }
+    }
+
+    let mut guard = lock_index();
+    guard.entries = entries;
+    guard.building = false;
+    guard.ready = true;
+    guard.scanned = guard.entries.len();
+}
+
+/// 建立 / 重建内存索引（后台线程，立即返回）
 #[tauri::command]
-pub fn fs_search(query: String, limit: Option<usize>) -> Result<Vec<FileEntry>, String> {
+pub fn fs_index_build() -> Result<(), String> {
+    {
+        let mut guard = lock_index();
+        if guard.building {
+            return Ok(());
+        }
+        guard.building = true;
+        guard.ready = false;
+        guard.entries.clear();
+        guard.scanned = 0;
+    }
+    std::thread::spawn(build_index);
+    Ok(())
+}
+
+fn rank(entry: &IndexedFile, needle: &str) -> (u8, u8, usize) {
+    // 0 完全匹配 / 1 名称前缀 / 2 名称包含 / 3 仅路径包含
+    let (bucket, position) = if entry.lower == needle {
+        (0, 0)
+    } else if entry.lower.starts_with(needle) {
+        (1, 0)
+    } else if let Some(position) = entry.lower.find(needle) {
+        (2, position)
+    } else {
+        (3, entry.lower_path.find(needle).unwrap_or(usize::MAX))
+    };
+    // 同分时文件优先于目录
+    (bucket, if entry.is_dir { 1 } else { 0 }, position)
+}
+
+/// 在内存索引里搜索（文件名或完整路径包含匹配，输入即出结果）
+#[tauri::command]
+pub fn fs_search(
+    query: String,
+    scope: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<FileEntry>, String> {
     let needle = query.trim().to_lowercase();
     if needle.is_empty() {
         return Ok(Vec::new());
     }
-    let home = home_dir()?;
-    let mut results = Vec::new();
+    let guard = lock_index();
+    let limit = limit.unwrap_or(MAX_SEARCH_RESULTS).min(MAX_SEARCH_RESULTS);
 
-    // 个人目录顶层的文件也参与匹配
-    if let Ok(read) = std::fs::read_dir(&home) {
-        for item in read.flatten() {
-            let name = item.file_name().to_string_lossy().to_string();
-            if should_hide(&item, &name) {
-                continue;
-            }
-            if name.to_lowercase().contains(&needle) {
-                if let Some(entry) = entry_of(&item.path()) {
-                    results.push(entry);
+    let mut matched: Vec<&IndexedFile> = guard
+        .entries
+        .iter()
+        .filter(|entry| {
+            if let Some(prefix) = scope.as_deref() {
+                if !prefix.is_empty() && !Path::new(&entry.path).starts_with(prefix) {
+                    return false;
                 }
             }
+            entry.lower.contains(&needle) || entry.lower_path.contains(&needle)
+        })
+        .collect();
+
+    matched.sort_by(|left, right| {
+        rank(left, &needle)
+            .cmp(&rank(right, &needle))
+            .then_with(|| left.name.len().cmp(&right.name.len()))
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    matched.truncate(limit);
+
+    Ok(matched
+        .into_iter()
+        .map(|entry| FileEntry {
+            name: entry.name.clone(),
+            path: entry.path.clone(),
+            is_dir: entry.is_dir,
+            size: entry.size,
+            modified: entry.modified,
+        })
+        .collect())
+}
+
+fn index_forget(path: &Path) {
+    let mut guard = lock_index();
+    guard
+        .entries
+        .retain(|entry| !Path::new(&entry.path).starts_with(path));
+}
+
+fn index_rename(from: &Path, to: &Path) {
+    let mut guard = lock_index();
+    for entry in guard.entries.iter_mut() {
+        let path = Path::new(&entry.path);
+        if let Ok(rest) = path.strip_prefix(from) {
+            let next = to.join(rest);
+            entry.path = next.to_string_lossy().to_string();
+            entry.lower_path = entry.path.to_lowercase();
+            if let Some(name) = next.file_name() {
+                entry.name = name.to_string_lossy().to_string();
+                entry.lower = entry.name.to_lowercase();
+            }
         }
     }
-
-    for (_, _, path) in root_candidates(&home) {
-        if results.len() >= MAX_SEARCH_RESULTS {
-            break;
-        }
-        if path.is_dir() {
-            walk_matches(&path, &needle, &mut results);
-        }
-    }
-
-    let limit = limit.unwrap_or(MAX_SEARCH_RESULTS).min(MAX_SEARCH_RESULTS);
-    results.truncate(limit);
-    sort_entries(&mut results);
-    Ok(results)
 }
 
 /// 删除到系统回收站（个人目录内）
@@ -323,6 +516,7 @@ pub fn fs_delete(paths: Vec<String>) -> Result<(), String> {
             return Err("不能删除用户目录本身".to_string());
         }
         trash::delete(&path).map_err(|error| format!("删除失败: {error}"))?;
+        index_forget(&path);
     }
     Ok(())
 }
@@ -347,5 +541,6 @@ pub fn fs_rename(path: String, new_name: String) -> Result<String, String> {
         return Err("同名文件或文件夹已存在".to_string());
     }
     std::fs::rename(&source, &target).map_err(|error| format!("重命名失败: {error}"))?;
+    index_rename(&source, &target);
     Ok(target.to_string_lossy().to_string())
 }
