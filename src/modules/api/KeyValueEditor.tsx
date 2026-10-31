@@ -3,6 +3,9 @@ import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import type { KeyValue } from "../../types";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
+import { emptyRow } from "./helpers";
+
+export { emptyRow };
 
 interface Props {
   rows: KeyValue[];
@@ -14,13 +17,6 @@ interface Props {
   keyPlaceholder?: string;
   valuePlaceholder?: string;
 }
-
-export const emptyRow = (): KeyValue => ({
-  id: crypto.randomUUID(),
-  key: "",
-  value: "",
-  enabled: true,
-});
 
 /** 标准表格：左右都有边框，表头固定，底部居中「添加一行」 */
 export default function KeyValueEditor({

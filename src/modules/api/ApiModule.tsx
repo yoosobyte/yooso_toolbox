@@ -1,106 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  App as AntdApp,
-  Button,
-  Dropdown,
-  Input,
-  Modal,
-  Segmented,
-  Select,
-  Tooltip,
-  Typography,
-} from "antd";
-import {
-  AlignLeftOutlined,
-  ClearOutlined,
-  ApiOutlined,
-  CodeOutlined,
-  CopyOutlined,
-  DeleteOutlined,
-  FolderOpenOutlined,
-  HistoryOutlined,
-  InboxOutlined, LoadingOutlined,
-  OrderedListOutlined,
-  PlusOutlined,
-  SaveOutlined,
-  SearchOutlined,
-  SendOutlined,
-  TagsOutlined,
-} from "@ant-design/icons";
-import dayjs from "dayjs";
+import { App as AntdApp, Tooltip, Typography } from "antd";
+import { ApiOutlined } from "@ant-design/icons";
 import { httpRequest } from "../../api";
 import type {
   ApiRequest,
   ApiResponse,
-  BodyType,
   HistoryEntry,
   HttpMethod,
-  KeyValue,
   SavedRequest,
 } from "../../types";
 import { useApiStore } from "../../stores/apiStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
-import { copyText } from "../../clipboard";
-import { errText, formatBytes } from "../../utils";
+import { errText } from "../../utils";
 import { SideResizer } from "../../components/SideResizer";
-import KeyValueEditor, { HeaderTable, emptyRow } from "./KeyValueEditor";
-
-const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
-
-/** 请求栏右侧图标按钮：和下拉 / 输入框严格等高 */
-const BAR_BTN = { height: 40, width: 40, minWidth: 40 } as const;
-
-const METHOD_COLOR: Record<string, string> = {
-  GET: "#22c55e",
-  POST: "#f59e0b",
-  PUT: "#3b82f6",
-  PATCH: "#a855f7",
-  DELETE: "#f87171",
-  HEAD: "#8b9bb4",
-  OPTIONS: "#8b9bb4",
-};
-
-const emptyRequest = (): ApiRequest => ({
-  method: "GET",
-  url: "",
-  params: [emptyRow()],
-  headers: [emptyRow()],
-  bodyType: "none",
-  body: "",
-});
-
-type ReqTab = "params" | "headers" | "body";
-type RespTab = "body" | "headers";
-
-/** 把 URL 里已有的 query 拆出来，避免和参数表重复 */
-function splitQuery(url: string): { base: string; pairs: [string, string][] } {
-  const index = url.indexOf("?");
-  if (index < 0) return { base: url, pairs: [] };
-  const base = url.slice(0, index);
-  const pairs: [string, string][] = url
-    .slice(index + 1)
-    .split("&")
-    .filter(Boolean)
-    .map((chunk) => {
-      const [key, value = ""] = chunk.split("=");
-      return [decodeURIComponent(key), decodeURIComponent(value)] as [string, string];
-    });
-  return { base, pairs };
-}
-
-/** 方法标签：带底色的胶囊 */
-function MethodChip({ method, size = "sm" }: { method: HttpMethod; size?: "sm" | "md" }) {
-  const color = METHOD_COLOR[method] ?? "#8b9bb4";
-  return (
-    <span
-      className={`method-chip method-chip-${size}`}
-      style={{ color, background: `${color}1f`, borderColor: `${color}33` }}
-    >
-      {method}
-    </span>
-  );
-}
+import { buildCurl, buildFinalUrl, emptyRequest, originOf } from "./helpers";
+import type { RespTab } from "./constants";
+import RequestSidebar from "./RequestSidebar";
+import RequestBar from "./RequestBar";
+import RequestEditor from "./RequestEditor";
+import ResponsePanel from "./ResponsePanel";
+import SaveRequestModal from "./SaveRequestModal";
 
 export default function ApiModule() {
   const t = useT(useUiStore((state) => state.lang));
@@ -119,13 +39,10 @@ export default function ApiModule() {
   const [response, setResponse] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [reqTab, setReqTab] = useState<ReqTab>("params");
   const [respTab, setRespTab] = useState<RespTab>("body");
-  const [pretty, setPretty] = useState(true);
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [saveMode, setSaveMode] = useState<"update" | "new">("new");
-  const [keyword, setKeyword] = useState("");
   const [lastSent, setLastSent] = useState<{ method: HttpMethod; url: string } | null>(null);
   const sideWidth = useUiStore((state) => state.sideWidth);
   const setSideWidth = useUiStore((state) => state.setSideWidth);
@@ -141,23 +58,7 @@ export default function ApiModule() {
   );
 
   /** 最终地址：URL 里已有的 query + 参数表里启用的行 */
-  const finalUrl = useMemo(() => {
-    const { base, pairs } = splitQuery(request.url.trim());
-    const extra = request.params
-      .filter((item) => item.enabled && item.key.trim())
-      .map((item) => [item.key.trim(), item.value] as [string, string]);
-    const merged = [...pairs];
-    for (const [key, value] of extra) {
-      const index = merged.findIndex(([existing]) => existing === key);
-      if (index >= 0) merged[index] = [key, value];
-      else merged.push([key, value]);
-    }
-    if (!merged.length) return base;
-    const query = merged
-      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-      .join("&");
-    return `${base}?${query}`;
-  }, [request.url, request.params]);
+  const finalUrl = useMemo(() => buildFinalUrl(request), [request.url, request.params]);
 
   /** 最近用过的地址（去重），做成「搜索历史」式的下拉 */
   const recentUrls = useMemo(() => {
@@ -171,49 +72,6 @@ export default function ApiModule() {
     }
     return list;
   }, [history]);
-
-  /** 左侧搜索过滤 */
-  const keywordTrim = keyword.trim().toLowerCase();
-  const shownSaved = keywordTrim
-    ? saved.filter((item) => item.name.toLowerCase().includes(keywordTrim))
-    : saved;
-  const shownHistory = keywordTrim
-    ? history.filter(
-        (item) =>
-          item.url.toLowerCase().includes(keywordTrim) ||
-          item.method.toLowerCase().includes(keywordTrim),
-      )
-    : history;
-
-  const copy = (text: string, label: string) => {
-    if (!text?.trim()) {
-      message.warning(t("api.nothingToCopy"));
-      return;
-    }
-    void copyText(text).then(
-      () => message.success(t("api.copied", { label })),
-      () => message.error(t("common.copyFailed")),
-    );
-  };
-
-  const curlCommand = () => {
-    const lines = [`curl -X ${request.method} '${finalUrl}'`];
-    const headers = [...enabledHeaders];
-    const hasType = headers.some((item) => item.key.toLowerCase() === "content-type");
-    if (!hasType && request.bodyType === "json") {
-      headers.push({ key: "Content-Type", value: "application/json" });
-    }
-    if (!hasType && request.bodyType === "form") {
-      headers.push({ key: "Content-Type", value: "application/x-www-form-urlencoded" });
-    }
-    for (const header of headers) {
-      lines.push(`-H '${header.key}: ${header.value.replace(/'/g, "'\\''")}'`);
-    }
-    if (request.bodyType !== "none" && request.body.trim()) {
-      lines.push(`--data-raw '${request.body.replace(/'/g, "'\\''")}'`);
-    }
-    return lines.join(" \\\n  ");
-  };
 
   const send = async () => {
     const url = finalUrl.trim();
@@ -271,13 +129,15 @@ export default function ApiModule() {
     setError(null);
   };
 
-  /** 取 URL 的源（scheme://host），判断还是不是同一个接口 */
-  const originOf = (url: string) => {
-    try {
-      return new URL(url.trim()).origin;
-    } catch {
-      return url.trim();
-    }
+  const loadHistory = (item: HistoryEntry) => {
+    patch({ method: item.method, url: item.url });
+    setResponse(null);
+    setError(null);
+  };
+
+  const removeSaved = (id: string) => {
+    removeRequest(id);
+    if (currentId === id) resetRequest();
   };
 
   const openSave = () => {
@@ -299,32 +159,10 @@ export default function ApiModule() {
     message.success(saveMode === "update" ? t("api.savedAt") : t("api.savedNew"));
   };
 
-  const responseBody = useMemo(() => {
-    if (!response) return "";
-    if (!pretty) return response.body;
-    try {
-      return JSON.stringify(JSON.parse(response.body), null, 2);
-    } catch {
-      return response.body;
-    }
-  }, [response, pretty]);
-
-  const statusColor = (status: number) =>
-    status >= 200 && status < 300
-      ? "var(--success)"
-      : status >= 400
-        ? "var(--danger)"
-        : "var(--warn)";
-
-  const bodyOptions: { label: string; value: BodyType }[] = [
-    { label: t("api.bodyDefault"), value: "none" },
-    { label: "JSON", value: "json" },
-    { label: t("api.bodyText"), value: "text" },
-    { label: t("api.bodyForm"), value: "form" },
-  ];
-
-  const paramCount = request.params.filter((item) => item.enabled && item.key.trim()).length;
-  const headerCount = enabledHeaders.length;
+  /** 响应区「复制 cURL」用的命令文本 */
+  const curl = buildCurl(request, finalUrl, enabledHeaders);
+  /** 「更新现有」提示里显示的请求名 */
+  const updateName = saved.find((item) => item.id === currentId)?.name ?? "";
 
   return (
     <div className="module api-module">
@@ -346,460 +184,56 @@ export default function ApiModule() {
       </header>
 
       <div className="api-body">
-        <aside className="api-side" style={{ width: sideWidth }}>
-          <Button
-            size="large"
-            icon={<PlusOutlined />}
-            block
-            onClick={resetRequest}
-          >
-            {t("api.newRequest")}
-          </Button>
-
-          <div className="api-side-card">
-            <div className="api-search">
-              <Input
-                variant="borderless"
-                allowClear
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value)}
-                prefix={<SearchOutlined style={{ color: "var(--text-mute)" }} />}
-                placeholder={t("api.search")}
-              />
-            </div>
-            <div className="api-search-sep" />
-
-            <div className="api-side-scroll">
-            <div className="api-group">
-              <div className="api-group-head">
-                <FolderOpenOutlined />
-                <span>{t("api.requestSection")}</span>
-                <span className="api-count">{saved.length}</span>
-              </div>
-              {shownSaved.length === 0 && (
-                <div className="api-side-empty">
-                  {keywordTrim ? t("api.emptySearch") : t("api.emptySaved")}
-                </div>
-              )}
-              {shownSaved.map((item) => (
-                <div
-                  key={item.id}
-                  className={`api-item${item.id === currentId ? " active" : ""}`}
-                  onClick={() => loadRequest(item)}
-                >
-                  <MethodChip method={item.request.method} />
-                  <span className="api-item-name">{item.name}</span>
-                  <button
-                    type="button"
-                    className="api-item-remove"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeRequest(item.id);
-                      if (currentId === item.id) resetRequest();
-                    }}
-                  >
-                    <DeleteOutlined />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="api-group">
-              <div className="api-group-head">
-                <HistoryOutlined />
-                <span>{t("api.historySection")}</span>
-                <span className="api-count">{history.length}</span>
-                {history.length > 0 && (
-                  <button type="button" className="api-group-action" onClick={clearHistory}>
-                    <DeleteOutlined />
-                    {t("api.clearHistory")}
-                  </button>
-                )}
-              </div>
-              {shownHistory.length === 0 && (
-                <div className="api-side-empty">
-                  {keywordTrim ? t("api.emptySearch") : t("api.emptyHistory")}
-                </div>
-              )}
-              {shownHistory.map((item: HistoryEntry) => (
-                <div
-                  key={item.id}
-                  className="api-item api-item-history"
-                  onClick={() => {
-                    patch({ method: item.method, url: item.url });
-                    setResponse(null);
-                    setError(null);
-                  }}
-                >
-                  <MethodChip method={item.method} />
-                  <span className="api-item-name" title={item.url}>
-                    {item.url}
-                  </span>
-                  <span className="api-item-time">{dayjs(item.at).format("HH:mm")}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          </div>
-        </aside>
+        <RequestSidebar
+          width={sideWidth}
+          saved={saved}
+          history={history}
+          currentId={currentId}
+          onNew={resetRequest}
+          onLoad={loadRequest}
+          onRemove={removeSaved}
+          onPickHistory={loadHistory}
+          onClearHistory={clearHistory}
+        />
 
         <SideResizer width={sideWidth} onChange={setSideWidth} />
 
         <section className="api-main">
-          <div className="api-bar">
-            <Select
-              className="api-method"
-              size="large"
-              value={request.method}
-              onChange={(value) => patch({ method: value as HttpMethod })}
-              options={METHODS.map((method) => ({
-                value: method,
-                label: (
-                  <span style={{ color: METHOD_COLOR[method], fontWeight: 600 }}>{method}</span>
-                ),
-              }))}
-            />
-            <Input
-                size="large"
-                value={request.url}
-                placeholder={t("api.urlPlaceholder")}
-                onChange={(event) => patch({ url: event.target.value })}
-                onPressEnter={() => void send()}
-                suffix={
-                  sending ? (
-                      <LoadingOutlined />
-                  ) : (
-                      <SendOutlined
-                          style={{ cursor: "pointer", }}
-                          onClick={() => void send()}
-                      />
-                  )
-                }
-            />
-            <Dropdown
-              trigger={["click"]}
-              placement="bottomRight"
-              menu={{
-                items: recentUrls.length
-                  ? recentUrls.map((url) => ({ key: url, label: url }))
-                  : [{ key: "__empty", label: t("api.emptyUrlHistory"), disabled: true }],
-                onClick: ({ key }) => {
-                  if (key !== "__empty") patch({ url: key });
-                },
-              }}
-            >
-              <Tooltip title={t("api.urlHistory")} placement="bottomRight">
-                <Button style={BAR_BTN} icon={<HistoryOutlined />} />
-              </Tooltip>
-            </Dropdown>
-            <Tooltip title={t("api.copyUrl")}>
-              <Button
-                style={BAR_BTN}
-                icon={<CopyOutlined />}
-                onClick={() => copy(finalUrl, "URL")}
-              />
-            </Tooltip>
-            <Tooltip title={t("api.clear")}>
-              <Button style={BAR_BTN} icon={<ClearOutlined />} onClick={resetRequest} />
-            </Tooltip>
-            <Tooltip title={t("api.saveAs")}>
-              <Button style={BAR_BTN} icon={<SaveOutlined />} onClick={openSave} />
-            </Tooltip>
-          </div>
+          <RequestBar
+            request={request}
+            sending={sending}
+            recentUrls={recentUrls}
+            finalUrl={finalUrl}
+            onPatch={patch}
+            onSend={send}
+            onReset={resetRequest}
+            onOpenSave={openSave}
+          />
 
-          <div className="api-card api-card-request">
-            <div className="api-card-head">
-              <div className="api-seg">
-                {(["params", "headers", "body"] as ReqTab[]).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`api-seg-item${reqTab === key ? " active" : ""}`}
-                    onClick={() => setReqTab(key)}
-                  >
-                    {key === "params" ? (
-                      <OrderedListOutlined />
-                    ) : key === "headers" ? (
-                      <TagsOutlined />
-                    ) : (
-                      <CodeOutlined />
-                    )}
-                    {t(`api.${key}`)}
-                    {key === "params" && paramCount > 0 && (
-                      <span className="api-tab-badge">{paramCount}</span>
-                    )}
-                    {key === "headers" && headerCount > 0 && (
-                      <span className="api-tab-badge">{headerCount}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-              <span style={{ flex: 1 }} />
-              <span className="api-final-url" title={finalUrl}>
-                {finalUrl || "—"}
-              </span>
-              {reqTab === "params" && paramCount > 0 && (
-                <Button
-                  size="small"
-                  icon={<CopyOutlined />}
-                  onClick={() =>
-                    copy(
-                      request.params
-                        .filter((item) => item.enabled && item.key.trim())
-                        .map(
-                          (item) =>
-                            `${encodeURIComponent(item.key)}=${encodeURIComponent(item.value)}`,
-                        )
-                        .join("&"),
-                      t("api.params"),
-                    )
-                  }
-                >
-                  {t("api.copyParams")}
-                </Button>
-              )}
-              {reqTab === "headers" && headerCount > 0 && (
-                <Button
-                  size="small"
-                  icon={<CopyOutlined />}
-                  onClick={() =>
-                    copy(
-                      enabledHeaders.map((item) => `${item.key}: ${item.value}`).join("\n"),
-                      t("api.headers"),
-                    )
-                  }
-                >
-                  {t("api.copyRequestHeaders")}
-                </Button>
-              )}
-              {reqTab === "body" && request.body.trim().length > 0 && (
-                <Button
-                  size="small"
-                  icon={<CopyOutlined />}
-                  onClick={() => copy(request.body, t("api.body"))}
-                >
-                  {t("api.copyRequestBody")}
-                </Button>
-              )}
-            </div>
+          <RequestEditor request={request} finalUrl={finalUrl} onPatch={patch} />
 
-            <div className="api-card-body">
-              {reqTab === "params" && (
-                <KeyValueEditor
-                  rows={request.params}
-                  onChange={(rows: KeyValue[]) => patch({ params: rows })}
-                  keyPlaceholder={t("api.paramKeyPlaceholder")}
-                  valuePlaceholder={t("api.paramValuePlaceholder")}
-                />
-              )}
-              {reqTab === "headers" && (
-                <KeyValueEditor
-                  rows={request.headers}
-                  onChange={(rows: KeyValue[]) => patch({ headers: rows })}
-                  keyLabel={t("api.headerKey")}
-                  valueLabel={t("api.headerValue")}
-                  keyPlaceholder={t("api.headerKeyPlaceholder")}
-                  valuePlaceholder={t("api.headerValuePlaceholder")}
-                />
-              )}
-              {reqTab === "body" && (
-                <div className="api-body-editor">
-                  <div className="api-body-tools">
-                    <div className="api-seg">
-                      {bodyOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`api-seg-item${request.bodyType === option.value ? " active" : ""}`}
-                          onClick={() =>
-                            patch(
-                              option.value === "none"
-                                ? { bodyType: option.value, body: "" }
-                                : { bodyType: option.value },
-                            )
-                          }
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <Input.TextArea
-                    className="api-body-area"
-                    value={request.bodyType === "none" ? "" : request.body}
-                    disabled={request.bodyType === "none"}
-                    onChange={(event) => patch({ body: event.target.value })}
-                    placeholder={
-                      request.bodyType === "none"
-                        ? t("api.bodyNoneHint")
-                        : request.bodyType === "json"
-                          ? '{ "hello": "world" }'
-                          : request.bodyType === "form"
-                            ? "a=1&b=2"
-                            : ""
-                    }
-                    autoSize={{ minRows: 4, maxRows: 12 }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="api-card api-card-response">
-            <div className="api-card-head">
-              <span className="api-response-title">{t("api.response")}</span>
-              {response && (
-                <>
-                  <Tooltip title={lastSent ? `${lastSent.method} ${lastSent.url}` : undefined}>
-                    <span
-                      className="api-status-pill"
-                      style={{
-                        color: statusColor(response.status),
-                        background: `${statusColor(response.status)}1f`,
-                      }}
-                    >
-                      {lastSent ? `${lastSent.method} · ` : ""}
-                      {response.status} {response.statusText}
-                    </span>
-                  </Tooltip>
-                  <span className="api-meta">
-                    {response.timeMs} ms · {formatBytes(response.size)}
-                  </span>
-                  {response.truncated && (
-                    <span className="api-meta api-warn">{t("api.truncated")}</span>
-                  )}
-                </>
-              )}
-              <span style={{ flex: 1 }} />
-              {/* 从左到右：复制 cURL → 复制正文/响应头 → 格式化 → 正文/响应头分段（最右） */}
-              <Tooltip title={t("api.curlHint")}>
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<CodeOutlined />}
-                  onClick={() => copy(curlCommand(), "cURL")}
-                >
-                  {t("api.copyAsCurl")}
-                </Button>
-              </Tooltip>
-              {response && (
-                <Tooltip
-                  title={
-                    respTab === "body" ? t("api.copyResponseBody") : t("api.copyResponseHeaders")
-                  }
-                >
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<CopyOutlined />}
-                    onClick={() =>
-                      respTab === "body"
-                        ? copy(response.body, t("api.responseBody"))
-                        : copy(
-                            response.headers.map((h) => `${h.key}: ${h.value}`).join("\n"),
-                            t("api.responseHeaders"),
-                          )
-                    }
-                  >
-                    {respTab === "body" ? t("api.copyResponseBody") : t("api.copyResponseHeaders")}
-                  </Button>
-                </Tooltip>
-              )}
-              {response && respTab === "body" && (
-                <Tooltip title={pretty ? t("api.raw") : t("api.pretty")}>
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<AlignLeftOutlined />}
-                    onClick={() => setPretty((value) => !value)}
-                    className="api-mini"
-                  />
-                </Tooltip>
-              )}
-              <div className="api-seg api-seg-sm">
-                <button
-                  type="button"
-                  className={`api-seg-item${respTab === "body" ? " active" : ""}`}
-                  onClick={() => setRespTab("body")}
-                >
-                  {t("api.responseBody")}
-                </button>
-                <button
-                  type="button"
-                  className={`api-seg-item${respTab === "headers" ? " active" : ""}`}
-                  onClick={() => setRespTab("headers")}
-                >
-                  {t("api.responseHeaders")}
-                </button>
-              </div>
-            </div>
-
-            <div className="api-card-body api-response-body">
-              {error && (
-                <div className="api-error">
-                  {t("api.failed")}：{error}
-                </div>
-              )}
-              {!error && !response && (
-                <div className="api-empty-state">
-                  <span className="api-empty-icon">
-                    <InboxOutlined />
-                  </span>
-                  <div className="api-empty-title">{t("api.responseEmptyTitle")}</div>
-                  <div className="api-empty-hint">{t("api.responseEmptyHint")}</div>
-                </div>
-              )}
-              {response && respTab === "body" && (
-                response.body ? (
-                  <pre className="api-pre">{responseBody}</pre>
-                ) : (
-                  <div className="api-empty">{t("api.noBody")}</div>
-                )
-              )}
-              {response && respTab === "headers" && <HeaderTable headers={response.headers} />}
-            </div>
-          </div>
+          <ResponsePanel
+            response={response}
+            error={error}
+            lastSent={lastSent}
+            curl={curl}
+            tab={respTab}
+            onTabChange={setRespTab}
+          />
         </section>
       </div>
 
-      <Modal
+      <SaveRequestModal
         open={saveOpen}
+        name={saveName}
+        mode={saveMode}
+        currentId={currentId}
+        updateName={updateName}
+        onNameChange={setSaveName}
+        onModeChange={setSaveMode}
         onCancel={() => setSaveOpen(false)}
-        onOk={confirmSave}
-        okText={t("common.save")}
-        cancelText={t("common.cancel")}
-        title={t("api.saveAs")}
-        width={460}
-        destroyOnClose
-      >
-        <div className="api-save-body">
-          {currentId && (
-            <Segmented
-              size="small"
-              block
-              value={saveMode}
-              onChange={(value) => setSaveMode(value as "update" | "new")}
-              options={[
-                { label: t("api.saveModeUpdate"), value: "update" },
-                { label: t("api.saveModeNew"), value: "new" },
-              ]}
-            />
-          )}
-          <Input
-            value={saveName}
-            onChange={(event) => setSaveName(event.target.value)}
-            placeholder={t("api.requestName")}
-            onPressEnter={confirmSave}
-          />
-          <div className="api-save-hint">
-            {saveMode === "update" && currentId
-              ? t("api.saveUpdateHint", {
-                  name: saved.find((item) => item.id === currentId)?.name ?? "",
-                })
-              : t("api.saveNewHint")}
-          </div>
-        </div>
-      </Modal>
+        onConfirm={confirmSave}
+      />
     </div>
   );
 }

@@ -9,5 +9,10 @@
     <string>zh-Hans</string>
     <string>en</string>
   </array>
+  <!-- 包名/安装目录用 ASCII 的 yoosoBox，Dock 与菜单栏仍显示中文品牌 -->
+  <key>CFBundleDisplayName</key>
+  <string>悦盒</string>
+  <key>CFBundleName</key>
+  <string>悦盒</string>
 </dict>
 </plist>
