@@ -27,16 +27,61 @@ function parentOf(path: string): string {
   return path.replace(/[\\/][^\\/]+$/, "");
 }
 
-function Highlight({ text, needle }: { text: string; needle: string }) {
-  if (!needle) return <>{text}</>;
-  const index = text.toLowerCase().indexOf(needle);
-  if (index < 0) return <>{text}</>;
+function Highlight({ text, tokens }: { text: string; tokens: string[] }) {
+  if (tokens.length === 0) return <>{text}</>;
+  const pattern = new RegExp(
+    `(${tokens.map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+    "gi",
+  );
   return (
     <>
-      {text.slice(0, index)}
-      <mark className="files-hit">{text.slice(index, index + needle.length)}</mark>
-      {text.slice(index + needle.length)}
+      {text.split(pattern).map((piece, index) =>
+        tokens.some((token) => piece.toLowerCase() === token.toLowerCase()) ? (
+          <mark key={index} className="files-hit">
+            {piece}
+          </mark>
+        ) : (
+          piece
+        ),
+      )}
     </>
+  );
+}
+
+/** 文件夹 / 扩展名 / 未知 */
+function typeLabel(entry: FileEntry, folderLabel: string, unknownLabel: string): string {
+  if (entry.isDir) return folderLabel;
+  const dot = entry.name.lastIndexOf(".");
+  if (dot <= 0 || dot === entry.name.length - 1) return unknownLabel;
+  return entry.name.slice(dot + 1).toLowerCase();
+}
+
+function IndexingArt() {
+  return (
+    <svg className="files-art files-art-spin" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="24" fill="none" stroke="var(--border-strong)" strokeWidth="4" />
+      <circle
+        cx="32"
+        cy="32"
+        r="24"
+        fill="none"
+        stroke="var(--accent)"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray="34 116"
+      />
+    </svg>
+  );
+}
+
+function EmptyArt() {
+  return (
+    <svg className="files-art" viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="12" y="14" width="28" height="36" rx="4" fill="none" stroke="var(--border-strong)" strokeWidth="2.5" />
+      <path d="M19 24h14M19 31h14M19 38h9" stroke="var(--text-mute)" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="45" cy="42" r="9" fill="none" stroke="var(--text-mute)" strokeWidth="2.5" />
+      <path d="M51.5 48.5L57 54" stroke="var(--text-mute)" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -54,7 +99,8 @@ export default function FilesModule() {
   });
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
-  const [scope, setScope] = useState("");  const [results, setResults] = useState<FileEntry[]>([]);
+  const [scope, setScope] = useState("");
+  const [results, setResults] = useState<FileEntry[]>([]);
   const [searching, setSearching] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -215,7 +261,10 @@ export default function FilesModule() {
   };
 
   const needle = deferredQuery.trim();
-  const needleLower = needle.toLowerCase();
+  const tokens = needle
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => token.toLowerCase());
   const indexing = !status.ready;
 
   return (
@@ -296,15 +345,22 @@ export default function FilesModule() {
       <div className="files-results">
         {indexing ? (
           <div className="files-indexing">
+            <IndexingArt />
             <div className="files-indexing-title">{t("files.indexingTitle")}</div>
             <div className="files-indexing-hint">
               {t("files.indexingHint", { count: status.scanned })}
             </div>
           </div>
         ) : !needle ? (
-          <div className="files-empty">{t("files.prompt")}</div>
+          <div className="files-empty">
+            <EmptyArt />
+            <span>{t("files.prompt")}</span>
+          </div>
         ) : results.length === 0 && !searching ? (
-          <div className="files-empty">{t("files.noResults")}</div>
+          <div className="files-empty">
+            <EmptyArt />
+            <span>{t("files.noResults")}</span>
+          </div>
         ) : (
           <>
             <div className="files-result-head">
@@ -312,6 +368,13 @@ export default function FilesModule() {
                 {t("files.results", { count: results.length })}
                 {searching ? ` · ${t("files.searching")}` : ""}
               </span>
+            </div>
+            <div className="files-columns">
+              <span className="files-col-name">{t("files.colName")}</span>
+              <span className="files-col-path">{t("files.colPath")}</span>
+              <span className="files-col-type">{t("files.colType")}</span>
+              <span className="files-col-size">{t("files.colSize")}</span>
+              <span className="files-col-time">{t("files.colTime")}</span>
             </div>
             {results.map((entry) => (
               <div
@@ -331,10 +394,13 @@ export default function FilesModule() {
                   {fileIcon(entry)}
                 </span>
                 <span className="files-name">
-                  <Highlight text={entry.name} needle={needleLower} />
+                  <Highlight text={entry.name} tokens={tokens} />
                 </span>
                 <span className="files-path-cell" title={entry.path}>
-                  <Highlight text={parentOf(entry.path)} needle={needleLower} />
+                  <Highlight text={parentOf(entry.path)} tokens={tokens} />
+                </span>
+                <span className="files-type">
+                  {typeLabel(entry, t("files.typeFolder"), t("files.typeUnknown"))}
                 </span>
                 <span className="files-meta">
                   {entry.isDir ? "" : formatBytes(entry.size)}

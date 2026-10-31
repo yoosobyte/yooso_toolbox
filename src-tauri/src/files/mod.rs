@@ -375,17 +375,8 @@ fn index_roots() -> Vec<PathBuf> {
 /// macOS / Linux 只索引个人目录；Windows 索引所有固定磁盘（Everything 风格）
 #[cfg(not(windows))]
 fn index_roots() -> Vec<PathBuf> {
-    let mut roots = Vec::new();
-    if let Ok(home) = home_dir() {
-        roots.push(home.clone());
-        roots.extend(
-            root_candidates(&home)
-                .into_iter()
-                .map(|(_, _, path)| path)
-                .filter(|path| path.is_dir()),
-        );
-    }
-    roots
+    // 个人目录本身已经递归包含下载 / 桌面 / 文档…，再单独加子目录会产生重复索引
+    home_dir().into_iter().filter(|home| home.is_dir()).collect()
 }
 
 fn build_index() {
@@ -435,7 +426,7 @@ fn rank(entry: &IndexedFile, needle: &str) -> (u8, u8, usize) {
     (bucket, if entry.is_dir { 1 } else { 0 }, position)
 }
 
-/// 在内存索引里搜索（文件名或完整路径包含匹配，输入即出结果）
+/// 在内存索引里搜索：空格分隔多个关键词，全部命中即可（顺序、中间内容不限）
 #[tauri::command]
 pub async fn fs_search(
     query: String,
@@ -453,8 +444,13 @@ fn search_index(
     scope: Option<String>,
     limit: Option<usize>,
 ) -> Result<Vec<FileEntry>, String> {
-    let needle = query.trim().to_lowercase();
-    if needle.is_empty() {
+    // "foo bar" → 两段都要命中，类似 .*foo.*bar.* / .*bar.*foo.*
+    let tokens: Vec<String> = query
+        .split_whitespace()
+        .map(|part| part.to_lowercase())
+        .filter(|part| !part.is_empty())
+        .collect();
+    if tokens.is_empty() {
         return Ok(Vec::new());
     }
     let guard = lock_index();
@@ -471,10 +467,10 @@ fn search_index(
                 }
             }
             // 路径一定包含文件名，只扫路径即可同时覆盖“文件名/路径”两种搜索
-            entry.lower_path.contains(&needle)
+            tokens.iter().all(|token| entry.lower_path.contains(token))
         })
         .map(|entry| {
-            let (bucket, dir_rank, position) = rank(entry, &needle);
+            let (bucket, dir_rank, position) = rank(entry, &tokens[0]);
             (bucket, dir_rank, position, entry)
         })
         .collect();
