@@ -120,6 +120,7 @@ export default function FilesModule() {
   const [selected, setSelected] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const moduleRef = useRef<HTMLDivElement | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; entry: FileEntry | null } | null>(
     null,
   );
@@ -216,6 +217,46 @@ export default function FilesModule() {
     }
   };
 
+  /* 焦点不在搜索框时，上下键 / 回车仍然操作结果列表 */
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Enter") {
+        return;
+      }
+      // 模块被切走（display:none）时不要拦截全局按键
+      const container = moduleRef.current;
+      if (!container || container.getClientRects().length === 0) return;
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        const typing =
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target.isContentEditable;
+        // 输入框自己处理方向键；回车不要抢按钮的默认行为
+        if (typing) return;
+        if (event.key === "Enter" && (tag === "BUTTON" || tag === "A")) return;
+      }
+      if (menu || renaming || results.length === 0) return;
+
+      event.preventDefault();
+      if (event.key === "Enter") {
+        const entry = results[activeIndex] ?? results[0];
+        if (entry) void openEntry(entry);
+        return;
+      }
+      setActiveIndex((index) => {
+        if (event.key === "ArrowDown") {
+          return index < 0 ? 0 : Math.min(index + 1, results.length - 1);
+        }
+        return index < 0 ? results.length - 1 : Math.max(index - 1, 0);
+      });
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [results, activeIndex, menu, renaming, openEntry]);
+
   const reveal = async (entry: FileEntry) => {
     try {
       await fsRevealPath(entry.path);
@@ -303,6 +344,7 @@ export default function FilesModule() {
   return (
     <div
       className="module files-module"
+      ref={moduleRef}
       onContextMenu={(event) => {
         event.preventDefault();
         setMenu({
