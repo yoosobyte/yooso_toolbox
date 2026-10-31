@@ -186,5 +186,8 @@ export const fsIndexStatus = () => invoke<IndexStatus>("fs_index_status");
 
 export const fsDelete = (paths: string[]) => invoke<void>("fs_delete", { paths });
 
+export const fsCopyToClipboard = (paths: string[]) =>
+  invoke<void>("fs_copy_to_clipboard", { paths });
+
 export const fsRename = (path: string, newName: string) =>
   invoke<string>("fs_rename", { path, newName });

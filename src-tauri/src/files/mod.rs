@@ -118,14 +118,13 @@ fn root_candidates(home: &Path) -> Vec<(&'static str, &'static str, PathBuf)> {
 }
 
 fn allowed_roots() -> Result<Vec<PathBuf>, String> {
-    let home = home_dir()?;
-    let mut roots = vec![home.clone()];
-    roots.extend(
-        root_candidates(&home)
-            .into_iter()
-            .map(|(_, _, path)| path)
-            .filter(|path| path.is_dir()),
-    );
+    // 与索引范围保持一致：Windows 为所有固定磁盘，macOS/Linux 为个人目录
+    let mut roots: Vec<PathBuf> = index_roots().into_iter().filter(|path| path.is_dir()).collect();
+    if roots.is_empty() {
+        if let Ok(home) = home_dir() {
+            roots.push(home);
+        }
+    }
     Ok(roots)
 }
 
@@ -142,7 +141,7 @@ fn ensure_allowed(path: &Path) -> Result<PathBuf, String> {
     if allowed {
         Ok(canonical)
     } else {
-        Err("只能访问个人目录下的文件".to_string())
+        Err("只能访问本地磁盘上的文件".to_string())
     }
 }
 
@@ -506,7 +505,113 @@ fn index_rename(from: &Path, to: &Path) {
     }
 }
 
-/// 删除到系统回收站（个人目录内）
+/* ------------------------------------------------------------------ */
+/* 复制文件 / 文件夹到系统剪贴板（资源管理器 / 访达可粘贴）              */
+/* ------------------------------------------------------------------ */
+
+#[cfg(windows)]
+fn clipboard_copy_files(paths: &[String]) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::Win32::Foundation::{HANDLE, HGLOBAL};
+    use windows::Win32::System::DataExchange::{
+        CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
+    };
+    use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+
+    const CF_HDROP: u32 = 15;
+
+    #[repr(C)]
+    struct DropFiles {
+        p_files: u32,
+        pt_x: i32,
+        pt_y: i32,
+        f_nc: i32,
+        f_wide: i32,
+    }
+
+    let mut names: Vec<u16> = Vec::new();
+    for path in paths {
+        names.extend(std::ffi::OsStr::new(path).encode_wide());
+        names.push(0);
+    }
+    names.push(0);
+
+    let header = std::mem::size_of::<DropFiles>();
+    let total = header + names.len() * 2;
+
+    unsafe {
+        OpenClipboard(None).map_err(|error| format!("打开剪贴板失败: {error}"))?;
+        EmptyClipboard().map_err(|error| format!("清空剪贴板失败: {error}"))?;
+        let handle: HGLOBAL = GlobalAlloc(GMEM_MOVEABLE, total)
+            .map_err(|error| format!("分配剪贴板内存失败: {error}"))?;
+        let pointer = GlobalLock(handle);
+        if pointer.is_null() {
+            let _ = CloseClipboard();
+            return Err("锁定剪贴板内存失败".to_string());
+        }
+        std::ptr::write(
+            pointer as *mut DropFiles,
+            DropFiles {
+                p_files: header as u32,
+                pt_x: 0,
+                pt_y: 0,
+                f_nc: 0,
+                f_wide: 1,
+            },
+        );
+        std::ptr::copy_nonoverlapping(
+            names.as_ptr(),
+            (pointer as *mut u8).add(header) as *mut u16,
+            names.len(),
+        );
+        let _ = GlobalUnlock(handle);
+        SetClipboardData(CF_HDROP, Some(HANDLE(handle.0)))
+            .map_err(|error| format!("写入剪贴板失败: {error}"))?;
+        let _ = CloseClipboard();
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn clipboard_copy_files(paths: &[String]) -> Result<(), String> {
+    // macOS：把文件 URL 放到剪贴板，Finder 可直接粘贴
+    let items: Vec<String> = paths
+        .iter()
+        .map(|path| {
+            format!(
+                "POSIX file \"{}\"",
+                path.replace('\\', "\\\\").replace('"', "\\\"")
+            )
+        })
+        .collect();
+    let script = format!("set the clipboard to {{{}}}", items.join(", "));
+    let status = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(script)
+        .status()
+        .map_err(|error| format!("调用 osascript 失败: {error}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("写入剪贴板失败".to_string())
+    }
+}
+
+/// 把文件 / 文件夹复制到系统剪贴板（可在资源管理器 / 访达中直接粘贴）
+#[tauri::command]
+pub fn fs_copy_to_clipboard(paths: Vec<String>) -> Result<(), String> {
+    if paths.is_empty() {
+        return Err("没有选择文件".to_string());
+    }
+    for raw in &paths {
+        if !Path::new(raw).exists() {
+            return Err(format!("路径不存在: {raw}"));
+        }
+    }
+    clipboard_copy_files(&paths)
+}
+
+/// 删除到系统回收站（本地磁盘内）
 #[tauri::command]
 pub fn fs_delete(paths: Vec<String>) -> Result<(), String> {
     let home = home_dir()?;

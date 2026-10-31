@@ -4,6 +4,7 @@ import {
   EditOutlined,
   FolderOpenOutlined,
   ExportOutlined,
+  LinkOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
 import type { FileEntry } from "../../types";
@@ -17,6 +18,7 @@ interface Props {
   onOpen: () => void;
   onReveal: () => void;
   onOpenLocation: () => void;
+  onCopyFiles: () => void;
   onCopyPath: () => void;
   onRename: () => void;
   onDelete: () => void;
@@ -31,6 +33,7 @@ export default function FilesContextMenu({
   onOpen,
   onReveal,
   onOpenLocation,
+  onCopyFiles,
   onCopyPath,
   onRename,
   onDelete,
@@ -61,8 +64,12 @@ export default function FilesContextMenu({
               {t("files.openLocation")}
             </button>
           )}
-          <button type="button" onClick={onCopyPath}>
+          <button type="button" onClick={onCopyFiles}>
             <CopyOutlined />
+            {t("files.copy")}
+          </button>
+          <button type="button" onClick={onCopyPath}>
+            <LinkOutlined />
             {t("files.copyPath")}
           </button>
           <button type="button" onClick={onRename}>

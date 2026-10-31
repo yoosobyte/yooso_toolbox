@@ -57,6 +57,8 @@ export const zh = {
   "files.reveal": "在资源管理器中显示",
   "files.openLocation": "打开文件所在位置",
   "files.copyPath": "复制路径",
+  "files.copy": "复制",
+  "files.copiedFiles": "已复制到剪贴板",
   "files.copyCurrentPath": "复制当前路径",
   "files.rename": "重命名",
   "files.delete": "删除",
