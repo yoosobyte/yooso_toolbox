@@ -8098,42 +8098,31 @@ body.side-resizing {
 }
 
 .files-columns {
-  display: flex;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 2.2fr) minmax(0, 3fr) 64px 78px 96px;
   align-items: center;
   gap: 10px;
-  padding: 4px 10px 6px 40px;
+  padding: 4px 10px 6px;
   color: var(--text-mute);
   font-size: 11px;
 }
 
-.files-col-name {
-  flex: 0 0 42%;
-}
-
-.files-col-path {
-  flex: 1;
+.files-col-name,
+.files-col-path,
+.files-col-type,
+.files-col-size,
+.files-col-time {
   min-width: 0;
 }
 
-.files-col-type {
-  width: 56px;
-  flex: none;
-}
-
-.files-col-size {
-  width: 70px;
-  flex: none;
-  text-align: right;
-}
-
+.files-col-size,
 .files-col-time {
-  width: 92px;
-  flex: none;
   text-align: right;
 }
 
 .files-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 2.2fr) minmax(0, 3fr) 64px 78px 96px;
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
@@ -8150,9 +8139,14 @@ body.side-resizing {
   color: var(--text);
 }
 
+.files-row.active {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .files-icon {
   width: 20px;
-  flex: none;
   display: inline-flex;
   justify-content: center;
   font-size: 15px;
@@ -8164,8 +8158,7 @@ body.side-resizing {
 }
 
 .files-name {
-  flex: 0 1 auto;
-  max-width: 42%;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -8180,7 +8173,6 @@ body.side-resizing {
 }
 
 .files-path-cell {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -8190,23 +8182,17 @@ body.side-resizing {
 }
 
 .files-meta {
-  width: 70px;
-  flex: none;
   text-align: right;
   color: var(--text-mute);
   font-size: 11px;
 }
 
 .files-type {
-  width: 56px;
-  flex: none;
   color: var(--text-mute);
   font-size: 11px;
 }
 
 .files-time {
-  width: 92px;
-  flex: none;
   text-align: right;
   color: var(--text-mute);
   font-size: 11px;
