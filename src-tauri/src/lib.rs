@@ -112,6 +112,8 @@ pub fn run() {
             files::fs_delete,
             files::fs_rename,
             files::fs_copy_to_clipboard,
+            files::fs_open_path,
+            files::fs_reveal_path,
             translate::translate_text,
             redis::redis_config_list,
             redis::redis_config_upsert,

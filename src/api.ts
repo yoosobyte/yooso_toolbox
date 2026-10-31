@@ -189,5 +189,9 @@ export const fsDelete = (paths: string[]) => invoke<void>("fs_delete", { paths }
 export const fsCopyToClipboard = (paths: string[]) =>
   invoke<void>("fs_copy_to_clipboard", { paths });
 
+export const fsOpenPath = (path: string) => invoke<void>("fs_open_path", { path });
+
+export const fsRevealPath = (path: string) => invoke<void>("fs_reveal_path", { path });
+
 export const fsRename = (path: string, newName: string) =>
   invoke<string>("fs_rename", { path, newName });
