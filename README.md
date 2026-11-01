@@ -1,4 +1,4 @@
-# Yooso Toolbox
+# 悦盒-Yooso Toolbox
 
 一个基于 **Tauri 2 + React + Ant Design** 的桌面工具箱，计划陆续集成 JSON 处理、二维码、数据库（MySQL）、Redis、API 调试、SSH/SFTP 等模块。
 
