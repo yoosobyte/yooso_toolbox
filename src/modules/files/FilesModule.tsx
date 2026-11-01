@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
-import { App as AntdApp, Button, Input, Modal, Tooltip, Typography } from "antd";
+import { App as AntdApp, Button, Input, Modal, Typography } from "antd";
 import {
   FileSearchOutlined,
   ReloadOutlined,
@@ -106,6 +106,8 @@ export default function FilesModule() {
     count: 0,
     scanned: 0,
   });
+  /** 首次索引状态是否已经拿到（拿到之前不要贸然重建） */
+  const [statusLoaded, setStatusLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [scope, setScope] = useState("");
@@ -122,7 +124,7 @@ export default function FilesModule() {
   const [renaming, setRenaming] = useState<FileEntry | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  /* 根目录 + 首次打开时自动建索引 */
+  /* 根目录 + 首次查询索引状态（后端会先尝试复用 24 小时内的索引缓存） */
   useEffect(() => {
     let alive = true;
     fsRoots()
@@ -132,13 +134,19 @@ export default function FilesModule() {
       .then((value) => {
         if (!alive) return;
         setStatus(value);
-        if (!value.ready && !value.building) void fsIndexBuild();
+        setStatusLoaded(true);
       })
       .catch((err) => alive && message.error(errText(err)));
     return () => {
       alive = false;
     };
   }, [message]);
+
+  /* 没有缓存可用（首次启动 / 缓存过期 24 小时）时才真正全盘扫一次 */
+  useEffect(() => {
+    if (!statusLoaded || status.ready || status.building) return;
+    void fsIndexBuild().catch(() => undefined);
+  }, [statusLoaded, status.ready, status.building]);
 
   /* 索引构建中轮询进度 */
   useEffect(() => {
@@ -362,16 +370,18 @@ export default function FilesModule() {
             ? t("files.indexing", { count: status.scanned })
             : t("files.indexed", { count: status.count })}
         </span>
-        <Tooltip title={t("files.rebuild")}>
-          <Button
-            size="small"
-            icon={<ReloadOutlined />}
-            loading={status.building}
-            onClick={rebuild}
-          />
-        </Tooltip>
+        <Button
+          size="small"
+          icon={<ReloadOutlined />}
+          loading={status.building}
+          onClick={rebuild}
+        >
+          {t("files.reindex")}
+        </Button>
       </header>
 
+      <div className="files-body">
+      <div className="files-panel">
       <div className="files-searchbar">
         <Input
           size="large"
@@ -520,6 +530,8 @@ export default function FilesModule() {
             ))}
           </>
         )}
+      </div>
+      </div>
       </div>
 
       {menu && (

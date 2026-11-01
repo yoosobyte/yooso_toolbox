@@ -194,25 +194,25 @@ export default function ProcessModal({ open, sessionId, onClose }: Props) {
       }
     >
       <div className="proc-table">
-        {/* 表头放进滚动容器里一起滚动（sticky），否则滚动条会让表头和数据错位 */}
+        {/* 表头固定：只有下面的数据区滚动，竖向滚动条也只出现在数据区 */}
+        <div className="proc-head">
+          {COLUMNS.map((column) => (
+            <div key={column.key} className="proc-cell">
+              <button
+                type="button"
+                className={`th-sort${sort.key === column.key ? " active" : ""}`}
+                onClick={() => toggleSort(column.key)}
+              >
+                {t(column.labelKey)}
+                <span className="th-caret">
+                  {sort.key === column.key ? (sort.order === "asc" ? "▲" : "▼") : "⇅"}
+                </span>
+              </button>
+            </div>
+          ))}
+          <div className="proc-cell proc-cell-center">{t("proc.actions")}</div>
+        </div>
         <div className="proc-body">
-          <div className="proc-head">
-            {COLUMNS.map((column) => (
-              <div key={column.key} className="proc-cell">
-                <button
-                  type="button"
-                  className={`th-sort${sort.key === column.key ? " active" : ""}`}
-                  onClick={() => toggleSort(column.key)}
-                >
-                  {t(column.labelKey)}
-                  <span className="th-caret">
-                    {sort.key === column.key ? (sort.order === "asc" ? "▲" : "▼") : "⇅"}
-                  </span>
-                </button>
-              </div>
-            ))}
-            <div className="proc-cell proc-cell-center">{t("proc.actions")}</div>
-          </div>
           {shown.map((item) => (
             <div className="proc-row" key={item.pid}>
               <div className="proc-cell proc-cell-pid">

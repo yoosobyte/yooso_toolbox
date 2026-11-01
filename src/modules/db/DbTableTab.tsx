@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Segmented } from "antd";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
@@ -25,6 +26,8 @@ export default function DbTableTab({
   onTableRenamed,
 }: Props) {
   const t = useT(useUiStore((state) => state.lang));
+  /** 结构改过（加列 / 删列 / 改类型等）就让数据页重新取数，否则数据页还是旧的列 */
+  const [dataVersion, setDataVersion] = useState(0);
 
   return (
     <div className="db-table-tab">
@@ -50,7 +53,7 @@ export default function DbTableTab({
           connectionId={connectionId}
           database={database}
           table={table}
-          refreshToken={0}
+          refreshToken={dataVersion}
         />
       </div>
 
@@ -61,6 +64,7 @@ export default function DbTableTab({
             database={database}
             table={table}
             refreshToken={0}
+            onSchemaChanged={() => setDataVersion((version) => version + 1)}
           />
         </div>
       )}

@@ -14,9 +14,17 @@ interface Props {
   database: string;
   table: string;
   refreshToken: number;
+  /** 结构变更成功后通知外层：数据页的列 / 数据也要重新取 */
+  onSchemaChanged?: () => void;
 }
 
-export default function DbStructureView({ connectionId, database, table, refreshToken }: Props) {
+export default function DbStructureView({
+  connectionId,
+  database,
+  table,
+  refreshToken,
+  onSchemaChanged,
+}: Props) {
   const t = useT(useUiStore((state) => state.lang));
   const { rows, loading, error, defaultCollation, reload, refresh } = useDbStructureData({
     connectionId,
@@ -33,6 +41,12 @@ export default function DbStructureView({ connectionId, database, table, refresh
     return () => window.removeEventListener("mousedown", close);
   }, [menu]);
 
+  /** DDL 成功后：结构页自己重取列定义，同时让数据页重新查一次 */
+  const reloadAll = () => {
+    refresh();
+    onSchemaChanged?.();
+  };
+
   const editor = useDbStructureEditor({
     t,
     connectionId,
@@ -42,7 +56,7 @@ export default function DbStructureView({ connectionId, database, table, refresh
     rows,
     defaultCollation,
     reload,
-    reloadData: refresh,
+    reloadData: reloadAll,
   });
 
   return (

@@ -260,10 +260,50 @@ export default function App() {
     return list.filter((item) => !hiddenModules.includes(item.key));
   }, [moduleOrder, hiddenModules]);
 
+  /**
+   * 左侧模块栏的键盘导航：Tab / 上下方向键直接在模块间切换（首尾循环），
+   * 不是只移动焦点 —— 选中的同时就切过去。
+   */
+  const stepRail = (step: 1 | -1) => {
+    const buttons = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(".rail .rail-btn"),
+    );
+    if (buttons.length === 0) return;
+    const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const nextIndex =
+      current < 0 ? 0 : (current + step + buttons.length) % buttons.length;
+    const next = buttons[nextIndex];
+    if (!next) return;
+    const key = next.dataset.module as ModuleKey | undefined;
+    if (key) activate(key);
+    else if (next.dataset.settings !== undefined) setSettingsOpen(true);
+    next.focus();
+  };
+
+  const handleRailKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (!target?.closest(".rail-btn")) return;
+    if (event.key === "Tab") {
+      // 在模块栏内部循环，不跳出去
+      event.preventDefault();
+      stepRail(event.shiftKey ? -1 : 1);
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+      event.preventDefault();
+      stepRail(1);
+      return;
+    }
+    if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      stepRail(-1);
+    }
+  };
+
   return (
     <VaultGate>
     <div className={`app${showStatusBar ? "" : " no-statusbar"}`}>
-      <aside className="rail">
+      <aside className="rail" onKeyDown={handleRailKeyDown}>
         <div className="rail-logo" title="悦盒">
           <AppLogo />
         </div>
@@ -287,8 +327,13 @@ export default function App() {
             >
               <button
                 type="button"
+                data-module={item.key}
                 className={`rail-btn${item.key === activeKey ? " active" : ""}`}
-                onClick={() => activate(item.key)}
+                onClick={(event) => {
+                  // WebKit 里点击按钮默认不聚焦，手动聚焦一下，点完就能用 Tab / 方向键继续切
+                  event.currentTarget.focus();
+                  activate(item.key);
+                }}
               >
                 <span className="rail-icon">{item.icon}</span>
                 <span className="rail-label">
@@ -303,8 +348,12 @@ export default function App() {
           <Tooltip title={t("app.settings")} placement="right" mouseEnterDelay={0.35}>
             <button
               type="button"
+              data-settings=""
               className={`rail-btn${settingsOpen ? " active" : ""}`}
-              onClick={() => setSettingsOpen(true)}
+              onClick={(event) => {
+                event.currentTarget.focus();
+                setSettingsOpen(true);
+              }}
             >
               <span className="rail-icon">
                 <SettingOutlined />
