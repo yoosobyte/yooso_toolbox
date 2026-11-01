@@ -2,8 +2,8 @@
 
 - 版本：Yooso Toolbox 0.1.0（本次为 `tauri build --no-bundle` 的 release exe，未打安装包）
 - 测试时间：2026-10-30
-- 目标服务器：阿里云 CentOS，`203.0.113.10:22`，OpenSSH 8.0，root 密码登录
-- 主机指纹：`<host-key-fingerprint>`
+- 目标服务器：阿里云 CentOS，`203.0.113.10:22`（示例地址），OpenSSH 8.0，密码登录（账号已隐藏）
+- 主机指纹：`<server-host-key-fingerprint>`
 - 界面截图目录：[docs/uitest](uitest/)
 
 ---
@@ -13,7 +13,7 @@
 命令：
 
 ```powershell
-$env:TEST_SSH_HOST="203.0.113.10"; $env:TEST_SSH_USER="root"; $env:TEST_SSH_PASSWORD="..."
+$env:TEST_SSH_HOST="203.0.113.10"; $env:TEST_SSH_USER="<user>"; $env:TEST_SSH_PASSWORD="..."
 cargo test -- --include-ignored --nocapture --test-threads=1
 ```
 
