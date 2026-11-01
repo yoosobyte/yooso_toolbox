@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Tooltip, Typography } from "antd";
 import {
@@ -172,12 +172,22 @@ export default function App() {
   );
   const initializeApiStore = useApiStore((state) => state.init);
   const hydrateUi = useUiStore((state) => state.hydrate);
+  /** 用户是否已经自己切过模块：切过就不再套用「默认打开」设置 */
+  const userSwitchedModule = useRef(false);
 
   useEffect(() => {
     void initializeApiStore();
-    void hydrateUi();
     void cleanupLegacyKeys();
     void useTerminalPrefs.getState().hydrate();
+    // 布局（含「默认打开」）存在后端，是异步读回来的：
+    // 首帧拿到的 defaultModule 一定是默认值，所以读完之后再套用一次
+    void hydrateUi().then(() => {
+      if (userSwitchedModule.current) return;
+      const next = useUiStore.getState().defaultModule;
+      if (!next) return;
+      setMounted((prev) => (prev[next] ? prev : { ...prev, [next]: true }));
+      setActiveKey(next);
+    });
   }, [initializeApiStore, hydrateUi]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -189,6 +199,7 @@ export default function App() {
       const url = (event as CustomEvent<string>).detail;
       if (!url) return;
       setPendingBrowserUrl(url);
+      userSwitchedModule.current = true;
       setMounted((prev) => ({ ...prev, browser: true }));
       setActiveKey("browser");
     };
@@ -224,6 +235,7 @@ export default function App() {
   };
 
   const activate = (key: ModuleKey) => {
+    userSwitchedModule.current = true;
     // 切换模块时关闭设置页
     setSettingsOpen(false);
     setActiveKey(key);
