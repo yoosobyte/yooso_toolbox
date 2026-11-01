@@ -7,7 +7,7 @@ import { SESSION_COLORS, errText } from "../../utils";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
-import { sshProbe } from "../../api";
+import { sshForgetHost, sshProbe } from "../../api";
 
 interface Props {
   open: boolean;
@@ -44,7 +44,7 @@ const DEFAULTS: FormValues = {
 
 export default function SessionForm({ open, initial, onClose, onSaved }: Props) {
   const [form] = Form.useForm<FormValues>();
-  const { message } = AntdApp.useApp();
+  const { message, modal } = AntdApp.useApp();
   const lang = useUiStore((state) => state.lang);
   const t = useT(lang);
   const save = useSessionStore((state) => state.save);
@@ -120,14 +120,35 @@ export default function SessionForm({ open, initial, onClose, onSaved }: Props) 
       return;
     }
     setTesting(true);
+    const config = buildConfig(values);
     try {
-      const result = await sshProbe(buildConfig(values));
+      const result = await sshProbe(config);
       const detail = `${result.serverVersion ?? "SSH"}${
         result.fingerprint ? ` · ${result.fingerprint.slice(0, 23)}…` : ""
       }`;
       message.success(t("form.testOkShort", { detail }));
     } catch (error) {
-      message.error(t("form.testFailed", { error: errText(error) }));
+      const reason = errText(error);
+      if (reason.includes("主机密钥已变更")) {
+        modal.confirm({
+          title: t("term.hostKeyChanged"),
+          content: (
+            <div className="ssh-hostkey-change">
+              <p>{t("term.hostKeyChangedHint")}</p>
+              <pre>{reason}</pre>
+            </div>
+          ),
+          okText: t("term.hostKeyTrust"),
+          cancelText: t("common.cancel"),
+          onOk: async () => {
+            await sshForgetHost(config.host, config.port);
+            message.success(t("term.hostKeyTrusted"));
+            await handleTest();
+          },
+        });
+      } else {
+        message.error(t("form.testFailed", { error: reason }));
+      }
     } finally {
       setTesting(false);
     }

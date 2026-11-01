@@ -86,6 +86,7 @@ pub fn run() {
             ssh::commands::session_delete,
             ssh::commands::session_touch,
             ssh::commands::ssh_probe,
+            ssh::commands::ssh_forget_host,
             ssh::commands::ssh_connect,
             ssh::commands::ssh_write,
             ssh::commands::ssh_resize,

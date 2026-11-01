@@ -609,6 +609,10 @@ export const en: Record<string, string> = {
   "term.noCoreData": "This server provides no per-core data",
   "term.disconnected": "Disconnected — use Reconnect at the bottom right",
   "term.connectFailed": "Connection failed: ",
+  "term.hostKeyChanged": "Host key has changed",
+  "term.hostKeyChangedHint": "This happens after a reinstall or key rotation. Only trust the new key if this is your server.",
+  "term.hostKeyTrust": "Trust new key & reconnect",
+  "term.hostKeyTrusted": "Host key updated, reconnecting…",
   "term.disconnectedShort": "Disconnected",
 
   "metrics.cpu": "CPU",
