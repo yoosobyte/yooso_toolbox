@@ -8,7 +8,7 @@ import {
   EyeOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
-import { Button, Dropdown, Input, Tooltip } from "antd";
+import { Button, Dropdown, Input } from "antd";
 import type { MenuProps } from "antd";
 import type { TFunction } from "../../i18n";
 import { isImeEnter } from "../../utils";
@@ -98,33 +98,30 @@ export function BrowserToolbar({
 
   return (
     <div className="browser-bar">
-      <Tooltip title={t("browser.back")}>
-        <Button
-          size="small"
-          type="text"
-          icon={<ArrowLeftOutlined />}
-          disabled={!canBack}
-          onClick={() => onTravel(-1)}
-        />
-      </Tooltip>
-      <Tooltip title={t("browser.forward")}>
-        <Button
-          size="small"
-          type="text"
-          icon={<ArrowRightOutlined />}
-          disabled={!canForward}
-          onClick={() => onTravel(1)}
-        />
-      </Tooltip>
-      <Tooltip title={t("browser.reload")}>
-        <Button
-          size="small"
-          type="text"
-          icon={<ReloadOutlined />}
-          disabled={!hasActive}
-          onClick={onReload}
-        />
-      </Tooltip>
+      <Button
+        size="small"
+        type="text"
+        icon={<ArrowLeftOutlined />}
+        aria-label={t("browser.back")}
+        disabled={!canBack}
+        onClick={() => onTravel(-1)}
+      />
+      <Button
+        size="small"
+        type="text"
+        icon={<ArrowRightOutlined />}
+        aria-label={t("browser.forward")}
+        disabled={!canForward}
+        onClick={() => onTravel(1)}
+      />
+      <Button
+        size="small"
+        type="text"
+        icon={<ReloadOutlined />}
+        aria-label={t("browser.reload")}
+        disabled={!hasActive}
+        onClick={onReload}
+      />
       <Input
         className="browser-address"
         value={address}

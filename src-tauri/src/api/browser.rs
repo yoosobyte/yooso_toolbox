@@ -1,10 +1,12 @@
-use tauri::webview::{NewWindowResponse, WebviewBuilder};
+use tauri::webview::{DownloadEvent, NewWindowResponse, WebviewBuilder};
 use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl};
 
 /// 新窗口请求转发给主界面的事件名
 pub const NEW_WINDOW_EVENT: &str = "browser:new-window";
 /// 页面标题变化事件：标签页标题实时跟随页面 `document.title`
 pub const TITLE_EVENT: &str = "browser:title";
+/// 下载事件：开始 / 结束（供界面提示）
+pub const DOWNLOAD_EVENT: &str = "browser:download";
 
 /// 标题事件负载：哪个子 WebView 变成了什么标题
 #[derive(Clone, serde::Serialize)]
@@ -12,6 +14,21 @@ pub const TITLE_EVENT: &str = "browser:title";
 pub struct BrowserTitlePayload {
     pub label: String,
     pub title: String,
+}
+
+/// 下载事件负载
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserDownloadPayload {
+    /// started / finished
+    pub phase: String,
+    pub url: String,
+    pub name: String,
+    /// 落盘路径（macOS 的 finished 事件拿不到路径，用 started 里的）
+    pub path: Option<String>,
+    pub success: bool,
+    /// 触发下载的子 WebView label：前端据此找到是哪个标签页
+    pub label: String,
 }
 
 /// 页面里「新标签打开」的拦截脚本。
@@ -122,6 +139,7 @@ pub async fn browser_create_webview(
     let emitter = app.clone();
     let nav_emitter = app.clone();
     let title_emitter = app.clone();
+    let download_emitter = app.clone();
     let mut builder = WebviewBuilder::new(label, WebviewUrl::External(target))
         .focused(true)
         .accept_first_mouse(true)
@@ -147,6 +165,46 @@ pub async fn browser_create_webview(
                 let _ = nav_emitter.emit_to("main", NEW_WINDOW_EVENT, target);
                 return false;
             }
+            true
+        })
+        .on_download(move |webview, event| {
+            match event {
+                DownloadEvent::Requested { url, destination } => {
+                    // 落盘位置保持 wry 的默认值：服务端建议的文件名 + 系统「下载」目录 + 自动去重
+                    let name = destination
+                        .file_name()
+                        .map(|value| value.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "download".to_string());
+                    let _ = download_emitter.emit_to(
+                        "main",
+                        DOWNLOAD_EVENT,
+                        BrowserDownloadPayload {
+                            phase: "started".to_string(),
+                            url: url.to_string(),
+                            name,
+                            path: Some(destination.to_string_lossy().to_string()),
+                            success: true,
+                            label: webview.label().to_string(),
+                        },
+                    );
+                }
+                DownloadEvent::Finished { url, path, success } => {
+                    let _ = download_emitter.emit_to(
+                        "main",
+                        DOWNLOAD_EVENT,
+                        BrowserDownloadPayload {
+                            phase: "finished".to_string(),
+                            url: url.to_string(),
+                            name: String::new(),
+                            path: path.map(|value| value.to_string_lossy().to_string()),
+                            success,
+                            label: webview.label().to_string(),
+                        },
+                    );
+                }
+                _ => {}
+            }
+            // 允许下载继续（返回 false 会取消下载）
             true
         })
         .on_new_window(move |target, _features| {
