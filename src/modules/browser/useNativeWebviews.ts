@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -340,5 +340,11 @@ export function useNativeWebviews({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obscured, native]);
 
-  return { rebuildWebview, hideAllWebviews, showActiveWebview };
+  /** 子 WebView label → 标签页 id（下载事件里用它定位是哪个标签） */
+  const tabIdForLabel = useCallback(
+    (label: string) => labelToTabRef.current.get(label) ?? null,
+    [],
+  );
+
+  return { rebuildWebview, hideAllWebviews, showActiveWebview, tabIdForLabel };
 }

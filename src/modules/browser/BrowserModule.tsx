@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Typography } from "antd";
+import { App as AntdApp, Typography } from "antd";
+import {
+  CheckCircleFilled,
+  CloseCircleFilled,
+  LoadingOutlined,
+} from "@ant-design/icons";
 import { listen } from "@tauri-apps/api/event";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { useUiStore } from "../../stores/uiStore";
 import { useT } from "../../i18n";
@@ -39,10 +44,13 @@ export default function BrowserModule({
   onConsumed,
 }: Props) {
   const t = useT(useUiStore((state) => state.lang));
+  const { notification } = AntdApp.useApp();
   const [native] = useState(() => inTauri());
   const [sites, setSites] = useState<BrowserSite[]>([]);
   const [sitesLoaded, setSitesLoaded] = useState(false);
   const [tabs, setTabs] = useState<BrowserTab[]>([]);
+  const tabsRef = useRef<BrowserTab[]>([]);
+  const activeIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [reloadSeq, setReloadSeq] = useState(0);
@@ -63,6 +71,8 @@ export default function BrowserModule({
   const autoOpenRef = useRef<() => void>(() => undefined);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const dialogOpenRef = useRef(false);
+  /** 标签右键菜单打开时也要藏起原生 WebView（否则菜单会被盖住） */
+  const [tabMenuOpen, setTabMenuOpen] = useState(false);
   /** 工具栏菜单收起后延迟恢复原生 WebView，避开弹层动画 */
   const menuTimerRef = useRef<number | undefined>(undefined);
   /** 页面新窗口请求回调里用，始终指向最新的 openUrlInTab */
@@ -83,12 +93,12 @@ export default function BrowserModule({
     );
   };
 
-  const { rebuildWebview, hideAllWebviews, showActiveWebview } =
+  const { rebuildWebview, hideAllWebviews, showActiveWebview, tabIdForLabel } =
     useNativeWebviews({
       native,
       tabs,
       activeId,
-      obscured,
+      obscured: obscured || tabMenuOpen,
       frameRef,
       dialogOpenRef,
       onTitle: updateTabTitle,
@@ -160,6 +170,8 @@ export default function BrowserModule({
   };
 
   openUrlInTabRef.current = openUrlInTab;
+  tabsRef.current = tabs;
+  activeIdRef.current = activeId;
 
   /* 页面里 target=_blank / window.open 的链接：Rust 侧拦下后转成应用内新标签页 */
   useEffect(() => {
@@ -188,6 +200,115 @@ export default function BrowserModule({
       .catch(() => undefined);
     return () => unlisten?.();
   }, [native]);
+
+  /* 下载：原生子 WebView 的下载由 Rust 侧接管落盘，这里用右上角通知提示 */
+  useEffect(() => {
+    if (!native) return;
+    let unlisten: (() => void) | undefined;
+    /** 开始下载时记下路径和文件名：macOS 的结束事件拿不到路径 */
+    const started = new Map<string, { path: string; name: string; label: string }>();
+    /** 同一个下载可能收到多次 finished，去重 */
+    const finished = new Set<string>();
+    void listen<{
+      phase: string;
+      url: string;
+      name: string;
+      path: string | null;
+      success: boolean;
+      label: string;
+    }>("browser:download", (event) => {
+      const payload = event.payload;
+      if (!payload) return;
+      const key = `browser-download-${payload.url}`;
+      if (payload.phase === "started") {
+        finished.delete(payload.url);
+        started.set(payload.url, {
+          path: payload.path ?? "",
+          name: payload.name,
+          label: payload.label ?? "",
+        });
+        notification.open({
+          key,
+          placement: "topRight",
+          duration: 0,
+          // 不占用独立图标列：图标和标题排在同一行
+          icon: null,
+          message: (
+            <span className="browser-download-title">
+              <LoadingOutlined spin className="browser-download-icon is-busy" />
+              {t("browser.downloadStart")}
+            </span>
+          ),
+          description: payload.name,
+        });
+        // 下载页本身（标签地址就是这个文件）留着没意义，一开始下载就关掉，腾出标签栏
+        const downloadTabId = payload.label ? tabIdForLabel(payload.label) : null;
+        const downloadTab = downloadTabId
+          ? tabsRef.current.find((tab) => tab.id === downloadTabId)
+          : null;
+        if (downloadTabId && downloadTab && downloadTab.url === payload.url) {
+          window.setTimeout(() => closeTab(downloadTabId), 800);
+        }
+        return;
+      }
+      if (finished.has(payload.url)) return;
+      finished.add(payload.url);
+      const info = started.get(payload.url);
+      started.delete(payload.url);
+      const saved = payload.path ?? info?.path ?? "";
+      const name = payload.name || info?.name || "";
+      if (payload.success) {
+        notification.open({
+          key,
+          placement: "topRight",
+          duration: 10,
+          icon: null,
+          message: (
+            <span className="browser-download-title">
+              <CheckCircleFilled className="browser-download-icon is-success" />
+              {t("browser.downloadDone")}
+            </span>
+          ),
+          description: (
+            <div className="browser-download-done">
+              {/* 只显示文件名，完整路径放 title 里，避免通知被长路径挤爆 */}
+              <span className="browser-download-path" title={saved || name}>
+                {saved.split(/[\\/]/).pop() || name}
+              </span>
+              {saved && (
+                <button
+                  type="button"
+                  className="browser-download-reveal"
+                  onClick={() => void revealItemInDir(saved).catch(() => undefined)}
+                >
+                  {t("browser.downloadReveal")}
+                </button>
+              )}
+            </div>
+          ),
+        });
+      } else {
+        notification.open({
+          key,
+          placement: "topRight",
+          duration: 10,
+          icon: null,
+          message: (
+            <span className="browser-download-title">
+              <CloseCircleFilled className="browser-download-icon is-error" />
+              {t("browser.downloadFailed")}
+            </span>
+          ),
+          description: name,
+        });
+      }
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => undefined);
+    return () => unlisten?.();
+  }, [native, notification, t, tabIdForLabel]);
 
   /** 进入浏览器模块时，把「自动打开」的站点补成 tab */
   autoOpenRef.current = () => {
@@ -228,15 +349,43 @@ export default function BrowserModule({
   };
 
   const closeTab = (id: string) => {
-    const index = tabs.findIndex((tab) => tab.id === id);
+    const list = tabsRef.current;
+    const index = list.findIndex((tab) => tab.id === id);
     if (index < 0) return;
-    const next = tabs.filter((tab) => tab.id !== id);
+    const next = list.filter((tab) => tab.id !== id);
     setTabs(next);
-    if (activeId === id) {
-      const fallback = next[index] ?? next[index - 1] ?? null;
-      setActiveId(fallback?.id ?? null);
-      setAddress(fallback?.url ?? "");
-    }
+    if (activeIdRef.current !== id) return;
+    const fallback = next[index] ?? next[index - 1] ?? null;
+    setActiveId(fallback?.id ?? null);
+    setAddress(fallback?.url ?? "");
+  };
+
+  /** 批量关闭标签（右键菜单用） */
+  const closeTabs = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const removing = new Set(ids);
+    const currentIndex = tabs.findIndex((tab) => tab.id === activeId);
+    const next = tabs.filter((tab) => !removing.has(tab.id));
+    setTabs(next);
+    if (!activeId || !removing.has(activeId)) return;
+    const fallback = next[Math.min(Math.max(currentIndex, 0), next.length - 1)] ?? null;
+    setActiveId(fallback?.id ?? null);
+    setAddress(fallback?.url ?? "");
+  };
+
+  const closeOthers = (id: string) =>
+    closeTabs(tabs.filter((tab) => tab.id !== id).map((tab) => tab.id));
+
+  const closeAll = () => closeTabs(tabs.map((tab) => tab.id));
+
+  const closeLeft = (id: string) => {
+    const index = tabs.findIndex((tab) => tab.id === id);
+    if (index > 0) closeTabs(tabs.slice(0, index).map((tab) => tab.id));
+  };
+
+  const closeRight = (id: string) => {
+    const index = tabs.findIndex((tab) => tab.id === id);
+    if (index >= 0) closeTabs(tabs.slice(index + 1).map((tab) => tab.id));
   };
 
   const navigate = (raw: string) => {
@@ -395,6 +544,11 @@ export default function BrowserModule({
         onHome={goHome}
         onFocus={focusTab}
         onClose={closeTab}
+        onCloseOthers={closeOthers}
+        onCloseAll={closeAll}
+        onCloseLeft={closeLeft}
+        onCloseRight={closeRight}
+        onMenuOpenChange={setTabMenuOpen}
       />
 
       <BrowserToolbar

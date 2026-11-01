@@ -7669,6 +7669,39 @@ body.side-resizing {
   font-size: 12px;
   cursor: pointer;
   user-select: none;
+  overflow: hidden;
+  /* 开 / 关 / 压缩时宽度和透明度一起过渡，标签栏不会突兀地跳 */
+  transition:
+    max-width 0.18s ease,
+    min-width 0.18s ease,
+    padding 0.18s ease,
+    opacity 0.16s ease,
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+  animation: browser-tab-in 0.18s ease-out;
+}
+
+/* 新标签从 0 宽度展开 */
+@keyframes browser-tab-in {
+  from {
+    max-width: 0;
+    min-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+  }
+}
+
+/* 关闭中：先收成 0 宽，再由父级移除 */
+.browser-tab.is-closing {
+  animation: none;
+  max-width: 0;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-width: 0;
+  opacity: 0;
 }
 
 .browser-tab:hover {
@@ -7679,6 +7712,47 @@ body.side-resizing {
   background: var(--tab-bg-active);
   border-color: var(--border-strong);
   color: var(--text);
+}
+
+/* 标签右键菜单 */
+.browser-tab-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 136px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: 0 14px 30px var(--shadow);
+}
+
+.browser-tab-menu button {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.browser-tab-menu button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.browser-tab-menu-sep {
+  height: 1px;
+  margin: 2px 6px;
+  background: var(--border);
 }
 
 /* 跟在标签末尾的「+」：浅色描边按钮，点击回到主页 */
@@ -9680,6 +9754,61 @@ body.row-resizing {
   background:
     radial-gradient(560px 260px at 50% 30%, var(--accent-soft) 0%, transparent 72%),
     var(--bg-panel);
+}
+
+/* 浏览器下载完成的提示里那个「显示文件」链接按钮 */
+/* 通知标题：图标和文字同一行，不再单独占一列 */
+.browser-download-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.browser-download-icon {
+  font-size: 15px;
+}
+
+.browser-download-icon.is-success {
+  color: #52c41a;
+}
+
+.browser-download-icon.is-error {
+  color: #ff4d4f;
+}
+
+.browser-download-icon.is-busy {
+  color: var(--accent);
+}
+
+.browser-download-done {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.browser-download-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.browser-download-reveal {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* API 历史空状态：同样居中 + 渐变 */
