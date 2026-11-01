@@ -1,5 +1,5 @@
 {
-  "new_version": "v0.1.1",
+  "new_version": "v0.1.2",
   "v0.1.0": {
     "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.0_x64-setup.exe"
   },
@@ -7,5 +7,10 @@
     "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.1_x64-setup.exe",
     "mac": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.1.dmg",
     "desc": "1. 全新版本\n2. 修复了一些问题"
+  },
+  "v0.1.2": {
+    "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.2_x64-setup.exe",
+    "mac": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.2.dmg",
+    "desc": "1. 笔记 JSON 编辑：修复滚动条错位、右侧不可选中、光标与文字错行\n2. SFTP 列表 / 进程管理器：表头固定，滚动条只出现在数据区\n3. SSH：左右分栏卡片化，终端底色跟随主题（浅色纯白）\n4. 终端设置（字体 / 字号 / 自动打开 SFTP）持久化到加密凭据库，修复重启后被重置\n5. 文件：索引结果落盘，24 小时内复用；内容区改为卡片布局\n6. 数据库：结构变更后自动刷新数据页；索引名留空自动生成\n7. 左侧导航：选中态立体化，支持 Tab / 方向键直接切换模块\n8. 新图标（浏览器 / JSON / Redis / 笔记），提示气泡与授权页适配浅色主题"
   }
 }

@@ -2,8 +2,8 @@
  * 把 tauri build 产出的安装包改成纯 ASCII 文件名，避免七牛 / 浏览器
  * 处理中文文件名时的编码问题：
  *
- *   Windows: 悦盒_0.1.1_x64-setup.exe  ->  yooso_box_0.1.1_x64-setup.exe
- *   macOS  : 悦盒_0.1.1_aarch64.dmg    ->  yooso_box_0.1.1.dmg
+ *   Windows: 悦盒_0.1.2_x64-setup.exe  ->  yooso_box_0.1.2_x64-setup.exe
+ *   macOS  : 悦盒_0.1.2_aarch64.dmg    ->  yooso_box_0.1.2.dmg
  *
  * 用法：npm run tauri:build:win / npm run tauri:build:mac（打包后自动执行）
  *       或打完包后单独执行 npm run rename:bundles
