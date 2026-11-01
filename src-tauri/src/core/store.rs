@@ -353,6 +353,17 @@ impl Store {
             let _ = fs::write(&self.known_hosts_path, json);
         }
     }
+
+    /// 删除某个主机的旧指纹；下次连接会按 TOFU 重新记录新密钥
+    pub fn forget_host(&self, key: &str) {
+        let _guard = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        let mut map = self.read_known_hosts();
+        if map.remove(key).is_some() {
+            if let Ok(json) = serde_json::to_string_pretty(&map) {
+                let _ = fs::write(&self.known_hosts_path, json);
+            }
+        }
+    }
 }
 
 fn now_secs() -> i64 {

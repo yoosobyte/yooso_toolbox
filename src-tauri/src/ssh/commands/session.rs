@@ -53,6 +53,17 @@ pub async fn ssh_probe(
     ssh::probe(&config, state.store.clone()).await.map_err(err)
 }
 
+/// 服务器重装 / 更换密钥后，删除旧指纹，让下次连接重新信任
+#[tauri::command]
+pub async fn ssh_forget_host(
+    state: State<'_, AppState>,
+    host: String,
+    port: u16,
+) -> Result<(), String> {
+    state.store.forget_host(&format!("{host}:{port}"));
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn ssh_connect(
     state: State<'_, AppState>,

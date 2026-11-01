@@ -63,6 +63,10 @@ export interface ProbeResult {
 export const sshProbe = (config: SessionConfig) =>
   invoke<ProbeResult>("ssh_probe", { config });
 
+/** 服务器重装 / 换密钥后，删除旧的主机指纹 */
+export const sshForgetHost = (host: string, port: number) =>
+  invoke<void>("ssh_forget_host", { host, port });
+
 /* ------------------------------------------------------------------ */
 /* 会话配置持久化                                                       */
 /* ------------------------------------------------------------------ */

@@ -609,6 +609,10 @@ export const zh = {
   "term.noCoreData": "该服务器未提供单核数据",
   "term.disconnected": "连接已断开，可点击右下角「重连」",
   "term.connectFailed": "连接失败：",
+  "term.hostKeyChanged": "主机密钥已变更",
+  "term.hostKeyChangedHint": "服务器重装系统或更换密钥后会出现。确认这是你的服务器，再信任新密钥。",
+  "term.hostKeyTrust": "信任新密钥并重连",
+  "term.hostKeyTrusted": "已更新主机密钥，正在重新连接…",
   "term.disconnectedShort": "连接已断开",
 
   "metrics.cpu": "CPU",

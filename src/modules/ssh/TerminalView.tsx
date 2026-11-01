@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { App as AntdApp, Typography } from "antd";
 import "@xterm/xterm/css/xterm.css";
-import { sshConnect, sshDisconnect, sshResize, sshWrite } from "../../api";
+import { sshConnect, sshDisconnect, sshForgetHost, sshResize, sshWrite } from "../../api";
 import { base64ToBytes, textToBase64 } from "../../base64";
 import { copyText } from "../../clipboard";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
@@ -44,7 +44,7 @@ export default function TerminalView({
   const [sid, setSid] = useState<string | null>(null);
   const { metrics, net } = useTerminalMetrics(sid, active);
 
-  const { message } = AntdApp.useApp();
+  const { message, modal } = AntdApp.useApp();
   const setStatus = useWorkspaceStore((state) => state.setStatus);
 
   /* ---------------- 建立终端 + 连接（attempt 变化时重建） ---------------- */
@@ -131,8 +131,27 @@ export default function TerminalView({
       })
       .catch((error) => {
         if (disposed) return;
-        setStatus(tab.id, "error", errText(error));
-        term.writeln(`\r\n\x1b[38;5;203m✘ ${t("term.connectFailed")}${errText(error)}\x1b[0m`);
+        const reason = errText(error);
+        setStatus(tab.id, "error", reason);
+        term.writeln(`\r\n\x1b[38;5;203m✘ ${t("term.connectFailed")}${reason}\x1b[0m`);
+        if (reason.includes("主机密钥已变更")) {
+          modal.confirm({
+            title: t("term.hostKeyChanged"),
+            content: (
+              <div className="ssh-hostkey-change">
+                <p>{t("term.hostKeyChangedHint")}</p>
+                <pre>{reason}</pre>
+              </div>
+            ),
+            okText: t("term.hostKeyTrust"),
+            cancelText: t("common.cancel"),
+            onOk: async () => {
+              await sshForgetHost(sessionConfig.host, sessionConfig.port);
+              message.success(t("term.hostKeyTrusted"));
+              onReconnect();
+            },
+          });
+        }
       });
 
     const observer = new ResizeObserver(() => {
