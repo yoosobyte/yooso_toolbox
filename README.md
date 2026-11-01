@@ -27,8 +27,6 @@ npm run tauri build -- --no-bundle
 npm run rename:bundles
 ```
 
-![UI 预览](docs/ui-preview.png)
-
 ---
 
 ## 技术栈（全部取当前最新稳定版）
