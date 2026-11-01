@@ -4,6 +4,15 @@
 
 **目前可用：SSH 终端 + SFTP 文件管理（FinalShell 风格）、API 调试、文本工具（JSON / 对比）、二维码生成/识别、翻译（必应直连 + 变量命名）、DB 客户端（MySQL：连接 / 库表 / 数据 / SQL）、Redis 客户端（键浏览 / 命令行）。**
 
+## 界面预览
+
+文件搜索（空格分词、路径匹配、类型 / 大小 / 时间列）：
+
+![文件搜索](docs/ui-preview-files.png)
+
+内置浏览器（多标签 + 原生 WebView，不受 iframe 限制）：
+
+![内置浏览器](docs/ui-preview-browser.png)
 
 ## 快速开始
 
@@ -26,8 +35,6 @@ npm run tauri build -- --no-bundle
 # 已经打完包、只想改文件名
 npm run rename:bundles
 ```
-
-![UI 预览](docs/ui-preview.png)
 
 ---
 
