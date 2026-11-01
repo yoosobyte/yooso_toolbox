@@ -8,6 +8,7 @@ import { inTauri } from "./save";
 import { vaultAutoUnlock, vaultReset, vaultStatus } from "./api";
 import { importBackupFile, pickBackupFile, reloadApp } from "./backup";
 import { errText } from "./utils";
+import { markVaultReady } from "./vaultReady";
 
 /** 凭据库门禁：本机绑定自动解锁；解不开时只提供重置入口 */
 export default function VaultGate({ children }: { children: ReactNode }) {
@@ -16,9 +17,15 @@ export default function VaultGate({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** 凭据库可用：先放行 storage 的读写，再渲染业务界面 */
+  const finish = () => {
+    markVaultReady();
+    setReady(true);
+  };
+
   useEffect(() => {
     if (!inTauri()) {
-      setReady(true);
+      finish();
       return;
     }
     let alive = true;
@@ -26,11 +33,11 @@ export default function VaultGate({ children }: { children: ReactNode }) {
       try {
         const status = await vaultStatus();
         if (status.unlocked || !status.configured) {
-          if (alive) setReady(true);
+          if (alive) finish();
           return;
         }
         await vaultAutoUnlock();
-        if (alive) setReady(true);
+        if (alive) finish();
       } catch (reason) {
         if (alive) setError(errText(reason));
       }
@@ -51,7 +58,7 @@ export default function VaultGate({ children }: { children: ReactNode }) {
         try {
           await vaultReset();
           setError(null);
-          setReady(true);
+          finish();
           message.success(t("vault.resetDone"));
         } catch (reason) {
           message.error(errText(reason));

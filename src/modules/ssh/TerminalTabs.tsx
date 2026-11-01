@@ -3,6 +3,7 @@ import { Typography } from "antd";
 import { CloseOutlined, CloudServerOutlined } from "@ant-design/icons";
 import TerminalView from "./TerminalView";
 import SftpPanel from "./SftpPanel";
+import { useTerminalPrefs } from "./terminalPrefs";
 import { STATUS_COLOR } from "./status";
 import { useSessionStore } from "../../stores/sessionStore";
 import { loadStored, migrateStored, saveStored } from "../../storage";
@@ -69,6 +70,11 @@ export default function TerminalTabs(_props: Props) {
   const sessionsLoaded = useSessionStore((state) => state.loaded);
   const loadSessions = useSessionStore((state) => state.load);
 
+  const autoSftp = useTerminalPrefs((state) => state.autoSftp);
+  const prefsHydrated = useTerminalPrefs((state) => state.hydrated);
+
+  /** 本次连接里已经处理过「自动打开 SFTP」的标签页，避免用户手动关掉后又弹开 */
+  const autoSftpSeen = useRef<Set<string>>(new Set());
   const [sessionIds, setSessionIds] = useState<Record<string, string | null>>({});
   const [sftpHeight, setSftpHeight] = useState(280);
   const [sftpHeightLoaded, setSftpHeightLoaded] = useState(false);
@@ -101,6 +107,20 @@ export default function TerminalTabs(_props: Props) {
     if (!sftpHeightLoaded) return;
     void saveStored("sftp.height", String(Math.round(sftpHeight)));
   }, [sftpHeight, sftpHeightLoaded]);
+
+  /* 连接成功后按设置自动展开 SFTP；断开后重置，重连会再次展开 */
+  useEffect(() => {
+    if (!prefsHydrated) return;
+    for (const tab of tabs) {
+      if (tab.status === "connected") {
+        if (autoSftpSeen.current.has(tab.id)) continue;
+        autoSftpSeen.current.add(tab.id);
+        if (autoSftp && !tab.sftpOpen) toggleSftp(tab.id);
+      } else if (tab.status !== "connecting") {
+        autoSftpSeen.current.delete(tab.id);
+      }
+    }
+  }, [tabs, autoSftp, prefsHydrated, toggleSftp]);
 
   const handleSession = (tabId: string, sessionId: string | null) => {
     setSessionIds((prev) => {

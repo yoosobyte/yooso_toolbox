@@ -30,13 +30,15 @@ export function SshNavIcon() {
   );
 }
 
-/** 文本：代码/文本文件 */
+/** 文本工具：JSON 对象（花括号 + 省略号，即 {...}） */
 export function TextNavIcon() {
   return (
     <NavIcon>
-      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-      <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2" />
-      <path d="m10 13l-1 2l1 2m4-4l1 2l-1 2" />
+      <path d="M8.6 3.8c-1.9 0-2.7 1.1-2.7 3.1v2c0 1.7-.8 2.7-2.4 2.7c1.6 0 2.4 1 2.4 2.7v2c0 2 .8 3.1 2.7 3.1" />
+      <path d="M15.4 3.8c1.9 0 2.7 1.1 2.7 3.1v2c0 1.7.8 2.7 2.4 2.7c-1.6 0-2.4 1-2.4 2.7v2c0 2-.8 3.1-2.7 3.1" />
+      <circle cx="9.7" cy="12" r="0.85" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="0.85" fill="currentColor" stroke="none" />
+      <circle cx="14.3" cy="12" r="0.85" fill="currentColor" stroke="none" />
     </NavIcon>
   );
 }
@@ -73,22 +75,27 @@ export function TranslateNavIcon() {
   );
 }
 
-/** 笔记：笔记本 */
+/** 笔记：线圈笔记本 */
 export function NoteNavIcon() {
   return (
     <NavIcon>
-      <path d="M6 4h11a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1" />
-      <path d="M9 4v18m4-14h2m-2 4h2" />
+      <rect x="6.6" y="3.4" width="13.8" height="17.2" rx="2.4" />
+      <path d="M10.4 3.4v17.2" />
+      <circle cx="5.6" cy="7.6" r="1.7" strokeWidth={1.5} />
+      <circle cx="5.6" cy="12" r="1.7" strokeWidth={1.5} />
+      <circle cx="5.6" cy="16.4" r="1.7" strokeWidth={1.5} />
     </NavIcon>
   );
 }
 
-/** 浏览器：地球 */
+/** 浏览器：窗口 + 顶部标签栏 */
 export function BrowserNavIcon() {
   return (
     <NavIcon>
-      <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0m.6-3h16.8M3.6 15h16.8" />
-      <path d="M11.5 3a17 17 0 0 0 0 18m1-18a17 17 0 0 1 0 18" />
+      <rect x="2.75" y="4.25" width="18.5" height="15.5" rx="3" />
+      <path d="M2.75 9h18.5" />
+      <circle cx="5.95" cy="6.65" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="8.75" cy="6.65" r="0.9" fill="currentColor" stroke="none" />
     </NavIcon>
   );
 }

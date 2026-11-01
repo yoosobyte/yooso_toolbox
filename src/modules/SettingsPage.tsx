@@ -277,7 +277,11 @@ export default function SettingsPage({ onClose, onOpenUrl }: Props) {
           <div className="module-desc">{t("settings.desc")}</div>
         </div>
         <span style={{ flex: 1 }} />
-        <Button type="primary" size="small" onClick={onClose}>
+        <Button
+          size="small"
+          icon={<CheckCircleOutlined />}
+          onClick={onClose}
+        >
           {t("settings.saveBack")}
         </Button>
       </header>

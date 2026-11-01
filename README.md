@@ -4,6 +4,29 @@
 
 **目前可用：SSH 终端 + SFTP 文件管理（FinalShell 风格）、API 调试、文本工具（JSON / 对比）、二维码生成/识别、翻译（必应直连 + 变量命名）、DB 客户端（MySQL：连接 / 库表 / 数据 / SQL）、Redis 客户端（键浏览 / 命令行）。**
 
+
+## 快速开始
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 开发模式（自动拉起 Vite + Tauri 窗口）
+npm run tauri dev
+
+# 3.1. win 生产构建（生成 NSIS 安装包，自动改成 ASCII 文件名）
+npm run tauri:build:win
+
+# 3.2. mac 生产构建（生成 .app + .dmg，自动改名）
+npm run tauri:build:mac
+
+# 3.3. 只构建单 exe（不打包）
+npm run tauri build -- --no-bundle
+
+# 已经打完包、只想改文件名
+npm run rename:bundles
+```
+
 ![UI 预览](docs/ui-preview.png)
 
 ---
@@ -159,27 +182,6 @@
 
 ---
 
-## 快速开始
-
-```bash
-# 1. 安装依赖
-npm install
-
-# 2. 开发模式（自动拉起 Vite + Tauri 窗口）
-npm run tauri dev
-
-# 3.1. win 生产构建（生成 NSIS 安装包，自动改成 ASCII 文件名）
-npm run tauri:build:win
-
-# 3.2. mac 生产构建（生成 .app + .dmg，自动改名）
-npm run tauri:build:mac
-
-# 3.3. 只构建单 exe（不打包）
-npm run tauri build -- --no-bundle
-
-# 已经打完包、只想改文件名
-npm run rename:bundles
-```
 
 > 安装包统一使用 ASCII 文件名，避免七牛 / 浏览器处理中文名的编码问题：
 > `yooso_box_0.1.1_x64-setup.exe`、`yooso_box_0.1.1.dmg`

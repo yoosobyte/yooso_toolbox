@@ -75,79 +75,84 @@ export default function SftpFileList({
           <span>{t("sftp.mtime")}</span>
         </div>
 
-        {path && path !== "/" && (
-          <div
-            className="sftp-row up-row"
-            onDoubleClick={onGoUp}
-            onContextMenu={(event) => onOpenMenu(event, null)}
-            title={t("sftp.goUpHint")}
-          >
-            <span className="name">
-              <span className="ico">
-                <FolderOutlined className="ico-dir" />
-              </span>
-              <span className="text">..</span>
-            </span>
-            <span className="perm">-</span>
-            <span className="size">-</span>
-            <span className="time">-</span>
-          </div>
-        )}
-
-        {!sessionId ? (
-          <div className="sftp-empty">
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={<span style={{ fontSize: 12 }}>{t("sftp.waitConnect")}</span>}
-            />
-          </div>
-        ) : initError && !path ? (
-          <div className="sftp-error">
-            <div className="sftp-error-title">
-              <WarningOutlined />
-              {t("sftp.initFailed")}
-            </div>
-            <div className="sftp-error-msg">{initError}</div>
-            <Button size="small" type="primary" onClick={onRetry}>
-              {t("sftp.retry")}
-            </Button>
-          </div>
-        ) : loading && entries.length === 0 ? (
-          <div className="sftp-empty" style={{ textAlign: "center" }}>
-            <Spin size="small" />
-          </div>
-        ) : entries.length === 0 ? (
-          <div className="sftp-empty">
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={
-                <span style={{ fontSize: 12 }}>{t("sftp.emptyDir")}</span>
-              }
-            />
-          </div>
-        ) : (
-          entries.map((entry) => (
+        {/* 只有这块区域滚动：表头固定在上面，滚动条也只出现在数据区 */}
+        <div className="sftp-rows">
+          {path && path !== "/" && (
             <div
-              key={entry.path}
-              className={`sftp-row${selected === entry.path ? " selected" : ""}`}
-              onClick={() => onSelect(entry.path)}
-              onDoubleClick={() => {
-                if (entry.isDir) onOpenDir(entry.path);
-                else onDownload(entry);
-              }}
-              onContextMenu={(event) => onOpenMenu(event, entry)}
-              title={entry.path}
+              className="sftp-row up-row"
+              onDoubleClick={onGoUp}
+              onContextMenu={(event) => onOpenMenu(event, null)}
+              title={t("sftp.goUpHint")}
             >
               <span className="name">
-                <span className="ico">{entryIcon(entry)}</span>
-                <span className="text">{entry.name}</span>
+                <span className="ico">
+                  <FolderOutlined className="ico-dir" />
+                </span>
+                <span className="text">..</span>
               </span>
-              <span className="perm">{entry.permissions ?? "-"}</span>
-              <span className="size">{entry.isDir ? "-" : formatBytes(entry.size)}</span>
-              <span className="time">{formatTime(entry.modified)}</span>
+              <span className="perm">-</span>
+              <span className="size">-</span>
+              <span className="time">-</span>
             </div>
-          ))
-        )}
+          )}
+
+          {!sessionId ? (
+            <div className="sftp-empty">
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={
+                  <span style={{ fontSize: 12 }}>{t("sftp.waitConnect")}</span>
+                }
+              />
+            </div>
+          ) : initError && !path ? (
+            <div className="sftp-error">
+              <div className="sftp-error-title">
+                <WarningOutlined />
+                {t("sftp.initFailed")}
+              </div>
+              <div className="sftp-error-msg">{initError}</div>
+              <Button size="small" type="primary" onClick={onRetry}>
+                {t("sftp.retry")}
+              </Button>
+            </div>
+          ) : loading && entries.length === 0 ? (
+            <div className="sftp-empty" style={{ textAlign: "center" }}>
+              <Spin size="small" />
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="sftp-empty">
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={
+                  <span style={{ fontSize: 12 }}>{t("sftp.emptyDir")}</span>
+                }
+              />
+            </div>
+          ) : (
+            entries.map((entry) => (
+              <div
+                key={entry.path}
+                className={`sftp-row${selected === entry.path ? " selected" : ""}`}
+                onClick={() => onSelect(entry.path)}
+                onDoubleClick={() => {
+                  if (entry.isDir) onOpenDir(entry.path);
+                  else onDownload(entry);
+                }}
+                onContextMenu={(event) => onOpenMenu(event, entry)}
+                title={entry.path}
+              >
+                <span className="name">
+                  <span className="ico">{entryIcon(entry)}</span>
+                  <span className="text">{entry.name}</span>
+                </span>
+                <span className="perm">{entry.permissions ?? "-"}</span>
+                <span className="size">{entry.isDir ? "-" : formatBytes(entry.size)}</span>
+                <span className="time">{formatTime(entry.modified)}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {dragActive && (

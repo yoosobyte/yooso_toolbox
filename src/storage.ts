@@ -1,5 +1,6 @@
 import { secretDelete, secretGet, secretSet } from "./api";
 import { inTauri } from "./save";
+import { vaultReady } from "./vaultReady";
 
 /** 浏览器调试时的回退前缀（桌面端走加密凭据库） */
 const LOCAL_PREFIX = "yooso.enc.";
@@ -15,6 +16,8 @@ async function readLocal(key: string): Promise<string | null> {
 /** 读取一份持久化数据：优先加密凭据库，浏览器调试时退回 localStorage */
 export async function loadStored(key: string): Promise<string | null> {
   if (inTauri()) {
+    // 凭据库还没解锁时读到的是空数据，会把默认值当成真实设置，必须等它就绪
+    await vaultReady;
     try {
       const value = await secretGet(key);
       if (value !== null) return value;
@@ -28,6 +31,7 @@ export async function loadStored(key: string): Promise<string | null> {
 /** 写入一份持久化数据：桌面端加密保存，浏览器调试时存 localStorage */
 export async function saveStored(key: string, value: string): Promise<void> {
   if (inTauri()) {
+    await vaultReady;
     try {
       await secretSet(key, value);
       return;
@@ -44,6 +48,7 @@ export async function saveStored(key: string, value: string): Promise<void> {
 
 export async function removeStored(key: string): Promise<void> {
   if (inTauri()) {
+    await vaultReady;
     try {
       await secretDelete(key);
     } catch {

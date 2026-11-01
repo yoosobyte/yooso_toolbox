@@ -7,6 +7,7 @@ import SessionForm from "./SessionForm";
 import TerminalTabs from "./TerminalTabs";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useUiStore } from "../../stores/uiStore";
+import { SideResizer } from "../../components/SideResizer";
 import { useT } from "../../i18n";
 import type { SessionConfig } from "../../types";
 
@@ -15,6 +16,8 @@ export default function SshModule() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SessionConfig | null>(null);
   const openTab = useWorkspaceStore((state) => state.openTab);
+  const sideWidth = useUiStore((state) => state.sideWidth);
+  const setSideWidth = useUiStore((state) => state.setSideWidth);
 
   const openCreate = () => {
     setEditing(null);
@@ -45,7 +48,8 @@ export default function SshModule() {
       </header>
 
       <div className="ssh-body">
-        <SessionList onEdit={openEdit} />
+        <SessionList onEdit={openEdit} width={sideWidth} />
+        <SideResizer width={sideWidth} onChange={setSideWidth} />
         <div className="terminal-area">
           <TerminalTabs onCreate={openCreate} />
         </div>

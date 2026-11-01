@@ -4,7 +4,7 @@ use std::time::UNIX_EPOCH;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// 保存 base64 二进制内容（例如前端 canvas 导出的 PNG）
 #[tauri::command]
@@ -303,6 +303,8 @@ struct FileIndex {
     building: bool,
     ready: bool,
     scanned: usize,
+    /// 本次进程是否已经尝试过「复用上次落盘的索引」，只试一次
+    restored: bool,
 }
 
 static INDEX: OnceLock<Mutex<FileIndex>> = OnceLock::new();
@@ -325,7 +327,22 @@ pub struct IndexStatus {
 }
 
 #[tauri::command]
-pub fn fs_index_status() -> IndexStatus {
+pub fn fs_index_status(app: tauri::AppHandle) -> IndexStatus {
+    // 第一次查询时先尝试复用上次落盘的索引（24 小时内有效），避免每次启动都全盘扫一遍
+    let should_restore = {
+        let mut guard = lock_index();
+        if !guard.ready && !guard.building && !guard.restored {
+            guard.restored = true;
+            guard.building = true;
+            true
+        } else {
+            false
+        }
+    };
+    if should_restore {
+        std::thread::spawn(move || restore_index(app));
+    }
+
     let guard = lock_index();
     IndexStatus {
         ready: guard.ready,
@@ -430,13 +447,128 @@ fn index_roots() -> Vec<PathBuf> {
     home_dir().into_iter().filter(|home| home.is_dir()).collect()
 }
 
-fn build_index() {
+/* ---- 索引缓存：每天最多全盘扫一次，其它时间直接用上次的结果 ---- */
+
+/// 索引缓存有效期：24 小时内不重复扫盘
+const INDEX_TTL_SECS: i64 = 24 * 60 * 60;
+
+fn now_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// 落盘用的紧凑结构（字段名取短，几十万条时体积差很多）
+#[derive(Serialize, Deserialize)]
+struct CachedFile {
+    n: String,
+    p: String,
+    d: bool,
+    s: u64,
+    m: Option<i64>,
+    x: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct CachedIndex {
+    built_at: i64,
+    files: Vec<CachedFile>,
+}
+
+fn index_cache_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+    use tauri::Manager as _;
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|dir| dir.join("files-index.json"))
+}
+
+/// 把内存索引写盘，供下次启动直接复用（失败就下次再扫，不影响使用）
+fn save_index_cache(app: &tauri::AppHandle, entries: &[IndexedFile]) {
+    let Some(path) = index_cache_path(app) else {
+        return;
+    };
+    let files: Vec<CachedFile> = entries
+        .iter()
+        .map(|entry| CachedFile {
+            n: entry.name.clone(),
+            p: entry.path.clone(),
+            d: entry.is_dir,
+            s: entry.size,
+            m: entry.modified,
+            x: entry.executable,
+        })
+        .collect();
+    let cache = CachedIndex {
+        built_at: now_secs(),
+        files,
+    };
+    let Ok(json) = serde_json::to_vec(&cache) else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let temp = path.with_extension("json.tmp");
+    if std::fs::write(&temp, json).is_ok() {
+        let _ = std::fs::rename(&temp, &path);
+    }
+}
+
+/// 尝试复用上次的索引；缓存缺失 / 过期 / 解析失败都返回 false（交给前端去重建）
+fn load_index_cache(app: &tauri::AppHandle) -> bool {
+    let Some(path) = index_cache_path(app) else {
+        return false;
+    };
+    let Ok(raw) = std::fs::read(&path) else {
+        return false;
+    };
+    let Ok(cache) = serde_json::from_slice::<CachedIndex>(&raw) else {
+        return false;
+    };
+    if now_secs() - cache.built_at > INDEX_TTL_SECS {
+        return false;
+    }
+    let mut entries = Vec::with_capacity(cache.files.len());
+    for file in cache.files {
+        entries.push(IndexedFile {
+            lower: file.n.to_lowercase(),
+            lower_path: normalize_slashes(&file.p.to_lowercase()),
+            name: file.n,
+            path: file.p,
+            is_dir: file.d,
+            size: file.s,
+            modified: file.m,
+            executable: file.x,
+        });
+    }
+    let mut guard = lock_index();
+    guard.entries = entries;
+    guard.building = false;
+    guard.ready = true;
+    guard.scanned = guard.entries.len();
+    true
+}
+
+/// 后台线程里恢复缓存；恢复不了就清掉 building，让前端看到“还没索引”后自己触发重建
+fn restore_index(app: tauri::AppHandle) {
+    if !load_index_cache(&app) {
+        let mut guard = lock_index();
+        guard.building = false;
+    }
+}
+
+fn build_index(app: tauri::AppHandle) {
     let mut entries = Vec::new();
     for root in index_roots() {
         if root.is_dir() {
             walk_index(&root, &mut entries, 0);
         }
     }
+
+    // 先落盘（锁外），几十万条写入时别卡住搜索
+    save_index_cache(&app, &entries);
 
     let mut guard = lock_index();
     guard.entries = entries;
@@ -447,7 +579,7 @@ fn build_index() {
 
 /// 建立 / 重建内存索引（后台线程，立即返回）
 #[tauri::command]
-pub fn fs_index_build() -> Result<(), String> {
+pub fn fs_index_build(app: tauri::AppHandle) -> Result<(), String> {
     {
         let mut guard = lock_index();
         if guard.building {
@@ -455,10 +587,11 @@ pub fn fs_index_build() -> Result<(), String> {
         }
         guard.building = true;
         guard.ready = false;
+        guard.restored = true;
         guard.entries.clear();
         guard.scanned = 0;
     }
-    std::thread::spawn(build_index);
+    std::thread::spawn(move || build_index(app));
     Ok(())
 }
 

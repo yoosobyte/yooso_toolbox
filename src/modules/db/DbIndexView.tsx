@@ -141,19 +141,39 @@ export default function DbIndexView({ connectionId, database, table }: Props) {
     ]);
   };
 
+  /** 没填名字时按「列名_index」生成；和表里已有索引重名就依次加 _1 / _2… */
+  const suggestName = (row: IndexRow, index: number): string => {
+    const raw = `${row.columns.join("_")}_index`;
+    const base =
+      raw
+        .replace(/[^0-9A-Za-z_$]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .toLowerCase() || "idx_index";
+    const used = new Set(
+      rows
+        .filter((_item, rowIndex) => rowIndex !== index)
+        .map((item) => item.name.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    // MySQL 索引名最长 64 字符，先预留后缀的位置
+    const stem = base.slice(0, 60);
+    if (!used.has(stem)) return stem;
+    let suffix = 1;
+    while (used.has(`${stem}_${suffix}`)) suffix += 1;
+    return `${stem}_${suffix}`;
+  };
+
   const save = async (index: number) => {
     if (saving) return;
     const row = rows[index];
     if (!row || row.primary) return;
-    const name = row.name.trim();
-    if (!name) {
-      message.warning(t("db.indexNameRequired"));
-      return;
-    }
     if (row.columns.length === 0) {
       message.warning(t("db.indexFieldsRequired"));
       return;
     }
+    const name = row.name.trim() || suggestName(row, index);
+    // 自动生成的名字回填到输入框，用户能看到实际用的是哪个
+    if (!row.name.trim()) patch(index, { name });
     const columns = row.columns.map(quoteIdent).join(", ");
     const method = row.method ? ` USING ${row.method}` : "";
     const comment = row.comment.trim()
@@ -332,7 +352,7 @@ export default function DbIndexView({ connectionId, database, table }: Props) {
                               className="db-action-btn"
                               icon={<CheckOutlined />}
                               loading={saving}
-                              disabled={!row.name.trim() || row.columns.length === 0 || unsupportedMethod}
+                              disabled={row.columns.length === 0 || unsupportedMethod}
                               onClick={() => void save(index)}
                             />
                           </Tooltip>

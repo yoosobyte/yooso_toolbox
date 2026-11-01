@@ -121,7 +121,7 @@ export default function useDbDataView({
     return () => {
       alive = false;
     };
-  }, [connectionId, database, table]);
+  }, [connectionId, database, table, refreshToken]);
 
   useEffect(() => {
     setNewRow(null);

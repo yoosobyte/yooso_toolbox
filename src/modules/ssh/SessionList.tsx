@@ -22,9 +22,11 @@ import { errText } from "../../utils";
 
 interface Props {
   onEdit: (config: SessionConfig) => void;
+  /** 左侧会话列表宽度（可拖动调整） */
+  width?: number;
 }
 
-export default function SessionList({ onEdit }: Props) {
+export default function SessionList({ onEdit, width }: Props) {
   const { message, modal } = AntdApp.useApp();
   const lang = useUiStore((state) => state.lang);
   const t = useT(lang);
@@ -135,7 +137,7 @@ export default function SessionList({ onEdit }: Props) {
   };
 
   return (
-    <section className="sessions">
+    <section className="sessions" style={width ? { width } : undefined}>
       <div className="sessions-head">
         <Input
           allowClear

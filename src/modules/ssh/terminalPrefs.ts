@@ -26,20 +26,28 @@ export function fontStack(font: string): string {
 interface TerminalPrefsState {
   font: string;
   size: number;
+  /** 连上会话后是否自动展开 SFTP 面板 */
+  autoSftp: boolean;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setFont: (font: string) => void;
   setSize: (size: number) => void;
+  setAutoSftp: (autoSftp: boolean) => void;
 }
 
-function persist(font: string, size: number) {
-  void saveStored(PREFS_KEY, JSON.stringify({ font, size }));
+/** 三项设置一起写进后端同一条记录，改动任意一项都会落盘 */
+function persist(prefs: Pick<TerminalPrefsState, "font" | "size" | "autoSftp">) {
+  void saveStored(
+    PREFS_KEY,
+    JSON.stringify({ font: prefs.font, size: prefs.size, autoSftp: prefs.autoSftp }),
+  );
 }
 
-/** SSH 终端字体 / 字号偏好（存后端凭据库） */
+/** SSH 终端设置（字体 / 字号 / 自动打开 SFTP），存在后端凭据库 */
 export const useTerminalPrefs = create<TerminalPrefsState>((set, get) => ({
   font: DEFAULT_TERMINAL_FONT,
   size: DEFAULT_TERMINAL_SIZE,
+  autoSftp: false,
   hydrated: false,
 
   hydrate: async () => {
@@ -47,7 +55,11 @@ export const useTerminalPrefs = create<TerminalPrefsState>((set, get) => ({
     try {
       const raw = await loadStored(PREFS_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as { font?: string; size?: number };
+        const parsed = JSON.parse(raw) as {
+          font?: string;
+          size?: number;
+          autoSftp?: boolean;
+        };
         const font =
           parsed.font && parsed.font in TERMINAL_FONTS
             ? parsed.font
@@ -57,7 +69,9 @@ export const useTerminalPrefs = create<TerminalPrefsState>((set, get) => ({
           TERMINAL_SIZES.includes(parsed.size)
             ? parsed.size
             : DEFAULT_TERMINAL_SIZE;
-        set({ font, size });
+        // 旧记录没有这个字段，按关闭处理
+        const autoSftp = parsed.autoSftp === true;
+        set({ font, size, autoSftp });
       }
     } catch {
       /* 读取失败时用默认值 */
@@ -68,11 +82,16 @@ export const useTerminalPrefs = create<TerminalPrefsState>((set, get) => ({
 
   setFont: (font) => {
     set({ font });
-    persist(font, get().size);
+    persist({ font, size: get().size, autoSftp: get().autoSftp });
   },
 
   setSize: (size) => {
     set({ size });
-    persist(get().font, size);
+    persist({ font: get().font, size, autoSftp: get().autoSftp });
+  },
+
+  setAutoSftp: (autoSftp) => {
+    set({ autoSftp });
+    persist({ font: get().font, size: get().size, autoSftp });
   },
 }));

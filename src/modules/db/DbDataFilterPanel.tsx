@@ -48,7 +48,7 @@ export default function DbDataFilterPanel({
       <div className="db-view-toolbar">
         <Button
           size="small"
-          type={filterOpen ? "primary" : "text"}
+          type={filterOpen ? "default" : "text"}
           icon={
             filterOpen || filterCount > 0 ? <FilterFilled /> : <FilterOutlined />
           }

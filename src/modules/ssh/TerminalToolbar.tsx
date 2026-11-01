@@ -1,4 +1,4 @@
-import { Button, Popover, Select, Tooltip } from "antd";
+import { Button, Popover, Segmented, Select, Tooltip } from "antd";
 import {
   ClearOutlined,
   FolderOpenOutlined,
@@ -58,6 +58,8 @@ export default function TerminalToolbar({
   const size = useTerminalPrefs((state) => state.size);
   const setFont = useTerminalPrefs((state) => state.setFont);
   const setSize = useTerminalPrefs((state) => state.setSize);
+  const autoSftp = useTerminalPrefs((state) => state.autoSftp);
+  const setAutoSftp = useTerminalPrefs((state) => state.setAutoSftp);
 
   return (
     <div className="term-toolbar">
@@ -97,36 +99,42 @@ export default function TerminalToolbar({
         placement="topRight"
         content={
           <div className="term-prefs">
-            <div className="term-prefs-row">
-              <span className="term-prefs-label">{t("term.font")}</span>
-              <Select
-                size="small"
-                value={font}
-                style={{ width: 150 }}
-                onChange={setFont}
-                options={Object.keys(TERMINAL_FONTS).map((name) => ({
-                  value: name,
-                  label: name,
-                }))}
-              />
-            </div>
-            <div className="term-prefs-row">
-              <span className="term-prefs-label">{t("term.fontSize")}</span>
-              <Select
-                size="small"
-                value={size}
-                style={{ width: 150 }}
-                onChange={setSize}
-                options={TERMINAL_SIZES.map((value) => ({
-                  value,
-                  label: `${value}px`,
-                }))}
-              />
-            </div>
+            <span className="term-prefs-label">{t("term.font")}</span>
+            <Select
+              size="small"
+              value={font}
+              style={{ width: 150 }}
+              onChange={setFont}
+              options={Object.keys(TERMINAL_FONTS).map((name) => ({
+                value: name,
+                label: name,
+              }))}
+            />
+            <span className="term-prefs-label">{t("term.fontSize")}</span>
+            <Select
+              size="small"
+              value={size}
+              style={{ width: 150 }}
+              onChange={setSize}
+              options={TERMINAL_SIZES.map((value) => ({
+                value,
+                label: `${value}px`,
+              }))}
+            />
+            <span className="term-prefs-label">SFTP</span>
+            <Segmented
+              size="small"
+              value={autoSftp ? "auto" : "none"}
+              onChange={(next) => setAutoSftp(next === "auto")}
+              options={[
+                { value: "auto", label: t("term.sftpAuto") },
+                { value: "none", label: t("term.sftpNone") },
+              ]}
+            />
           </div>
         }
       >
-        <Tooltip title={t("term.display")} placement="topRight">
+        <Tooltip title={t("term.settings")} placement="topRight">
           <Button size="small" type="text" icon={<SettingOutlined />} />
         </Tooltip>
       </Popover>
