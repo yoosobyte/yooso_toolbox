@@ -91,13 +91,13 @@ npm run rename:bundles
 > 升级清单 `update.json` 示例（仓库根目录的 `update.json` 就是这份，可直接上传）：
 > ```json
 > {
->   "new_version": "v0.1.1",
+>   "new_version": "v0.1.2",
 >   "v0.1.0": {
 >     "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.0_x64-setup.exe"
 >   },
->   "v0.1.1": {
->     "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.1_x64-setup.exe",
->     "mac": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.1.dmg",
+>   "v0.1.2": {
+>     "win": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.2_x64-setup.exe",
+>     "mac": "https://qnres.yoosobyte.com/yooso-toolbox/yooso_box_0.1.2.dmg",
 >     "desc": "1. 全新版本\n2. 修复了一些问题"
 >   }
 > }
@@ -184,8 +184,8 @@ npm run rename:bundles
 
 
 > 安装包统一使用 ASCII 文件名，避免七牛 / 浏览器处理中文名的编码问题：
-> `yooso_box_0.1.1_x64-setup.exe`、`yooso_box_0.1.1.dmg`
-> （直接 `npm run tauri build` 生成的是 `悦盒_0.1.1_x64-setup.exe`，再跑一次 `npm run rename:bundles` 即可；脚本按 `tauri.conf.json` 的版本号命名。）
+> `yooso_box_0.1.2_x64-setup.exe`、`yooso_box_0.1.2.dmg`
+> （直接 `npm run tauri build` 生成的是 `悦盒_0.1.2_x64-setup.exe`，再跑一次 `npm run rename:bundles` 即可；脚本按 `tauri.conf.json` 的版本号命名。）
 
 ## 项目结构
 
@@ -257,8 +257,8 @@ npm run rename:bundles
 构建产物：
 
 - 可执行文件：`src-tauri/target/release/yooso-toolbox.exe`（实测 8.89 MB）
-- Windows 安装包：`src-tauri/target/release/bundle/nsis/yooso_box_0.1.1_x64-setup.exe`（实测 3.48 MB）
-- macOS 安装包：`src-tauri/target/release/bundle/dmg/yooso_box_0.1.1.dmg`（在 mac 上执行 `npm run tauri:build:mac` 生成）
+- Windows 安装包：`src-tauri/target/release/bundle/nsis/yooso_box_0.1.2_x64-setup.exe`（实测 3.48 MB）
+- macOS 安装包：`src-tauri/target/release/bundle/dmg/yooso_box_0.1.2.dmg`（在 mac 上执行 `npm run tauri:build:mac` 生成）
 
 安装位置（`productName` 用 ASCII 的 `yoosoBox`，避免中文路径引发的问题）：
 

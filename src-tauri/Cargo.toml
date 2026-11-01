@@ -1,6 +1,6 @@
 [package]
 name = "yooso-toolbox"
-version = "0.1.1"
+version = "0.1.2"
 description = "悦盒 - SSH / SFTP 工具箱"
 authors = ["yooso"]
 edition = "2021"
